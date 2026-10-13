@@ -6,6 +6,7 @@ import { errorMessage, supabase } from '../lib/supabase';
 import { FREQUENCIES, frequencyText, monthlyEquivalent, nextDate, recurringDate } from '../lib/recurring';
 import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
 import { MonthNav, Sheet, type ViewProps } from './common';
+import ImportStatement from './ImportStatement';
 
 export default function PersonalView(props: ViewProps) {
   const { data, me } = props;
@@ -13,6 +14,7 @@ export default function PersonalView(props: ViewProps) {
   const [editing, setEditing] = useState<PersonalEntry | 'expense' | 'income' | null>(null);
   const [template, setTemplate] = useState<PersonalRecurring | null>(null);
   const [showFixed, setShowFixed] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const sum = personalMonth(data.personal, month);
   const common = myCommonShare(me, data.expenses, month);
@@ -64,7 +66,10 @@ export default function PersonalView(props: ViewProps) {
 
       <div className="row spread list-head">
         <span className="muted small">Movimientos del mes</span>
-        <button className="link small" onClick={() => setShowFixed(true)}>🔁 Fijos ({data.personalRecurring.length})</button>
+        <span className="row">
+          <button className="link small" onClick={() => setImporting(true)}>🏦 Importar</button>
+          <button className="link small" onClick={() => setShowFixed(true)}>🔁 Fijos ({data.personalRecurring.length})</button>
+        </span>
       </div>
       {entries.length === 0 ? (
         <p className="empty">No has apuntado nada personal este mes.</p>
@@ -107,6 +112,7 @@ export default function PersonalView(props: ViewProps) {
           onClose={() => setEditing(null)}
         />
       )}
+      {importing && <ImportStatement {...props} onClose={() => setImporting(false)} />}
     </>
   );
 }
