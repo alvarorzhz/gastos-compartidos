@@ -143,11 +143,28 @@ select pg_temp.check((select min(amount_cents) from recurring_expenses) = 500, '
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
+-- Movimientos personales: solo los ve su dueño, ni siquiera la pareja.
+insert into personal_entries (kind, amount_cents, category, note) values ('income', 200000, 'Nómina', 'Octubre');
+insert into personal_entries (kind, amount_cents, category) values ('expense', 4999, 'Ropa');
+select pg_temp.check((select count(*) from personal_entries) = 2, 'A ve sus movimientos personales');
+select pg_temp.check((select bool_and(user_id = auth.uid()) from personal_entries), 'se guardan a nombre de quien los apunta');
+select pg_temp.expect_error($$ insert into personal_entries (user_id, kind, amount_cents, category) values ('00000000-0000-0000-0000-00000000000b', 'expense', 100, 'Ocio') $$);
+select pg_temp.expect_error($$ insert into personal_entries (kind, amount_cents, category) values ('transfer', 100, 'Ocio') $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from personal_entries) = 0, 'la pareja no ve los movimientos personales');
+update personal_entries set amount_cents = 1;
+delete from personal_entries;
+reset role;
+select pg_temp.check((select count(*) from personal_entries where amount_cents > 1) = 2, 'la pareja no puede tocar los movimientos personales');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;
 select pg_temp.check((select count(*) from expenses) = 0, 'gastos borrados con el espacio');
 select pg_temp.check((select count(*) from households) = 1, 'solo queda el espacio de C');
+select pg_temp.check((select count(*) from personal_entries) = 2, 'borrar el espacio no toca lo personal');
 
 -- Borrar cuenta: C era la única, su espacio desaparece con ella.
 set role authenticated;
@@ -156,3 +173,10 @@ select public.delete_my_account();
 reset role;
 select pg_temp.check((select count(*) from households) = 0, 'espacio de C borrado con su cuenta');
 select pg_temp.check(not exists (select 1 from auth.users where email = 'c@example.com'), 'cuenta de C borrada');
+
+-- Al borrar la cuenta de A se borran también sus movimientos personales.
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select public.delete_my_account();
+reset role;
+select pg_temp.check((select count(*) from personal_entries) = 0, 'movimientos personales borrados con la cuenta');

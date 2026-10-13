@@ -18,6 +18,16 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.3.0',
+    date: '2026-10-13',
+    changes: [
+      { kind: 'nuevo', text: 'Pestaña Personal: apunta tus propios gastos e ingresos. Solo los ves tú y no cuentan en los gastos comunes. Muestra lo que te queda en el mes, también descontando tu parte de lo común.' },
+      { kind: 'mejora', text: 'Menos pestañas: Comunes (Gastos y Saldo), Resumen (Presupuesto y Gráficos), Personal y Ajustes.' },
+      { kind: 'mejora', text: 'Tocar el saldo en Gastos lleva directamente a Saldo.' },
+      { kind: 'mejora', text: 'La exportación incluye también tus movimientos personales.' },
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-10-13',
     changes: [

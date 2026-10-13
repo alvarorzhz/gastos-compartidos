@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { today } from './dates';
 import { supabase } from './supabase';
-import type { Budget, Category, Expense, Household, Invitation, Member, RecurringExpense, Settlement } from './types';
+import type { Budget, Category, Expense, Household, Invitation, Member, PersonalEntry, RecurringExpense, Settlement } from './types';
 
 export interface HouseholdData {
   household: Household;
@@ -12,6 +12,8 @@ export interface HouseholdData {
   settlements: Settlement[];
   budgets: Budget[];
   recurring: RecurringExpense[];
+  /** Solo los movimientos personales de quien usa la app. */
+  personal: PersonalEntry[];
 }
 
 export type LoadState =
@@ -35,7 +37,7 @@ async function load(userId: string): Promise<LoadState> {
   // Antes de leer, apunta los gastos fijos que ya tocan (no hace nada si no hay ninguno pendiente).
   const generated = await supabase.rpc('generate_recurring_expenses', { p_today: today() });
   if (generated.error) throw generated.error;
-  const [household, members, invitation, categories, expenses, settlements, budgets, recurring] = await Promise.all([
+  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal] = await Promise.all([
     supabase.from('households').select('*').eq('id', h).single(),
     supabase.from('members').select('*').eq('household_id', h).order('joined_at'),
     supabase.from('invitations').select('*').eq('household_id', h).maybeSingle(),
@@ -44,8 +46,9 @@ async function load(userId: string): Promise<LoadState> {
     supabase.from('settlements').select('*').eq('household_id', h).order('paid_on', { ascending: false }).order('created_at', { ascending: false }),
     supabase.from('budgets').select('*').eq('household_id', h),
     supabase.from('recurring_expenses').select('*').eq('household_id', h).order('created_at'),
+    supabase.from('personal_entries').select('*').eq('user_id', userId).order('entry_on', { ascending: false }).order('created_at', { ascending: false }),
   ]);
-  for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring]) {
+  for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal]) {
     if (r.error) throw r.error;
   }
   return {
@@ -59,6 +62,7 @@ async function load(userId: string): Promise<LoadState> {
       settlements: settlements.data ?? [],
       budgets: budgets.data ?? [],
       recurring: recurring.data ?? [],
+      personal: personal.data ?? [],
     },
   };
 }
@@ -100,15 +104,17 @@ export function useHousehold(userId: string) {
     }
     // Los borrados no se pueden filtrar por hogar (solo traen el id de la fila), así que se
     // escuchan aparte; como mucho provocan una recarga de más.
-    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses']) {
+    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses', 'personal_entries']) {
       channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, schedule);
     }
+    // Lo personal solo llega a la propia cuenta (RLS), por si se usa en dos dispositivos.
+    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'personal_entries', filter: `user_id=eq.${userId}` }, schedule);
     channel.subscribe();
     return () => {
       clearTimeout(timer);
       void supabase.removeChannel(channel);
     };
-  }, [householdId, reload]);
+  }, [householdId, reload, userId]);
 
   return { state, reload };
 }
