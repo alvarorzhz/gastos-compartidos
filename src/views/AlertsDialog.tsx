@@ -12,7 +12,7 @@ const REENTRY_MS = 30 * 60 * 1000;
  * Al entrar en la app, muestra juntos los presupuestos de este mes que han llegado a su aviso.
  * Sale cada vez que se abre la app (y al volver tras un rato en segundo plano).
  */
-export function AlertsOnEntry({ data }: { data: HouseholdData }) {
+export function AlertsOnEntry({ data, waiting = false }: { data: HouseholdData; waiting?: boolean }) {
   const [open, setOpen] = useState(true);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export function AlertsOnEntry({ data }: { data: HouseholdData }) {
 
   const month = monthOf(today());
   const alerts = budgetAlerts(month, data.categories, data.expenses, data.budgets);
-  if (!open || alerts.length === 0) return null;
+  if (!open || waiting || alerts.length === 0) return null;
 
   return (
     <Sheet title="Avisos de presupuesto" onClose={() => setOpen(false)}>

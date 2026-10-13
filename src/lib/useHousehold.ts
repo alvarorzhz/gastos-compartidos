@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { today } from './dates';
 import { supabase } from './supabase';
-import type { Budget, Category, Expense, Household, Invitation, Member, PersonalEntry, RecurringExpense, Settlement } from './types';
+import type { Budget, Category, Expense, Household, Invitation, Member, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
 
 export interface HouseholdData {
   household: Household;
@@ -14,6 +14,9 @@ export interface HouseholdData {
   recurring: RecurringExpense[];
   /** Solo los movimientos personales de quien usa la app. */
   personal: PersonalEntry[];
+  personalRecurring: PersonalRecurring[];
+  goals: SavingsGoal[];
+  contributions: SavingsContribution[];
 }
 
 export type LoadState =
@@ -22,7 +25,7 @@ export type LoadState =
   | { status: 'no-household'; invitation: Invitation | null }
   | { status: 'ready'; data: HouseholdData };
 
-const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses'];
+const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses', 'savings_goals', 'savings_contributions'];
 
 async function load(userId: string): Promise<LoadState> {
   const me = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle();
@@ -35,9 +38,13 @@ async function load(userId: string): Promise<LoadState> {
   }
   const h = me.data.household_id as string;
   // Antes de leer, apunta los gastos fijos que ya tocan (no hace nada si no hay ninguno pendiente).
-  const generated = await supabase.rpc('generate_recurring_expenses', { p_today: today() });
+  const [generated, generatedPersonal] = await Promise.all([
+    supabase.rpc('generate_recurring_expenses', { p_today: today() }),
+    supabase.rpc('generate_personal_recurring', { p_today: today() }),
+  ]);
   if (generated.error) throw generated.error;
-  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal] = await Promise.all([
+  if (generatedPersonal.error) throw generatedPersonal.error;
+  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions] = await Promise.all([
     supabase.from('households').select('*').eq('id', h).single(),
     supabase.from('members').select('*').eq('household_id', h).order('joined_at'),
     supabase.from('invitations').select('*').eq('household_id', h).maybeSingle(),
@@ -47,8 +54,11 @@ async function load(userId: string): Promise<LoadState> {
     supabase.from('budgets').select('*').eq('household_id', h),
     supabase.from('recurring_expenses').select('*').eq('household_id', h).order('created_at'),
     supabase.from('personal_entries').select('*').eq('user_id', userId).order('entry_on', { ascending: false }).order('created_at', { ascending: false }),
+    supabase.from('personal_recurring').select('*').eq('user_id', userId).order('created_at'),
+    supabase.from('savings_goals').select('*').eq('household_id', h).order('created_at'),
+    supabase.from('savings_contributions').select('*').eq('household_id', h).order('contributed_on', { ascending: false }).order('created_at', { ascending: false }),
   ]);
-  for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal]) {
+  for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions]) {
     if (r.error) throw r.error;
   }
   return {
@@ -63,6 +73,9 @@ async function load(userId: string): Promise<LoadState> {
       budgets: budgets.data ?? [],
       recurring: recurring.data ?? [],
       personal: personal.data ?? [],
+      personalRecurring: personalRecurring.data ?? [],
+      goals: goals.data ?? [],
+      contributions: contributions.data ?? [],
     },
   };
 }
@@ -104,11 +117,13 @@ export function useHousehold(userId: string) {
     }
     // Los borrados no se pueden filtrar por hogar (solo traen el id de la fila), así que se
     // escuchan aparte; como mucho provocan una recarga de más.
-    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses', 'personal_entries']) {
+    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses', 'personal_entries', 'savings_goals', 'savings_contributions', 'personal_recurring']) {
       channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, schedule);
     }
     // Lo personal solo llega a la propia cuenta (RLS), por si se usa en dos dispositivos.
-    channel.on('postgres_changes', { event: '*', schema: 'public', table: 'personal_entries', filter: `user_id=eq.${userId}` }, schedule);
+    for (const table of ['personal_entries', 'personal_recurring']) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` }, schedule);
+    }
     channel.subscribe();
     return () => {
       clearTimeout(timer);

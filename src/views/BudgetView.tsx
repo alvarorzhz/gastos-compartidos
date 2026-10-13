@@ -6,10 +6,14 @@ import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { AlertPercent } from '../lib/types';
 import { MonthNav, type ViewProps } from './common';
+import { MonthCloseSheet } from './MonthClose';
+import Savings from './Savings';
 
-export default function BudgetView({ data, reload }: ViewProps) {
+export default function BudgetView(props: ViewProps) {
+  const { data, reload } = props;
   const [month, setMonth] = useState(monthOf(today()));
   const [busy, setBusy] = useState(false);
+  const [showClose, setShowClose] = useState(false);
   const rows = monthlySummary(month, data.categories, data.expenses, data.budgets);
   const sum = totals(rows);
   const previous = addMonths(month, -1);
@@ -56,6 +60,7 @@ export default function BudgetView({ data, reload }: ViewProps) {
           <strong>{sum.budgetCents ? formatEuros(sum.budgetCents) : '—'}</strong>
         </div>
         {sum.budgetCents > 0 && <Progress spent={sum.spentCents} budget={sum.budgetCents} />}
+        <button className="link small" onClick={() => setShowClose(true)}>📋 Ver resumen de este mes</button>
         {!hasBudget && previousBudgets.length > 0 && (
           <button className="secondary" onClick={copyPrevious} disabled={busy}>Copiar presupuesto del mes anterior</button>
         )}
@@ -75,6 +80,9 @@ export default function BudgetView({ data, reload }: ViewProps) {
           />
         ))}
       </ul>
+
+      <Savings {...props} />
+      {showClose && <MonthCloseSheet {...props} month={month} onClose={() => setShowClose(false)} />}
     </>
   );
 }

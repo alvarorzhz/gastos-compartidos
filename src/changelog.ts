@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.0',
+    date: '2026-10-13',
+    changes: [
+      { kind: 'nuevo', text: 'Cierre de mes: al empezar un mes nuevo, la app muestra una vez el resumen del anterior (cuánto gastasteis, comparado con el mes previo, en qué se os fue el presupuesto, quién pagó y el saldo). También se puede ver en Presupuesto → Ver resumen de este mes.' },
+      { kind: 'nuevo', text: 'Huchas comunes en Presupuesto: cread objetivos de ahorro (viaje, sofá…) con una meta, y apuntad lo que mete o saca cada uno.' },
+      { kind: 'nuevo', text: 'Fijos en Personal: ingresos y gastos que se apuntan solos cada semana, mes o año (nómina, gimnasio, suscripciones). Se pueden pausar, editar o borrar.' },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-10-13',
     changes: [
