@@ -9,6 +9,7 @@ import { filterExpenses } from '../lib/search';
 import type { Expense, RecurringExpense } from '../lib/types';
 import { MonthNav, Sheet, type ViewProps } from './common';
 import ExpenseForm from './ExpenseForm';
+import ImportStatement from './ImportStatement';
 
 type Editing = { kind: 'expense'; expense: Expense | null; fixed?: boolean } | { kind: 'template'; template: RecurringExpense };
 
@@ -17,6 +18,7 @@ export default function ExpensesView(props: ViewProps) {
   const [month, setMonth] = useState(monthOf(today()));
   const [editing, setEditing] = useState<Editing | null>(null);
   const [showFixed, setShowFixed] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [text, setText] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [allMonths, setAllMonths] = useState(false);
@@ -86,7 +88,10 @@ export default function ExpensesView(props: ViewProps) {
           {filtering ? `${shown.length} ${shown.length === 1 ? 'gasto' : 'gastos'}: ` : allMonths ? 'Total: ' : 'Total del mes: '}
           <strong>{formatEuros(shownTotal)}</strong>
         </span>
-        <button className="link small" onClick={() => setShowFixed(true)}>🔁 Gastos fijos ({data.recurring.length})</button>
+        <span className="row">
+          <button className="link small" onClick={() => setImporting(true)}>🏦 Importar</button>
+          <button className="link small" onClick={() => setShowFixed(true)}>🔁 Fijos ({data.recurring.length})</button>
+        </span>
       </div>
 
       {shown.length === 0 ? (
@@ -134,6 +139,8 @@ export default function ExpensesView(props: ViewProps) {
           onClose={() => setShowFixed(false)}
         />
       )}
+
+      {importing && <ImportStatement {...props} onClose={() => setImporting(false)} />}
 
       {editing?.kind === 'expense' && <ExpenseForm {...props} expense={editing.expense} startAsFixed={editing.fixed} onClose={closeForm} />}
       {editing?.kind === 'template' && (

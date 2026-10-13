@@ -92,10 +92,21 @@ function findDate(text: string, todayIso: string): string | null {
   return null;
 }
 
+/** Tienda conocida en un texto ya normalizado (minúsculas y sin tildes). */
+export function knownMerchant(normalized: string): { name: string; category: string } | null {
+  return MERCHANTS.find((m) => m.match.test(normalized)) ?? null;
+}
+
+/** Categoría por palabras sueltas (restaurante, farmacia, gasolina…) en un texto normalizado. */
+export function genericCategory(normalized: string): string | null {
+  return GENERIC_CATEGORY.find((g) => g.match.test(normalized))?.category ?? null;
+}
+
 function findMerchant(lines: string[]): { name: string | null; category: string | null } {
   const all = normalize(lines.join('\n'));
-  for (const m of MERCHANTS) if (m.match.test(all)) return { name: m.name, category: m.category };
-  const category = GENERIC_CATEGORY.find((g) => g.match.test(all))?.category ?? null;
+  const known = knownMerchant(all);
+  if (known) return { name: known.name, category: known.category };
+  const category = genericCategory(all);
   // Si no es una tienda conocida, la primera línea con texto suele ser el nombre del comercio.
   const first = lines.find((l) => {
     const letters = l.replace(/[^a-zA-ZáéíóúñÁÉÍÓÚÑ]/g, '');

@@ -18,6 +18,14 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.0',
+    date: '2026-10-13',
+    changes: [
+      { kind: 'nuevo', text: 'Importar el extracto del banco: en Gastos o en Personal, toca 🏦 Importar y elige el Excel (o CSV) que descargas del banco. Ves todos los movimientos y eliges cuáles apuntar como gasto común, cuáles van a Personal y cuáles no. El archivo se lee en tu dispositivo y no se guarda.' },
+      { kind: 'mejora', text: 'Al importar, la app sugiere la categoría por el comercio, recuerda dónde apuntaste antes algo con el mismo nombre y avisa de lo que parece ya apuntado para no duplicarlo.' },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-10-13',
     changes: [
