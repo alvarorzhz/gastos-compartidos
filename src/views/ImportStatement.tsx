@@ -4,7 +4,8 @@ import { categoryOptions } from '../lib/personal';
 import { parseCsv, parseStatement, proposeImport, type Destination, type ImportRow } from '../lib/statement';
 import { errorMessage, supabase } from '../lib/supabase';
 import { readXlsx } from '../lib/xlsx';
-import { Sheet, type ViewProps } from './common';
+import { Notice, Segmented, Sheet, toast, type ViewProps } from './common';
+import { Icon } from './icons';
 
 type Show = 'expenses' | 'income';
 
@@ -95,31 +96,35 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
     await reload();
     setBusy(false);
     setRows(null);
+    toast(`${common.length + personal.length} movimientos apuntados`);
     setDone(`Listo: ${common.length} ${common.length === 1 ? 'gasto común' : 'gastos comunes'} y ${personal.length} ${personal.length === 1 ? 'movimiento personal' : 'movimientos personales'} apuntados.`);
   }
 
   if (!rows) {
     return (
-      <Sheet title="Importar extracto" onClose={onClose}>
+      <Sheet title="Importar extracto" subtitle="Apunta de una vez los movimientos del banco." onClose={onClose}>
         <div className="stack">
-          {done && <p className="notice">{done}</p>}
-          <p className="small">
-            Descarga los movimientos de tu banco en <strong>Excel (.xlsx)</strong> o CSV y elígelo aquí. Después decides uno a uno
-            qué se apunta como gasto común, qué va a Personal y qué no se apunta.
-          </p>
-          <p className="muted small">🔒 El archivo se lee en tu dispositivo y no se sube ni se guarda.</p>
-          <input
-            ref={input}
-            type="file"
-            accept=".xlsx,.csv,.txt,.xls,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void read(file);
-            }}
-          />
-          <button className="primary" onClick={() => input.current?.click()}>📄 Elegir archivo</button>
-          {error && <p className="error small">{error}</p>}
+          {done && <Notice kind="success">{done}</Notice>}
+          <div className="empty-state" style={{ paddingTop: 'var(--s4)', paddingBottom: 'var(--s4)' }}>
+            <span className="empty-icon"><Icon name="bank" size={26} /></span>
+            <p className="empty-text">
+              Descarga los movimientos de tu banco en <strong>Excel (.xlsx)</strong> o CSV y elígelo aquí. Después decides uno a uno
+              qué se apunta como gasto común, qué va a Personal y qué no se apunta.
+            </p>
+            <input
+              ref={input}
+              type="file"
+              accept=".xlsx,.csv,.txt,.xls,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void read(file);
+              }}
+            />
+            <button className="primary" onClick={() => input.current?.click()}><Icon name="fileIn" size={18} /> Elegir archivo</button>
+          </div>
+          {error && <Notice kind="error">{error}</Notice>}
+          <Notice icon="lock">El archivo se lee en tu dispositivo y no se sube ni se guarda.</Notice>
         </div>
       </Sheet>
     );
@@ -137,29 +142,45 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
   }
 
   return (
-    <Sheet title="Importar extracto" onClose={onClose}>
+    <Sheet
+      title="Importar extracto"
+      subtitle={`${rows.length} movimientos, del ${shortDay(dates[0])} al ${shortDay(dates[dates.length - 1])}`}
+      onClose={onClose}
+      footer={
+        <>
+          {error && <p className="error" role="alert">{error}</p>}
+          <p className="muted small center">
+            {chosen.length === 0 ? 'Elige qué movimientos apuntar.' : `${nCommon} ${nCommon === 1 ? 'común' : 'comunes'} · ${nPersonal} ${nPersonal === 1 ? 'personal' : 'personales'}`}
+          </p>
+          <div className="row">
+            <button className="secondary" onClick={() => setRows(null)} disabled={busy}>Otro archivo</button>
+            <button className="primary lg" onClick={save} disabled={busy || chosen.length === 0}>
+              {busy ? 'Guardando…' : `Apuntar ${chosen.length}`}
+            </button>
+          </div>
+        </>
+      }
+    >
       <div className="stack">
-        <p className="small">
-          {rows.length} movimientos, del {shortDay(dates[0])} al {shortDay(dates[dates.length - 1])}.
-          {duplicates > 0 && ` ${duplicates} ${duplicates === 1 ? 'parece ya apuntado' : 'parecen ya apuntados'} (marcados con ⚠️).`}{' '}
+        <p className="field-hint">
+          {duplicates > 0 && `${duplicates} ${duplicates === 1 ? 'parece ya apuntado' : 'parecen ya apuntados'} (marcados con un aviso). `}
           Los gastos comunes se apuntan como pagados por ti, a medias; luego puedes cambiar el reparto en cada uno.
         </p>
-        <fieldset className="segmented">
-          <legend className="sr-only">Qué mostrar</legend>
-          <label className={show === 'expenses' ? 'selected' : ''}>
-            <input type="radio" name="show" checked={show === 'expenses'} onChange={() => setShow('expenses')} />
-            Cargos ({nExpenses})
-          </label>
-          <label className={show === 'income' ? 'selected' : ''}>
-            <input type="radio" name="show" checked={show === 'income'} onChange={() => setShow('income')} />
-            Ingresos ({rows.length - nExpenses})
-          </label>
-        </fieldset>
+        <Segmented
+          legend="Qué mostrar"
+          hideLegend
+          value={show}
+          options={[
+            { value: 'expenses', label: `Cargos (${nExpenses})` },
+            { value: 'income', label: `Ingresos (${rows.length - nExpenses})` },
+          ]}
+          onChange={setShow}
+        />
         <div className="row wrap small">
           <span className="muted">Marcar todos:</span>
-          {show === 'expenses' && <button className="link small" onClick={() => setAll('common')}>Comunes</button>}
-          <button className="link small" onClick={() => setAll('personal')}>Personales</button>
-          <button className="link small" onClick={() => setAll('skip')}>Ninguno</button>
+          {show === 'expenses' && <button className="chip" onClick={() => setAll('common')}>Comunes</button>}
+          <button className="chip" onClick={() => setAll('personal')}>Personales</button>
+          <button className="chip" onClick={() => setAll('skip')}>Ninguno</button>
         </div>
 
         <ul className="list import-list">
@@ -171,28 +192,27 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
                   value={r.note}
                   maxLength={200}
                   onChange={(e) => update(i, { note: e.target.value })}
-                  aria-label="Nota"
+                  aria-label="Concepto"
                 />
-                <div className="amounts">
-                  <strong className={income(r) ? 'positive' : ''}>
+                <div className="row-end">
+                  <span className={'row-amount ' + (income(r) ? 'positive' : '')}>
                     {income(r) ? '+' : '−'}{formatEuros(Math.abs(r.movement.amountCents))}
-                  </strong>
-                  <div className="muted small">{shortDay(r.movement.date)}</div>
+                  </span>
+                  <span className="row-sub muted">{shortDay(r.movement.date)}</span>
                 </div>
               </div>
-              {r.duplicate && <div className="warn small">⚠️ Parece que ya está apuntado</div>}
+              {r.duplicate && <div className="dup"><Icon name="alert" size={16} /> Parece que ya está apuntado</div>}
               <div className="row">
-                <fieldset className="segmented compact">
-                  <legend className="sr-only">Dónde apuntarlo</legend>
-                  {(['skip', 'common', 'personal'] as const)
+                <Segmented
+                  legend="Dónde apuntarlo"
+                  hideLegend
+                  size="sm"
+                  value={r.destination}
+                  options={(['skip', 'common', 'personal'] as const)
                     .filter((d) => d !== 'common' || !income(r))
-                    .map((d) => (
-                      <label key={d} className={r.destination === d ? 'selected' : ''}>
-                        <input type="radio" name={`dest-${i}`} checked={r.destination === d} onChange={() => update(i, { destination: d })} />
-                        {d === 'skip' ? 'No' : d === 'common' ? 'Común' : 'Personal'}
-                      </label>
-                    ))}
-                </fieldset>
+                    .map((d) => ({ value: d, label: d === 'skip' ? 'No' : d === 'common' ? 'Común' : 'Personal' }))}
+                  onChange={(d) => update(i, { destination: d })}
+                />
                 {r.destination === 'common' && (
                   <select className="grow" value={r.categoryId} onChange={(e) => update(i, { categoryId: e.target.value })} aria-label="Categoría">
                     {activeCategories.map((c) => (
@@ -211,24 +231,10 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
             </li>
           ))}
         </ul>
-
-        <div className="import-footer stack tight">
-          {error && <p className="error small">{error}</p>}
-          <p className="muted small center">
-            {chosen.length === 0 ? 'Elige qué movimientos apuntar.' : `${nCommon} ${nCommon === 1 ? 'común' : 'comunes'} · ${nPersonal} ${nPersonal === 1 ? 'personal' : 'personales'}`}
-          </p>
-          <div className="row">
-            <button className="secondary" onClick={() => setRows(null)} disabled={busy}>Otro archivo</button>
-            <button className="primary grow" onClick={save} disabled={busy || chosen.length === 0}>
-              {busy ? 'Guardando…' : `Apuntar ${chosen.length}`}
-            </button>
-          </div>
-        </div>
       </div>
     </Sheet>
   );
 }
-
 /** "2026-10-06" → "6 oct" */
 function shortDay(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);

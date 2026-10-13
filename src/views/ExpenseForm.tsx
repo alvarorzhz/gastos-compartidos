@@ -1,12 +1,14 @@
-import { useState, type FormEvent } from 'react';
-import { formatDay, today } from '../lib/dates';
+import { useId, useState, type FormEvent } from 'react';
+import { addDays, formatDay, formatShortDay, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recurring';
 import { owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, Frequency, RecurringExpense } from '../lib/types';
-import { Sheet, type ViewProps } from './common';
+import { AmountField, Avatar, CategoryIcon, confirmAction, Notice, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { addedText } from './ExpenseRow';
+import { Icon } from './icons';
 import ScanReceipt from './ScanReceipt';
 import type { ReceiptGuess } from '../lib/receipt';
 
@@ -21,6 +23,7 @@ interface Props extends ViewProps {
 }
 
 export default function ExpenseForm({ data, me, reload, expense, template, startAsFixed, onClose }: Props) {
+  const formId = useId();
   const source = template ?? expense;
   const activeCategories = data.categories.filter((c) => !c.archived || c.id === source?.category_id);
   const initialDate = template ? nextDate(template) : expense?.spent_on ?? today();
@@ -35,6 +38,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const partner = partnerOf(data.members, me);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [badAmount, setBadAmount] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(split.mode !== 'equal' || frequency !== '');
 
   const [scanned, setScanned] = useState<string | null>(null);
 
@@ -66,10 +71,13 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   async function save(e: FormEvent) {
     e.preventDefault();
     const cents = parseEuros(amount);
-    if (cents == null) return setError('Escribe un importe válido, por ejemplo 12,50');
+    setBadAmount(cents == null);
+    if (cents == null) return setError(amount.trim() ? 'Ese importe no es válido. Escríbelo así: 12,50' : 'Escribe cuánto ha costado, por ejemplo 12,50');
     if (!categoryId) return setError('Elige una categoría');
+    if (!date) return setError('Elige una fecha');
     const owed = owedFromSplit(split, cents, paidBy === me);
     if (owed === 'invalid') {
+      setMoreOpen(true);
       return setError(split.mode === 'percent' ? 'El porcentaje debe estar entre 0 y 100' : 'Tu parte no puede ser mayor que el importe');
     }
     const fields = { amount_cents: cents, category_id: categoryId, paid_by: paidBy, owed_cents: owed, note: note.trim() || null };
@@ -86,6 +94,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       setBusy(false);
       if (error) return setError(errorMessage(error));
       await reload();
+      toast('Gasto fijo actualizado');
       return onClose();
     }
 
@@ -98,6 +107,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       setBusy(false);
       if (error) return setError(errorMessage(error));
       await reload(); // al recargar se apuntan los que ya tocan
+      toast('Gasto fijo creado');
       return onClose();
     }
 
@@ -107,13 +117,15 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
+    toast(expense ? 'Gasto actualizado' : 'Gasto guardado');
     onClose();
   }
 
   async function remove() {
-    if (template) {
-      if (!confirm('¿Borrar este gasto fijo? Los gastos que ya se apuntaron se quedan.')) return;
-    } else if (!expense || !confirm('¿Borrar este gasto?')) return;
+    const ok = template
+      ? await confirmAction({ title: '¿Borrar este gasto fijo?', message: 'Los gastos que ya se apuntaron se quedan.', confirmLabel: 'Borrar', danger: true })
+      : expense && await confirmAction({ title: '¿Borrar este gasto?', message: `${expense.note || 'Gasto'} · ${formatEuros(expense.amount_cents)}. El saldo se recalculará.`, confirmLabel: 'Borrar', danger: true });
+    if (!ok) return;
     setBusy(true);
     const { error } = template
       ? await supabase.from('recurring_expenses').delete().eq('id', template.id)
@@ -121,6 +133,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
+    toast(template ? 'Gasto fijo borrado' : 'Gasto borrado');
     onClose();
   }
 
@@ -138,116 +151,163 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
+    toast(template.active ? 'Gasto fijo en pausa' : 'Gasto fijo reanudado');
     onClose();
   }
 
   const title = template ? 'Editar gasto fijo' : expense ? 'Editar gasto' : startAsFixed ? 'Nuevo gasto fijo' : 'Nuevo gasto';
   const showRepeat = !expense;
+  const subtitle = expense?.created_by
+    ? `${addedText(data.members, expense.created_by, me).replace(/^lo/, 'Lo')} el ${formatShortDay(expense.created_at.slice(0, 10))}`
+    : undefined;
+  const splitSummary = split.mode === 'equal' ? 'A medias' : split.mode === 'percent' ? `Tú ${split.myShare || '?'} %` : `Tu parte ${split.myShare || '?'} €`;
+  const repeatSummary = frequency ? capitalizeFirst(frequencyText(frequency)) : 'No se repite';
 
   return (
-    <Sheet title={title} onClose={onClose}>
-      <form onSubmit={save} className="stack">
-        {expense?.recurring_id && (
-          <p className="notice small">🔁 Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</p>
-        )}
-        {!source && <ScanReceipt onResult={applyScan} />}
-        {scanned && <p className="notice small">{scanned}</p>}
-        <label>
-          Importe (€)
-          <input
-            className="amount-input"
-            inputMode="decimal"
-            autoFocus={!source}
-            required
-            placeholder="0,00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </label>
-        <fieldset className="segmented">
-          <legend>¿Quién pagó?</legend>
-          {payers.map((id) => (
-            <label key={id} className={paidBy === id ? 'selected' : ''}>
-              <input type="radio" name="paid_by" value={id} checked={paidBy === id} onChange={() => setPaidBy(id)} />
-              {nameOf(data.members, id, me)}
-            </label>
-          ))}
-        </fieldset>
-        {partner && (
-          <SplitPicker
-            mode={split.mode}
-            myShare={split.myShare}
-            amountCents={parseEuros(amount) ?? 0}
-            partnerName={partner.display_name}
-            onChange={setSplit}
-          />
-        )}
-        <label>
-          Categoría
-          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
-            {activeCategories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </label>
-        {showRepeat && (
-          <fieldset className="segmented">
-            <legend>Repetir</legend>
-            {!template && (
-              <label className={frequency === '' ? 'selected' : ''}>
-                <input type="radio" name="frequency" checked={frequency === ''} onChange={() => setFrequency('')} />
-                No
-              </label>
+    <Sheet
+      title={title}
+      subtitle={subtitle}
+      onClose={onClose}
+      footer={
+        <>
+          {error && <p className="error" role="alert">{error}</p>}
+          <div className="row">
+            {(expense || template) && (
+              <button type="button" className="danger" onClick={remove} disabled={busy} aria-label={template ? 'Borrar gasto fijo' : 'Borrar gasto'}>
+                <Icon name="trash" size={18} /> Borrar
+              </button>
             )}
-            {FREQUENCIES.map((f) => (
-              <label key={f.id} className={frequency === f.id ? 'selected' : ''}>
-                <input type="radio" name="frequency" checked={frequency === f.id} onChange={() => setFrequency(f.id)} />
-                {f.label}
-              </label>
-            ))}
-          </fieldset>
+            {template && (
+              <button type="button" className="secondary" onClick={toggleActive} disabled={busy}>
+                <Icon name={template.active ? 'pause' : 'play'} size={18} /> {template.active ? 'Pausar' : 'Reanudar'}
+              </button>
+            )}
+            <button type="submit" form={formId} className="primary lg" disabled={busy}>
+              {busy ? 'Guardando…' : expense || template ? 'Guardar cambios' : 'Guardar gasto'}
+            </button>
+          </div>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={save} className="stack" noValidate>
+        {expense?.recurring_id && (
+          <Notice icon="repeat">Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</Notice>
         )}
-        <label>
-          {template ? 'Próxima vez' : frequency ? 'Primera vez' : 'Fecha'}
-          <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        {frequency && !template && (
-          <p className="muted small">
-            Se apuntará solo {frequencyText(frequency)} desde el {formatDay(date)}.
-            {date < today() && ' Como esa fecha ya pasó, también se apuntarán ahora los anteriores hasta hoy.'}
-          </p>
+
+        <AmountField label="Importe" value={amount} onChange={(v) => { setAmount(v); setBadAmount(false); }} invalid={badAmount} autoFocus={!source} />
+
+        {!source && <ScanReceipt onResult={applyScan} />}
+        {scanned && <Notice kind="success">{scanned}</Notice>}
+
+        <div className="field">
+          <label className="field-label" htmlFor={formId + '-note'}>Concepto <span className="faint">(opcional)</span></label>
+          <input
+            id={formId + '-note'}
+            maxLength={200}
+            enterKeyHint="done"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={frequency ? 'Ej.: alquiler' : 'Ej.: compra semanal'}
+          />
+        </div>
+
+        <fieldset className="category-picker">
+          <legend className="field-label">Categoría</legend>
+          {activeCategories.length === 0 ? (
+            <p className="muted small">No hay categorías. Crea una en Ajustes.</p>
+          ) : (
+            <div className="category-grid">
+              {activeCategories.map((c) => (
+                <label key={c.id} className={categoryId === c.id ? 'selected' : ''}>
+                  <input type="radio" name={formId + '-cat'} checked={categoryId === c.id} onChange={() => setCategoryId(c.id)} />
+                  <CategoryIcon name={c.name} size="sm" />
+                  <span className="cat-name">{c.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </fieldset>
+
+        {payers.length > 1 && (
+          <Segmented
+            legend="¿Quién pagó?"
+            value={paidBy}
+            options={payers.map((id) => ({
+              value: id,
+              label: <><Avatar members={data.members} userId={id} size="sm" />{nameOf(data.members, id, me)}</>,
+            }))}
+            onChange={setPaidBy}
+          />
         )}
+
+        <div className="field">
+          <label className="field-label" htmlFor={formId + '-date'}>{template ? 'Próxima vez' : frequency ? 'Primera vez' : 'Fecha'}</label>
+          <div className="row">
+            <input id={formId + '-date'} className="grow" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
+            {!template && (
+              <div className="chips" role="group" aria-label="Fechas rápidas">
+                <button type="button" className={'chip' + (date === today() ? ' selected' : '')} onClick={() => setDate(today())}>Hoy</button>
+                <button type="button" className={'chip' + (date === addDays(today(), -1) ? ' selected' : '')} onClick={() => setDate(addDays(today(), -1))}>Ayer</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(partner || showRepeat) && (
+          <button type="button" className="disclosure" aria-expanded={moreOpen} onClick={() => setMoreOpen((v) => !v)}>
+            <span>Reparto{showRepeat ? ' y repetición' : ''}</span>
+            <span className="row">
+              <span className="summary">{[partner ? splitSummary : null, showRepeat ? repeatSummary : null].filter(Boolean).join(' · ')}</span>
+              <Icon name="chevronDown" size={18} />
+            </span>
+          </button>
+        )}
+
+        {moreOpen && (
+          <div className="stack">
+            {partner && (
+              <SplitPicker
+                mode={split.mode}
+                myShare={split.myShare}
+                amountCents={parseEuros(amount) ?? 0}
+                partnerName={partner.display_name}
+                onChange={setSplit}
+              />
+            )}
+            {showRepeat && (
+              <Segmented
+                legend="Repetir"
+                value={frequency}
+                options={[...(template ? [] : [{ value: '' as const, label: 'No' }]), ...FREQUENCIES.map((f) => ({ value: f.id, label: f.label }))]}
+                onChange={setFrequency}
+              />
+            )}
+            {frequency && !template && (
+              <p className="field-hint">
+                Se apuntará solo {frequencyText(frequency)} desde el {formatDay(date)}.
+                {date < today() && ' Como esa fecha ya pasó, también se apuntarán ahora los anteriores hasta hoy.'}
+              </p>
+            )}
+          </div>
+        )}
+
         {template && (
-          <p className="muted small">
+          <p className="field-hint">
             {template.active ? `Se apunta ${frequencyText(frequency || template.frequency)}.` : 'En pausa: no se apunta hasta que lo reanudes.'}{' '}
             Cambiarlo no toca los gastos que ya se apuntaron.
           </p>
         )}
-        <label>
-          Nota (opcional)
-          <input maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder={frequency ? 'Ej.: alquiler' : 'Ej.: compra semanal'} />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <div className="row wrap">
-          {(expense || template) && (
-            <button type="button" className="danger" onClick={remove} disabled={busy}>Borrar</button>
-          )}
-          {template && (
-            <button type="button" className="secondary" onClick={toggleActive} disabled={busy}>
-              {template.active ? 'Pausar' : 'Reanudar'}
-            </button>
-          )}
-          <button className="primary grow" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
-        </div>
       </form>
     </Sheet>
   );
 }
 
-const MODES: { id: SplitMode; label: string }[] = [
-  { id: 'equal', label: '50/50' },
-  { id: 'percent', label: '%' },
-  { id: 'amount', label: '€' },
+const capitalizeFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const MODES: { value: SplitMode; label: string }[] = [
+  { value: 'equal', label: 'A medias' },
+  { value: 'percent', label: 'Por %' },
+  { value: 'amount', label: 'Por importe' },
 ];
 
 function SplitPicker({ mode, myShare, amountCents, partnerName, onChange }: {
@@ -257,13 +317,14 @@ function SplitPicker({ mode, myShare, amountCents, partnerName, onChange }: {
   partnerName: string;
   onChange: (s: { mode: SplitMode; myShare: string }) => void;
 }) {
+  const inputId = useId();
   function setMode(next: SplitMode) {
     // Al cambiar de modo, parte de un reparto a medias equivalente.
     const half = next === 'amount' ? centsToInput(Math.round(amountCents / 2)) : '50';
     onChange({ mode: next, myShare: next === mode ? myShare : half });
   }
 
-  let summary = 'A partes iguales: cada uno asume la mitad.';
+  let summary = 'Cada uno asume la mitad.';
   if (mode === 'percent') {
     const p = Number(myShare.replace(',', '.'));
     summary = Number.isFinite(p) && p >= 0 && p <= 100 ? `A ${partnerName} le toca el ${100 - p} %.` : 'Escribe un porcentaje entre 0 y 100.';
@@ -273,27 +334,19 @@ function SplitPicker({ mode, myShare, amountCents, partnerName, onChange }: {
   }
 
   return (
-    <div className="stack tight">
-      <fieldset className="segmented">
-        <legend>Reparto</legend>
-        {MODES.map((m) => (
-          <label key={m.id} className={mode === m.id ? 'selected' : ''}>
-            <input type="radio" name="split" checked={mode === m.id} onChange={() => setMode(m.id)} />
-            {m.label}
-          </label>
-        ))}
-      </fieldset>
+    <div className="stack-sm">
+      <Segmented legend="Reparto" value={mode} options={MODES} onChange={setMode} />
       {mode !== 'equal' && (
-        <div className="row">
-          <label className="grow">
-            {mode === 'percent' ? 'Tu parte (%)' : 'Tu parte (€)'}
-            <input inputMode="decimal" value={myShare} onChange={(e) => onChange({ mode, myShare: e.target.value })} />
-          </label>
-          <button type="button" className="secondary chip-btn" onClick={() => onChange({ mode: 'percent', myShare: '100' })}>Todo mío</button>
-          <button type="button" className="secondary chip-btn" onClick={() => onChange({ mode: 'percent', myShare: '0' })}>Todo de {partnerName}</button>
+        <div className="field">
+          <label className="field-label" htmlFor={inputId}>{mode === 'percent' ? 'Tu parte (%)' : 'Tu parte (€)'}</label>
+          <input id={inputId} inputMode="decimal" value={myShare} onChange={(e) => onChange({ mode, myShare: e.target.value })} />
+          <div className="chips">
+            <button type="button" className="chip" onClick={() => onChange({ mode: 'percent', myShare: '100' })}>Todo mío</button>
+            <button type="button" className="chip" onClick={() => onChange({ mode: 'percent', myShare: '0' })}>Todo de {partnerName}</button>
+          </div>
         </div>
       )}
-      <p className="muted small">{summary}</p>
+      <p className="field-hint">{summary}</p>
     </div>
   );
 }

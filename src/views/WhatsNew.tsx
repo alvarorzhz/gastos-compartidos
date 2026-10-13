@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { APP_VERSION, CHANGELOG, KIND_LABEL } from '../changelog';
-import { Sheet } from './common';
+import { Notice, Sheet } from './common';
+import { Icon } from './icons';
 
 const SEEN_KEY = 'gastos.versionVista';
 
@@ -33,7 +34,7 @@ export function ChangelogSheet({ onClose }: { onClose: () => void }) {
           <ul>
             {r.changes.map((c, i) => (
               <li key={i}>
-                <span className={'kind kind-' + c.kind}>{KIND_LABEL[c.kind]}</span> {c.text}
+                <span className={'kind kind-' + c.kind}>{KIND_LABEL[c.kind]}</span> <span>{c.text}</span>
               </li>
             ))}
           </ul>
@@ -57,13 +58,17 @@ export function WhatsNewBanner() {
 
   return (
     <>
-      <div className="notice row spread">
-        <span>✨ Novedades de la versión {APP_VERSION}</span>
-        <span className="row">
-          <button className="link" onClick={() => setOpen(true)}>Ver</button>
-          <button className="icon small" onClick={dismiss} aria-label="Cerrar aviso">✕</button>
-        </span>
-      </div>
+      <Notice
+        icon="sparkles"
+        action={
+          <span className="row" style={{ gap: 0, margin: '-10px -8px -10px 0' }}>
+            <button className="link-btn small" onClick={() => setOpen(true)}>Ver</button>
+            <button className="icon-btn" onClick={dismiss} aria-label="Cerrar aviso"><Icon name="close" size={18} /></button>
+          </span>
+        }
+      >
+        <strong>Novedades de la versión {APP_VERSION}</strong>
+      </Notice>
       {open && <ChangelogSheet onClose={dismiss} />}
     </>
   );
@@ -73,11 +78,17 @@ export function WhatsNewBanner() {
 export function VersionCard() {
   const [open, setOpen] = useState(false);
   return (
-    <section className="card">
-      <div className="row spread">
-        <span>Versión <strong>{APP_VERSION}</strong></span>
-        <button className="link" onClick={() => setOpen(true)}>Ver novedades</button>
-      </div>
+    <section className="settings-group" aria-labelledby="set-version">
+      <h2 id="set-version">Versión</h2>
+      <ul className="list with-icons">
+        <li>
+          <button className="row-item" onClick={() => setOpen(true)}>
+            <span className="icon-tile accent"><Icon name="sparkles" /></span>
+            <span className="row-main"><span className="row-title">Ver novedades</span><span className="row-meta">Estás usando la versión {APP_VERSION}</span></span>
+            <Icon name="chevronRight" className="row-chevron" />
+          </button>
+        </li>
+      </ul>
       {open && <ChangelogSheet onClose={() => { markSeen(); setOpen(false); }} />}
     </section>
   );

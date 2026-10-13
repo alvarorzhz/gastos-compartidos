@@ -3,7 +3,8 @@ import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { formatEuros } from '../lib/money';
 import { monthClose } from '../lib/monthClose';
 import { nameOf, partnerOf } from '../lib/people';
-import { Sheet, type ViewProps } from './common';
+import { Avatar, CategoryIcon, Notice, SectionHeader, Sheet, type ViewProps } from './common';
+import { Icon } from './icons';
 
 const SEEN_KEY = 'gastos.cierreVisto';
 
@@ -44,23 +45,29 @@ export function MonthCloseSheet({ data, me, month, onClose }: ViewProps & { mont
   }
 
   return (
-    <Sheet title={`Resumen de ${formatMonth(month).toLowerCase()}`} onClose={onClose}>
+    <Sheet
+      title={`Resumen de ${formatMonth(month).toLowerCase()}`}
+      subtitle="Así fue el mes en pocas cifras."
+      onClose={onClose}
+      footer={<button className="primary lg block" onClick={onClose}>Cerrar</button>}
+    >
       <div className="stack">
-        <div className="close-stats">
-          <div>
-            <span className="muted small">Gastado</span>
+        <div className="stat-grid">
+          <div className="stat-tile">
+            <span className="stat-label">Gastado</span>
             <strong>{formatEuros(c.spentCents)}</strong>
-            {c.previousSpentCents > 0 && (
-              <span className={'small ' + (delta > 0 ? 'delta-up' : 'delta-down')}>
-                {delta > 0 ? '▲' : '▼'} {formatEuros(Math.abs(delta))} que el mes anterior
+            {c.previousSpentCents > 0 && delta !== 0 && (
+              <span className="xsmall muted row" style={{ gap: 4 }}>
+                <Icon name={delta > 0 ? 'arrowUp' : 'arrowDown'} size={13} />
+                {formatEuros(Math.abs(delta))} {delta > 0 ? 'más' : 'menos'} que el mes anterior
               </span>
             )}
           </div>
-          <div>
-            <span className="muted small">Presupuesto</span>
-            <strong>{c.budgetCents ? formatEuros(c.budgetCents) : '—'}</strong>
+          <div className="stat-tile">
+            <span className="stat-label">Presupuesto</span>
+            <strong>{c.budgetCents ? formatEuros(c.budgetCents) : 'Sin poner'}</strong>
             {c.budgetCents > 0 && (
-              <span className={'small ' + (c.spentCents > c.budgetCents ? 'delta-up' : 'delta-down')}>
+              <span className={'xsmall ' + (c.spentCents > c.budgetCents ? 'negative' : 'positive')}>
                 {c.spentCents > c.budgetCents
                   ? `Os pasasteis ${formatEuros(c.spentCents - c.budgetCents)}`
                   : `Sobraron ${formatEuros(c.budgetCents - c.spentCents)}`}
@@ -70,22 +77,23 @@ export function MonthCloseSheet({ data, me, month, onClose }: ViewProps & { mont
         </div>
 
         {c.overBudget.length > 0 && (
-          <p className="notice small">🚨 Se pasaron del presupuesto: {c.overBudget.map((o) => `${o.name} (+${formatEuros(o.overCents)})`).join(', ')}.</p>
+          <Notice kind="over">Se pasaron del presupuesto: {c.overBudget.map((o) => `${o.name} (+${formatEuros(o.overCents)})`).join(', ')}.</Notice>
         )}
 
         {categories.length > 0 && (
-          <div>
-            <h3>Por categoría</h3>
-            <ul className="list">
+          <div className="section">
+            <SectionHeader title="Por categoría" />
+            <ul className="list with-icons">
               {categories.map((cat) => {
                 const d = cat.cents - cat.previousCents;
                 return (
-                  <li key={cat.categoryId} className="list-item static">
-                    <span className="grow">{cat.name}</span>
-                    <span className="amounts">
-                      <span className="title">{formatEuros(cat.cents)}</span>
+                  <li key={cat.categoryId} className="row-item">
+                    <CategoryIcon name={cat.name} />
+                    <span className="row-main"><span className="row-title">{cat.name}</span></span>
+                    <span className="row-end">
+                      <span className="row-amount">{formatEuros(cat.cents)}</span>
                       {cat.previousCents > 0 && Math.abs(d) >= 100 && (
-                        <span className={'small ' + (d > 0 ? 'delta-up' : 'delta-down')}> {d > 0 ? '▲' : '▼'} {formatEuros(Math.abs(d))}</span>
+                        <span className="row-sub muted">{d > 0 ? '+' : '−'}{formatEuros(Math.abs(d))} que antes</span>
                       )}
                     </span>
                   </li>
@@ -93,29 +101,33 @@ export function MonthCloseSheet({ data, me, month, onClose }: ViewProps & { mont
               })}
             </ul>
             {c.categories.length > 5 && !showAll && (
-              <button className="link small" onClick={() => setShowAll(true)}>Ver todas</button>
+              <button className="link-btn small" onClick={() => setShowAll(true)}>Ver todas las categorías</button>
             )}
           </div>
         )}
 
         {partner && c.paidBy.length > 0 && (
-          <p className="small">
-            Pagasteis: {c.paidBy.map((p) => `${nameOf(data.members, p.userId, me)} ${formatEuros(p.cents)}`).join(' · ')}.
-          </p>
-        )}
-
-        {partner && c.balanceCents !== 0 && (
-          <div className="notice row">
-            <span className="grow">
-              {c.balanceCents > 0
-                ? `Hoy ${partner.display_name} te debe ${formatEuros(c.balanceCents)}.`
-                : `Hoy debes ${formatEuros(-c.balanceCents)} a ${partner.display_name}.`}
-            </span>
-            <button className="secondary chip-btn" onClick={settle}>Anotar reembolso</button>
+          <div className="card" style={{ boxShadow: 'none', background: 'var(--surface-2)' }}>
+            <h3 className="stat-label">Quién pagó</h3>
+            <ul className="legend">
+              {c.paidBy.map((p) => (
+                <li key={p.userId}>
+                  <Avatar members={data.members} userId={p.userId} size="sm" />
+                  {nameOf(data.members, p.userId, me)}
+                  <span className="money">{formatEuros(p.cents)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
-        <button className="primary" onClick={onClose}>Cerrar</button>
+        {partner && c.balanceCents !== 0 && (
+          <Notice icon="swap" action={<button className="sm tinted" onClick={settle}>Anotar reembolso</button>}>
+            {c.balanceCents > 0
+              ? `Hoy ${partner.display_name} te debe ${formatEuros(c.balanceCents)}.`
+              : `Hoy debes ${formatEuros(-c.balanceCents)} a ${partner.display_name}.`}
+          </Notice>
+        )}
       </div>
     </Sheet>
   );
