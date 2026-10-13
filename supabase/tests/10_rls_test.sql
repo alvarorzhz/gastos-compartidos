@@ -106,6 +106,43 @@ insert into budgets (household_id, category_id, month, amount_cents)
 select household_id, id, date '2026-10-01', 30000 from categories where name = 'Casa';
 select pg_temp.check((select count(*) from budgets) = 1, 'presupuesto guardado');
 
+-- Avisos por categoría: 90 % por defecto, 80/90/100 o sin aviso.
+select pg_temp.check((select bool_and(alert_percent = 90) from categories), 'aviso al 90 % por defecto');
+update categories set alert_percent = null where name = 'Ocio';
+select pg_temp.expect_error($$ update categories set alert_percent = 50 where name = 'Casa' $$);
+
+-- Gastos fijos: uno mensual que empezó hace dos meses apunta tres gastos.
+insert into recurring_expenses (household_id, amount_cents, category_id, paid_by, frequency, start_on, note, created_by)
+select household_id, 70000, id, auth.uid(), 'monthly', current_date - interval '2 months', 'Alquiler', auth.uid()
+from categories where name = 'Casa';
+-- Y uno semanal que empieza pasado mañana todavía no apunta nada.
+insert into recurring_expenses (household_id, amount_cents, category_id, paid_by, frequency, start_on, created_by)
+select household_id, 500, id, auth.uid(), 'weekly', current_date + 2, auth.uid()
+from categories where name = 'Supermercado';
+select pg_temp.check(public.generate_recurring_expenses(current_date) = 3, 'gasto fijo mensual apunta los meses pendientes');
+select pg_temp.check(public.generate_recurring_expenses(current_date) = 0, 'no se apunta dos veces');
+select pg_temp.check((select count(*) from expenses where recurring_id is not null and note = 'Alquiler') = 3, 'gastos enlazados a su plantilla');
+select pg_temp.check((select max(spent_on) from expenses where note = 'Alquiler') = current_date, 'el último es de hoy');
+-- Una fecha de móvil muy adelantada no apunta gastos futuros.
+select pg_temp.check(public.generate_recurring_expenses(current_date + 30) = 0, 'no se adelantan gastos');
+select pg_temp.check(public.recurring_date('2026-01-31', 'monthly', 1) = '2026-02-28', 'fin de mes en febrero');
+select pg_temp.check(public.recurring_date('2026-01-31', 'monthly', 2) = '2026-03-31', 'vuelve al 31 en marzo');
+select pg_temp.check(public.recurring_date('2024-02-29', 'yearly', 1) = '2025-02-28', 'año bisiesto');
+select pg_temp.expect_error($$ update recurring_expenses set frequency = 'daily' $$);
+select pg_temp.expect_error($$
+  insert into recurring_expenses (household_id, amount_cents, category_id, paid_by, frequency, start_on, created_by)
+  select household_id, 100, id, '00000000-0000-0000-0000-00000000000c', 'monthly', current_date, auth.uid() from categories limit 1 $$);
+
+-- D (sin espacio) no ve plantillas ni genera nada ajeno.
+select pg_temp.login('00000000-0000-0000-0000-00000000000d', 'd@example.com');
+select pg_temp.check((select count(*) from recurring_expenses) = 0, 'D no ve gastos fijos ajenos');
+select pg_temp.check(public.generate_recurring_expenses(current_date) = 0, 'D no genera gastos ajenos');
+update recurring_expenses set amount_cents = 1;
+reset role;
+select pg_temp.check((select min(amount_cents) from recurring_expenses) = 500, 'D no puede tocar gastos fijos ajenos');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;

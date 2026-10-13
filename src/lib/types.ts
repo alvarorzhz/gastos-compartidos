@@ -21,7 +21,11 @@ export interface Category {
   household_id: string;
   name: string;
   archived: boolean;
+  /** Porcentaje del presupuesto a partir del cual avisar. null = sin aviso. */
+  alert_percent: AlertPercent | null;
 }
+
+export type AlertPercent = 80 | 90 | 100;
 
 export interface Expense {
   id: string;
@@ -33,9 +37,31 @@ export interface Expense {
   /** Lo que debe a quien pagó la otra persona. null = 50/50. */
   owed_cents: number | null;
   note: string | null;
+  /** Gasto fijo que lo apuntó, si lo hay. */
+  recurring_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type Frequency = 'weekly' | 'monthly' | 'yearly';
+
+/** Gasto fijo: plantilla que apunta un gasto cada semana, mes o año. */
+export interface RecurringExpense {
+  id: string;
+  household_id: string;
+  amount_cents: number;
+  category_id: string;
+  paid_by: string;
+  owed_cents: number | null;
+  note: string | null;
+  frequency: Frequency;
+  start_on: string; // YYYY-MM-DD
+  /** Cuántos gastos ha apuntado ya desde start_on. */
+  generated_count: number;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface Settlement {

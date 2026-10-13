@@ -18,6 +18,17 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.1.0',
+    date: '2026-10-13',
+    changes: [
+      { kind: 'nuevo', text: 'Gastos fijos: al añadir un gasto puedes elegir que se repita cada semana, cada mes o cada año, y se apunta solo. Se ven, editan y pausan en Gastos → 🔁 Gastos fijos.' },
+      { kind: 'nuevo', text: 'Buscador de gastos por nota, categoría, quién pagó o importe, con filtro por categoría, en el mes o en todo el historial.' },
+      { kind: 'nuevo', text: 'Pestaña Gráficos: gasto de los últimos 12 meses (total o por categoría), en qué se va el dinero, quién ha pagado y cuánto es fijo.' },
+      { kind: 'nuevo', text: 'Avisos de presupuesto por categoría al 80 %, 90 % o 100 %, o sin aviso. Se eligen en Presupuesto.' },
+      { kind: 'nuevo', text: 'Al entrar en la app, una ventana reúne los presupuestos del mes que han llegado a su aviso. También se ven arriba en Gastos.' },
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2026-10-13',
     changes: [

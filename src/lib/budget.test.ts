@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { monthlySummary, totals } from './budget';
 import type { Budget, Category, Expense } from './types';
 
-const cat = (id: string, name: string, archived = false): Category => ({ id, household_id: 'h', name, archived });
+const cat = (id: string, name: string, archived = false): Category => ({ id, household_id: 'h', name, archived, alert_percent: 90 });
 const exp = (category_id: string, spent_on: string, amount_cents: number): Expense => ({
   id: Math.random().toString(), household_id: 'h', amount_cents, spent_on, category_id, paid_by: 'a',
-  owed_cents: null, note: null, created_by: 'a', created_at: '', updated_at: '',
+  owed_cents: null, note: null, recurring_id: null, created_by: 'a', created_at: '', updated_at: '',
 });
 
 describe('monthlySummary', () => {

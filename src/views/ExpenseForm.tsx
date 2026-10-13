@@ -1,25 +1,35 @@
 import { useState, type FormEvent } from 'react';
-import { today } from '../lib/dates';
+import { formatDay, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
+import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recurring';
 import { owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
-import type { Expense } from '../lib/types';
+import type { Expense, Frequency, RecurringExpense } from '../lib/types';
 import { Sheet, type ViewProps } from './common';
 
 interface Props extends ViewProps {
-  expense: Expense | null; // null = nuevo
+  /** Gasto a editar; null = nuevo. */
+  expense: Expense | null;
+  /** Si se pasa, se edita este gasto fijo en vez de un gasto. */
+  template?: RecurringExpense;
+  /** Gasto nuevo que empieza marcado como mensual. */
+  startAsFixed?: boolean;
   onClose: () => void;
 }
 
-export default function ExpenseForm({ data, me, reload, expense, onClose }: Props) {
-  const activeCategories = data.categories.filter((c) => !c.archived || c.id === expense?.category_id);
-  const [amount, setAmount] = useState(expense ? centsToInput(expense.amount_cents) : '');
-  const [date, setDate] = useState(expense?.spent_on ?? today());
-  const [categoryId, setCategoryId] = useState(expense?.category_id ?? activeCategories[0]?.id ?? '');
-  const [paidBy, setPaidBy] = useState(expense?.paid_by ?? me);
-  const [note, setNote] = useState(expense?.note ?? '');
-  const [split, setSplit] = useState(() => splitFromExpense(expense, me));
+export default function ExpenseForm({ data, me, reload, expense, template, startAsFixed, onClose }: Props) {
+  const source = template ?? expense;
+  const activeCategories = data.categories.filter((c) => !c.archived || c.id === source?.category_id);
+  const initialDate = template ? nextDate(template) : expense?.spent_on ?? today();
+  const [amount, setAmount] = useState(source ? centsToInput(source.amount_cents) : '');
+  const [date, setDate] = useState(initialDate);
+  const [categoryId, setCategoryId] = useState(source?.category_id ?? activeCategories[0]?.id ?? '');
+  const [paidBy, setPaidBy] = useState(source?.paid_by ?? me);
+  const [note, setNote] = useState(source?.note ?? '');
+  const [split, setSplit] = useState(() => splitFromExpense(source, me));
+  // Solo los gastos nuevos y los fijos tienen frecuencia; '' = no se repite.
+  const [frequency, setFrequency] = useState<Frequency | ''>(template?.frequency ?? (startAsFixed ? 'monthly' : ''));
   const partner = partnerOf(data.members, me);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,12 +46,38 @@ export default function ExpenseForm({ data, me, reload, expense, onClose }: Prop
     if (owed === 'invalid') {
       return setError(split.mode === 'percent' ? 'El porcentaje debe estar entre 0 y 100' : 'Tu parte no puede ser mayor que el importe');
     }
+    const fields = { amount_cents: cents, category_id: categoryId, paid_by: paidBy, owed_cents: owed, note: note.trim() || null };
+
+    if (template) {
+      const rescheduled = date !== initialDate || frequency !== template.frequency;
+      if (rescheduled && date <= today()) return setError('La próxima vez tiene que ser una fecha a partir de mañana');
+      setBusy(true);
+      setError(null);
+      const { error } = await supabase
+        .from('recurring_expenses')
+        .update(rescheduled ? { ...fields, frequency, start_on: date, generated_count: 0 } : fields)
+        .eq('id', template.id);
+      setBusy(false);
+      if (error) return setError(errorMessage(error));
+      await reload();
+      return onClose();
+    }
+
     setBusy(true);
     setError(null);
-    const fields = { amount_cents: cents, spent_on: date, category_id: categoryId, paid_by: paidBy, owed_cents: owed, note: note.trim() || null };
+    if (!expense && frequency) {
+      const { error } = await supabase.from('recurring_expenses').insert({
+        ...fields, frequency, start_on: date, household_id: data.household.id, created_by: me,
+      });
+      setBusy(false);
+      if (error) return setError(errorMessage(error));
+      await reload(); // al recargar se apuntan los que ya tocan
+      return onClose();
+    }
+
     const { error } = expense
-      ? await supabase.from('expenses').update(fields).eq('id', expense.id)
-      : await supabase.from('expenses').insert({ ...fields, household_id: data.household.id, created_by: me });
+      ? await supabase.from('expenses').update({ ...fields, spent_on: date }).eq('id', expense.id)
+      : await supabase.from('expenses').insert({ ...fields, spent_on: date, household_id: data.household.id, created_by: me });
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
@@ -49,24 +85,51 @@ export default function ExpenseForm({ data, me, reload, expense, onClose }: Prop
   }
 
   async function remove() {
-    if (!expense || !confirm('¿Borrar este gasto?')) return;
+    if (template) {
+      if (!confirm('¿Borrar este gasto fijo? Los gastos que ya se apuntaron se quedan.')) return;
+    } else if (!expense || !confirm('¿Borrar este gasto?')) return;
     setBusy(true);
-    const { error } = await supabase.from('expenses').delete().eq('id', expense.id);
+    const { error } = template
+      ? await supabase.from('recurring_expenses').delete().eq('id', template.id)
+      : await supabase.from('expenses').delete().eq('id', expense!.id);
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
     onClose();
   }
 
+  async function toggleActive() {
+    if (!template) return;
+    const patch: Partial<RecurringExpense> = { active: !template.active };
+    if (!template.active) {
+      // Al reanudar no se apuntan los periodos que estuvo en pausa: se salta a la próxima fecha desde hoy.
+      let n = template.generated_count;
+      while (recurringDate(template.start_on, template.frequency, n) < today()) n++;
+      patch.generated_count = n;
+    }
+    setBusy(true);
+    const { error } = await supabase.from('recurring_expenses').update(patch).eq('id', template.id);
+    setBusy(false);
+    if (error) return setError(errorMessage(error));
+    await reload();
+    onClose();
+  }
+
+  const title = template ? 'Editar gasto fijo' : expense ? 'Editar gasto' : startAsFixed ? 'Nuevo gasto fijo' : 'Nuevo gasto';
+  const showRepeat = !expense;
+
   return (
-    <Sheet title={expense ? 'Editar gasto' : 'Nuevo gasto'} onClose={onClose}>
+    <Sheet title={title} onClose={onClose}>
       <form onSubmit={save} className="stack">
+        {expense?.recurring_id && (
+          <p className="notice small">🔁 Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</p>
+        )}
         <label>
           Importe (€)
           <input
             className="amount-input"
             inputMode="decimal"
-            autoFocus={!expense}
+            autoFocus={!source}
             required
             placeholder="0,00"
             value={amount}
@@ -99,18 +162,52 @@ export default function ExpenseForm({ data, me, reload, expense, onClose }: Prop
             ))}
           </select>
         </label>
+        {showRepeat && (
+          <fieldset className="segmented">
+            <legend>Repetir</legend>
+            {!template && (
+              <label className={frequency === '' ? 'selected' : ''}>
+                <input type="radio" name="frequency" checked={frequency === ''} onChange={() => setFrequency('')} />
+                No
+              </label>
+            )}
+            {FREQUENCIES.map((f) => (
+              <label key={f.id} className={frequency === f.id ? 'selected' : ''}>
+                <input type="radio" name="frequency" checked={frequency === f.id} onChange={() => setFrequency(f.id)} />
+                {f.label}
+              </label>
+            ))}
+          </fieldset>
+        )}
         <label>
-          Fecha
+          {template ? 'Próxima vez' : frequency ? 'Primera vez' : 'Fecha'}
           <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
+        {frequency && !template && (
+          <p className="muted small">
+            Se apuntará solo {frequencyText(frequency)} desde el {formatDay(date)}.
+            {date < today() && ' Como esa fecha ya pasó, también se apuntarán ahora los anteriores hasta hoy.'}
+          </p>
+        )}
+        {template && (
+          <p className="muted small">
+            {template.active ? `Se apunta ${frequencyText(frequency || template.frequency)}.` : 'En pausa: no se apunta hasta que lo reanudes.'}{' '}
+            Cambiarlo no toca los gastos que ya se apuntaron.
+          </p>
+        )}
         <label>
           Nota (opcional)
-          <input maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej.: compra semanal" />
+          <input maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder={frequency ? 'Ej.: alquiler' : 'Ej.: compra semanal'} />
         </label>
         {error && <p className="error">{error}</p>}
-        <div className="row">
-          {expense && (
+        <div className="row wrap">
+          {(expense || template) && (
             <button type="button" className="danger" onClick={remove} disabled={busy}>Borrar</button>
+          )}
+          {template && (
+            <button type="button" className="secondary" onClick={toggleActive} disabled={busy}>
+              {template.active ? 'Pausar' : 'Reanudar'}
+            </button>
           )}
           <button className="primary grow" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
         </div>

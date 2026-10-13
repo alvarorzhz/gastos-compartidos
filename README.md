@@ -5,7 +5,9 @@ App web privada, pensada para el móvil, para que dos personas apunten sus gasto
 - **Gastos**: importe, fecha, categoría, quién pagó y nota opcional. Cualquiera de los dos puede añadir, corregir o borrar.
 - **Reparto**: 50/50 por defecto; en cada gasto se puede elegir otro porcentaje, un importe exacto o que sea solo de una persona.
 - **Saldo**: se recalcula con cada gasto y reembolso. Los reembolsos (Bizum, transferencia…) solo se anotan; la app no mueve dinero.
-- **Presupuesto**: un importe mensual por categoría, con barra de progreso y opción de copiar el del mes anterior.
+- **Presupuesto**: un importe mensual por categoría, con barra de progreso y opción de copiar el del mes anterior. Cada categoría avisa al llegar al 80, 90 o 100 % (o no avisa).
+- **Gastos fijos**: alquiler, luz, gimnasio… se apuntan solos cada semana, mes o año.
+- **Buscador y gráficos**: búsqueda por texto y categoría; gráficos de los últimos 12 meses, por categoría, por persona y fijos frente a variables.
 - **Privacidad**: solo las dos cuentas del espacio ven los datos (lo garantiza la base de datos, no solo la app). Se puede exportar todo (CSV o JSON), borrar el espacio o borrar la cuenta.
 - **Acceso sin contraseña**: se entra con el enlace que llega por email, o con un código de 6 dígitos si se configura la plantilla (ver abajo).
 - **Instalable**: se puede añadir a la pantalla de inicio del móvil y se abre a pantalla completa.
@@ -30,7 +32,7 @@ Toda la lógica de permisos está en [`supabase/migrations/0001_init.sql`](supab
 ## Puesta en marcha (una vez)
 
 1. **Crea un proyecto en Supabase** (plan Free, región UE, por ejemplo Frankfurt o París).
-2. En **SQL Editor**, pega y ejecuta, en orden, cada archivo de `supabase/migrations/` (`0001_init.sql`, `0002_reparto_y_tiempo_real.sql`…). Cada archivo se ejecuta una sola vez.
+2. En **SQL Editor**, pega y ejecuta, en orden, cada archivo de `supabase/migrations/` (`0001_init.sql`, `0002_reparto_y_tiempo_real.sql`, `0003_fijos_y_avisos.sql`…). Cada archivo se ejecuta una sola vez.
 3. En **Authentication → URL Configuration**, pon como *Site URL* la dirección donde vaya a vivir la app (por ejemplo `https://gastos-xxx.vercel.app`) y añádela también en *Redirect URLs*. Para probar en local, añade `http://localhost:5173`.
    *Opcional:* para que el correo traiga también un código de 6 dígitos (más cómodo en el móvil), en **Authentication → Emails → Templates** edita las plantillas *Magic Link* y *Confirm signup*. Supabase solo permite editarlas si antes configuras un servidor de correo propio (**Set up SMTP**, por ejemplo con Brevo gratis), lo que además quita el límite de pocos correos por hora. Ejemplo de plantilla:
 
@@ -83,6 +85,10 @@ DATABASE_URL=postgres://… scripts/test-db.sh   # migración + pruebas de acces
 ## Cómo se calcula el saldo
 
 Cada gasto pagado por una persona hace que la otra le deba su parte: la mitad por defecto o lo que se haya elegido en ese gasto (`owed_cents`). Un reembolso de A a B reduce lo que A debe a B. El cálculo está en [`src/lib/balance.ts`](src/lib/balance.ts) y trabaja en céntimos; solo se redondea al mostrarlo.
+
+## Gastos fijos
+
+Cada gasto fijo es una plantilla (`recurring_expenses`) con fecha de inicio y frecuencia. Al abrir la app se llama a `generate_recurring_expenses`, que apunta como gastos normales los que ya tocan, una sola vez aunque los dos móviles la llamen a la vez. Los meses conservan el día (si no existe, el último del mes). No hace falta ningún servidor ni tarea programada: si nadie abre la app en semanas, al abrirla se apuntan todos los pendientes con su fecha.
 
 ## Borrado de datos
 
