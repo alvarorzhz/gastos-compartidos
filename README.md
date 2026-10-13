@@ -54,6 +54,15 @@ Toda la lógica de permisos está en [`supabase/migrations/0001_init.sql`](supab
 
 Vercel publica solo cada cambio que llega a `main`. Si el cambio trae un archivo nuevo en `supabase/migrations/`, ejecútalo una vez en el **SQL Editor** de Supabase **antes** de fusionar, para que la base de datos ya tenga lo que la nueva versión necesita.
 
+## Versiones
+
+La app sigue versionado semántico (`MAYOR.MENOR.PARCHE`): funciones nuevas suben la versión menor (1.1.0), correcciones la de parche (1.0.1). Cada versión publicada:
+
+1. Sube `version` en `package.json` (`npm version 1.1.0 --no-git-tag-version`).
+2. Añade una entrada al principio de [`src/changelog.ts`](src/changelog.ts) con sus novedades, mejoras y correcciones. La app la muestra en **Ajustes → Ver novedades** y avisa una vez al abrir la versión nueva.
+
+Un test comprueba que ambas versiones coinciden.
+
 ## Desarrollo local
 
 ```bash

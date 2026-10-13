@@ -283,3 +283,12 @@ button.full { width: 100%; margin-top: 0.75rem; }
 .chip-btn { padding: 0.4rem 0.7rem; font-size: 0.85rem; align-self: flex-end; white-space: nowrap; }
 .split-tag { font-size: 0.75rem; background: var(--accent-soft); border-radius: 999px; padding: 0 0.45rem; margin-left: 0.3rem; color: var(--text); }
 .code-input { font-size: 1.6rem !important; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }
+
+.release h3 { margin: 0.5rem 0 0.4rem; }
+.release ul { margin: 0 0 1rem; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+.release li { font-size: 0.92rem; }
+.kind { display: inline-block; font-size: 0.72rem; font-weight: 600; border-radius: 999px; padding: 0.05rem 0.5rem; margin-right: 0.3rem; }
+.kind-nuevo { background: var(--accent-soft); }
+.kind-mejora { background: color-mix(in srgb, var(--warn) 25%, transparent); }
+.kind-correccion { background: color-mix(in srgb, var(--negative) 20%, transparent); }
+.notice.row { gap: 0.5rem; }
