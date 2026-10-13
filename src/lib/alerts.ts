@@ -34,14 +34,6 @@ export function budgetAlerts(month: string, categories: Category[], expenses: Ex
   return alerts.sort((a, b) => b.percent - a.percent);
 }
 
-const level = (a: BudgetAlert) => a.category.id + (a.spentCents > a.budgetCents ? ':pasado' : ':cerca');
-
-/** Avisos nuevos tras un cambio: categorías que acaban de llegar al aviso o de pasarse del presupuesto. */
-export function newAlerts(before: BudgetAlert[], after: BudgetAlert[]): BudgetAlert[] {
-  const had = new Set(before.map(level));
-  return after.filter((a) => !had.has(level(a)));
-}
-
 export function alertText(a: BudgetAlert): string {
   if (a.spentCents > a.budgetCents) return `${a.category.name}: os habéis pasado del presupuesto (${a.percent} %)`;
   if (a.percent >= 100) return `${a.category.name}: habéis gastado todo el presupuesto`;

@@ -17,7 +17,6 @@ export default function ExpensesView(props: ViewProps) {
   const [month, setMonth] = useState(monthOf(today()));
   const [editing, setEditing] = useState<Editing | null>(null);
   const [showFixed, setShowFixed] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [allMonths, setAllMonths] = useState(false);
@@ -32,10 +31,7 @@ export default function ExpensesView(props: ViewProps) {
   const alerts = budgetAlerts(monthOf(today()), data.categories, data.expenses, data.budgets);
   const sortedCategories = [...data.categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
-  function closeForm(msg?: string) {
-    setEditing(null);
-    if (msg) setMessage(msg);
-  }
+  const closeForm = () => setEditing(null);
 
   return (
     <>
@@ -45,12 +41,6 @@ export default function ExpensesView(props: ViewProps) {
       {partner && (
         <div className="balance-chip">
           <BalanceText balance={balance} partnerName={partner.display_name} />
-        </div>
-      )}
-      {message && (
-        <div className="notice warn-notice row" role="alert">
-          <span className="grow pre-line">⚠️ {message}</span>
-          <button className="icon small" onClick={() => setMessage(null)} aria-label="Cerrar aviso">✕</button>
         </div>
       )}
       {alerts.length > 0 && (

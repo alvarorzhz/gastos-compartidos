@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { budgetAlerts, newAlerts } from './alerts';
+import { budgetAlerts } from './alerts';
 import type { AlertPercent, Budget, Category, Expense } from './types';
 
 const cat = (id: string, alert_percent: AlertPercent | null): Category => ({ id, household_id: 'h', name: id, archived: false, alert_percent });
@@ -23,12 +23,5 @@ describe('budgetAlerts', () => {
   it('respeta "no avisar", las categorías sin presupuesto y el mes', () => {
     const expenses = [exp('ocio', 50000), exp('sinpresupuesto', 50000), exp('super', 50000, '2026-09-30'), exp('casa', 9999)];
     expect(budgetAlerts('2026-10-01', categories, expenses, budgets)).toEqual([]);
-  });
-
-  it('detecta cuando se pasa del presupuesto aunque ya avisara antes', () => {
-    const before = budgetAlerts('2026-10-01', categories, [exp('super', 9000)], budgets);
-    const after = budgetAlerts('2026-10-01', categories, [exp('super', 9000), exp('super', 2000)], budgets);
-    expect(newAlerts(before, before)).toEqual([]);
-    expect(newAlerts(before, after).map((a) => a.percent)).toEqual([110]);
   });
 });

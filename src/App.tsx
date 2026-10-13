@@ -10,6 +10,7 @@ import Login from './views/Login';
 import Onboarding from './views/Onboarding';
 import SettingsView from './views/SettingsView';
 import { WhatsNewBanner } from './views/WhatsNew';
+import { AlertsOnEntry } from './views/AlertsDialog';
 
 type Tab = 'gastos' | 'saldo' | 'presupuesto' | 'graficos' | 'ajustes';
 
@@ -90,6 +91,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
         {tab === 'graficos' && <ChartsView {...props} />}
         {tab === 'ajustes' && <SettingsView {...props} email={email} />}
       </main>
+      <AlertsOnEntry data={state.data} />
       <nav className="tabbar">
         {TABS.map((t) => (
           <button key={t.id} className={t.id === tab ? 'active' : ''} onClick={() => setTab(t.id)} aria-current={t.id === tab}>

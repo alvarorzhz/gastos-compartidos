@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { alertText, budgetAlerts, newAlerts } from '../lib/alerts';
-import { formatDay, monthOf, today } from '../lib/dates';
+import { formatDay, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recurring';
@@ -16,8 +15,7 @@ interface Props extends ViewProps {
   template?: RecurringExpense;
   /** Gasto nuevo que empieza marcado como mensual. */
   startAsFixed?: boolean;
-  /** Se cierra con un aviso opcional (por ejemplo, de presupuesto) para mostrarlo fuera. */
-  onClose: (message?: string) => void;
+  onClose: () => void;
 }
 
 export default function ExpenseForm({ data, me, reload, expense, template, startAsFixed, onClose }: Props) {
@@ -82,20 +80,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       : await supabase.from('expenses').insert({ ...fields, spent_on: date, household_id: data.household.id, created_by: me });
     setBusy(false);
     if (error) return setError(errorMessage(error));
-    const warning = alertAfterSave({ ...(expense ?? ({} as Expense)), ...fields, spent_on: date, id: expense?.id ?? 'nuevo' });
     await reload();
-    onClose(warning);
-  }
-
-  /** Si este gasto hace saltar un aviso de presupuesto de su mes, devuelve el texto. */
-  function alertAfterSave(saved: Expense): string | undefined {
-    const month = monthOf(saved.spent_on);
-    const after = [...data.expenses.filter((x) => x.id !== saved.id), saved];
-    const fresh = newAlerts(
-      budgetAlerts(month, data.categories, data.expenses, data.budgets),
-      budgetAlerts(month, data.categories, after, data.budgets),
-    );
-    return fresh.length ? fresh.map(alertText).join('\n') : undefined;
+    onClose();
   }
 
   async function remove() {
@@ -133,7 +119,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const showRepeat = !expense;
 
   return (
-    <Sheet title={title} onClose={() => onClose()}>
+    <Sheet title={title} onClose={onClose}>
       <form onSubmit={save} className="stack">
         {expense?.recurring_id && (
           <p className="notice small">🔁 Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</p>
