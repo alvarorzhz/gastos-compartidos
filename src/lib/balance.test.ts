@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { balanceFor, expenseEffect, settlementEffect } from './balance';
+import { balanceFor, expenseEffect, settlementEffect, shareOf } from './balance';
 import type { Expense, Settlement } from './types';
 
 const A = 'user-a';
@@ -8,13 +8,37 @@ const B = 'user-b';
 function expense(id: string, paid_by: string, amount_cents: number): Expense {
   return {
     id, household_id: 'h', amount_cents, spent_on: '2026-10-01', category_id: 'c', paid_by,
-    note: null, created_by: paid_by, created_at: '', updated_at: '',
+    owed_cents: null, note: null, created_by: paid_by, created_at: '', updated_at: '',
   };
 }
 
 function settlement(id: string, from_user: string, to_user: string, amount_cents: number): Settlement {
   return { id, household_id: 'h', amount_cents, paid_on: '2026-10-02', from_user, to_user, note: null, created_by: from_user, created_at: '' };
 }
+
+describe('reparto personalizado', () => {
+  it('usa owed_cents en vez de la mitad', () => {
+    const e = { ...expense('1', A, 10000), owed_cents: 7000 };
+    expect(balanceFor(A, [e], [])).toBe(7000);
+    expect(balanceFor(B, [e], [])).toBe(-7000);
+  });
+
+  it('un gasto pagado por uno pero solo del otro se debe entero', () => {
+    const e = { ...expense('1', B, 2500), owed_cents: 2500 };
+    expect(balanceFor(A, [e], [])).toBe(-2500);
+  });
+
+  it('un gasto con owed_cents 0 no mueve el saldo', () => {
+    const e = { ...expense('1', A, 2500), owed_cents: 0 };
+    expect(balanceFor(A, [e, expense('2', B, 1000)], [])).toBe(-500);
+  });
+
+  it('shareOf suma la parte de cada uno y cuadra con el total', () => {
+    const expenses = [{ ...expense('1', A, 10000), owed_cents: 7000 }, expense('2', B, 999)];
+    expect(shareOf(A, expenses)).toBe(3000 + 499.5);
+    expect(shareOf(A, expenses) + shareOf(B, expenses)).toBe(10999);
+  });
+});
 
 describe('balanceFor', () => {
   it('es cero sin movimientos', () => {

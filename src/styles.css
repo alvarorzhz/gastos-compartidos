@@ -277,3 +277,9 @@ button.full { width: 100%; margin-top: 0.75rem; }
   .sheet-backdrop { align-items: center; }
   .sheet { border-radius: 18px; }
 }
+
+.stack.tight { gap: 0.4rem; }
+.row > label.grow { min-width: 6rem; }
+.chip-btn { padding: 0.4rem 0.7rem; font-size: 0.85rem; align-self: flex-end; white-space: nowrap; }
+.split-tag { font-size: 0.75rem; background: var(--accent-soft); border-radius: 999px; padding: 0 0.45rem; margin-left: 0.3rem; color: var(--text); }
+.code-input { font-size: 1.6rem !important; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }

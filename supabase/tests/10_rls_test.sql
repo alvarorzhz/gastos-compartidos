@@ -62,6 +62,12 @@ select pg_temp.expect_error($$
   select h.id, 100, c.id, '00000000-0000-0000-0000-00000000000c', auth.uid()
   from households h join categories c on c.household_id = h.id limit 1 $$);
 
+-- Reparto personalizado: lo que debe quien no pagó no puede superar el importe.
+select pg_temp.expect_error($$ update expenses set owed_cents = 999999 $$);
+update expenses set owed_cents = 1234;
+select pg_temp.check((select owed_cents from expenses) = 1234, 'reparto personalizado guardado');
+update expenses set owed_cents = null;
+
 -- B lo corrige.
 select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
 update expenses set amount_cents = 2000;

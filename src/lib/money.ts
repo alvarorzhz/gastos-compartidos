@@ -7,9 +7,9 @@ export function formatEuros(cents: number): string {
 
 /**
  * Convierte lo que escribe la persona ("12,5", "12.50", "1.234,56") a céntimos.
- * Devuelve null si no es un importe positivo válido.
+ * Devuelve null si no es un importe positivo válido (o cero, con allowZero).
  */
-export function parseEuros(input: string): number | null {
+export function parseEuros(input: string, { allowZero = false } = {}): number | null {
   let s = input.trim().replace(/\s|€/g, '');
   if (!s) return null;
   const lastComma = s.lastIndexOf(',');
@@ -24,7 +24,7 @@ export function parseEuros(input: string): number | null {
   }
   if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
   const cents = Math.round(parseFloat(s) * 100);
-  return cents > 0 ? cents : null;
+  return cents > 0 || (allowZero && cents === 0) ? cents : null;
 }
 
 /** Céntimos a texto editable ("12,50"). */

@@ -42,7 +42,10 @@ export default function ExpensesView(props: ViewProps) {
               <li key={e.id}>
                 <button className="list-item" onClick={() => setEditing(e)}>
                   <div className="grow">
-                    <div className="title">{e.note || categoryName.get(e.category_id)}</div>
+                    <div className="title">
+                      {e.note || categoryName.get(e.category_id)}
+                      {e.owed_cents != null && <span className="split-tag">{splitLabel(e, me, partner?.display_name ?? '')}</span>}
+                    </div>
                     <div className="muted small">
                       {formatDay(e.spent_on)} · {categoryName.get(e.category_id)} · pagó {e.paid_by === me ? 'tú' : nameOf(data.members, e.paid_by)}
                     </div>
@@ -70,6 +73,16 @@ export default function ExpensesView(props: ViewProps) {
       )}
     </>
   );
+}
+
+/** Etiqueta del reparto personalizado desde el punto de vista de quien mira. */
+function splitLabel(e: Expense, me: string, partnerName: string): string {
+  const owed = e.owed_cents ?? e.amount_cents / 2;
+  const mine = e.paid_by === me ? e.amount_cents - owed : owed;
+  const p = Math.round((mine * 100) / e.amount_cents);
+  if (mine === e.amount_cents) return 'solo tuyo';
+  if (mine === 0) return `solo de ${partnerName}`;
+  return `tú ${p} %`;
 }
 
 export function BalanceText({ balance, partnerName }: { balance: number; partnerName: string }) {

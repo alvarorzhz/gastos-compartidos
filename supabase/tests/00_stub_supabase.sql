@@ -13,3 +13,4 @@ create function auth.jwt() returns jsonb language sql stable as
 grant usage on schema auth to anon, authenticated;
 grant usage on schema public to anon, authenticated;
 alter default privileges in schema public grant all on tables to anon, authenticated;
+create publication supabase_realtime;
