@@ -8,6 +8,7 @@ import ExpensesView from './views/ExpensesView';
 import Login from './views/Login';
 import Onboarding from './views/Onboarding';
 import SettingsView from './views/SettingsView';
+import { WhatsNewBanner } from './views/WhatsNew';
 
 type Tab = 'gastos' | 'saldo' | 'presupuesto' | 'ajustes';
 
@@ -80,6 +81,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
         <span>{state.data.household.name}</span>
       </header>
       <main className="content">
+        <WhatsNewBanner />
         {tab === 'gastos' && <ExpensesView {...props} />}
         {tab === 'saldo' && <BalanceView {...props} />}
         {tab === 'presupuesto' && <BudgetView {...props} />}

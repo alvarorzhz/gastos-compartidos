@@ -4,6 +4,7 @@ import { partnerOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { ViewProps } from './common';
 import InstallCard from './InstallCard';
+import { VersionCard } from './WhatsNew';
 
 export default function SettingsView(props: ViewProps & { email: string }) {
   const { data, me, reload, email } = props;
@@ -54,6 +55,8 @@ export default function SettingsView(props: ViewProps & { email: string }) {
       </section>
 
       <DangerZone {...props} />
+
+      <VersionCard />
 
       <button className="secondary full" onClick={() => supabase.auth.signOut()}>Cerrar sesión</button>
     </>
