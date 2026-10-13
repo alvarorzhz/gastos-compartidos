@@ -3,9 +3,13 @@
 App web privada, pensada para el móvil, para que dos personas apunten sus gastos comunes, vean quién debe a quién (reparto 50/50) y comparen cada mes lo gastado con lo presupuestado.
 
 - **Gastos**: importe, fecha, categoría, quién pagó y nota opcional. Cualquiera de los dos puede añadir, corregir o borrar.
+- **Reparto**: 50/50 por defecto; en cada gasto se puede elegir otro porcentaje, un importe exacto o que sea solo de una persona.
 - **Saldo**: se recalcula con cada gasto y reembolso. Los reembolsos (Bizum, transferencia…) solo se anotan; la app no mueve dinero.
 - **Presupuesto**: un importe mensual por categoría, con barra de progreso y opción de copiar el del mes anterior.
 - **Privacidad**: solo las dos cuentas del espacio ven los datos (lo garantiza la base de datos, no solo la app). Se puede exportar todo (CSV o JSON), borrar el espacio o borrar la cuenta.
+- **Acceso con código**: se entra con un código de 6 dígitos que llega por email (o con el enlace del mismo correo).
+- **Instalable**: se puede añadir a la pantalla de inicio del móvil y se abre a pantalla completa.
+- **Tiempo real**: lo que apunta una persona aparece al momento en el móvil de la otra.
 - Moneda: EUR. Sin conexión bancaria ni modo sin conexión en esta versión.
 
 ## Cómo está hecha
@@ -26,8 +30,15 @@ Toda la lógica de permisos está en [`supabase/migrations/0001_init.sql`](supab
 ## Puesta en marcha (una vez)
 
 1. **Crea un proyecto en Supabase** (plan Free, región UE, por ejemplo Frankfurt o París).
-2. En **SQL Editor**, pega y ejecuta el contenido de `supabase/migrations/0001_init.sql`.
+2. En **SQL Editor**, pega y ejecuta, en orden, cada archivo de `supabase/migrations/` (`0001_init.sql`, `0002_reparto_y_tiempo_real.sql`…). Cada archivo se ejecuta una sola vez.
 3. En **Authentication → URL Configuration**, pon como *Site URL* la dirección donde vaya a vivir la app (por ejemplo `https://gastos-xxx.vercel.app`) y añádela también en *Redirect URLs*. Para probar en local, añade `http://localhost:5173`.
+   En **Authentication → Emails → Templates**, edita las plantillas *Magic Link* y *Confirm signup* y añade el código, por ejemplo:
+
+   ```html
+   <h2>Tu código para Gastos compartidos</h2>
+   <p style="font-size:28px;letter-spacing:6px"><strong>{{ .Token }}</strong></p>
+   <p>O entra con este enlace: <a href="{{ .ConfirmationURL }}">Entrar</a></p>
+   ```
 4. En **Project Settings → API** copia la *Project URL* y la clave *anon public*.
 5. **Despliega en Vercel o Netlify** importando este repositorio y define estas variables de entorno:
    - `VITE_SUPABASE_URL`
@@ -38,6 +49,10 @@ Toda la lógica de permisos está en [`supabase/migrations/0001_init.sql`](supab
 7. Cuando ya estéis los dos dentro, en Supabase ve a **Authentication → Sign In / Providers** y desactiva *Allow new users to sign up*. Así nadie más puede ni siquiera crear una cuenta (aunque tampoco podría ver vuestros datos).
 
 > El envío de emails de Supabase en el plan gratuito tiene un límite bajo por hora; para dos personas sobra. Si algún enlace no llega, revisa la carpeta de spam.
+
+## Al actualizar la app
+
+Vercel publica solo cada cambio que llega a `main`. Si el cambio trae un archivo nuevo en `supabase/migrations/`, ejecútalo una vez en el **SQL Editor** de Supabase **antes** de fusionar, para que la base de datos ya tenga lo que la nueva versión necesita.
 
 ## Desarrollo local
 
@@ -58,7 +73,7 @@ DATABASE_URL=postgres://… scripts/test-db.sh   # migración + pruebas de acces
 
 ## Cómo se calcula el saldo
 
-Con reparto 50/50, cada gasto pagado por una persona hace que la otra le deba la mitad. Un reembolso de A a B reduce lo que A debe a B. El cálculo está en [`src/lib/balance.ts`](src/lib/balance.ts) y trabaja en céntimos; solo se redondea al mostrarlo.
+Cada gasto pagado por una persona hace que la otra le deba su parte: la mitad por defecto o lo que se haya elegido en ese gasto (`owed_cents`). Un reembolso de A a B reduce lo que A debe a B. El cálculo está en [`src/lib/balance.ts`](src/lib/balance.ts) y trabaja en céntimos; solo se redondea al mostrarlo.
 
 ## Borrado de datos
 

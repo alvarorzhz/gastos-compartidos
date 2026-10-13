@@ -18,6 +18,8 @@ export type LoadState =
   | { status: 'no-household'; invitation: Invitation | null }
   | { status: 'ready'; data: HouseholdData };
 
+const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets'];
+
 async function load(userId: string): Promise<LoadState> {
   const me = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle();
   if (me.error) throw me.error;
@@ -74,6 +76,32 @@ export function useHousehold(userId: string) {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [reload]);
+
+  // Tiempo real: cuando la otra persona cambia algo, se recarga todo (con un pequeño margen
+  // para agrupar varios cambios seguidos). RLS decide qué eventos llegan.
+  const householdId = state.status === 'ready' ? state.data.household.id : null;
+  useEffect(() => {
+    if (!householdId) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void reload(), 400);
+    };
+    const channel = supabase.channel(`hogar-${householdId}`);
+    for (const table of REALTIME_TABLES) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `${table === 'households' ? 'id' : 'household_id'}=eq.${householdId}` }, schedule);
+    }
+    // Los borrados no se pueden filtrar por hogar (solo traen el id de la fila), así que se
+    // escuchan aparte; como mucho provocan una recarga de más.
+    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members']) {
+      channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, schedule);
+    }
+    channel.subscribe();
+    return () => {
+      clearTimeout(timer);
+      void supabase.removeChannel(channel);
+    };
+  }, [householdId, reload]);
 
   return { state, reload };
 }

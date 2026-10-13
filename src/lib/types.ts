@@ -30,6 +30,8 @@ export interface Expense {
   spent_on: string; // YYYY-MM-DD
   category_id: string;
   paid_by: string;
+  /** Lo que debe a quien pagó la otra persona. null = 50/50. */
+  owed_cents: number | null;
   note: string | null;
   created_by: string | null;
   created_at: string;

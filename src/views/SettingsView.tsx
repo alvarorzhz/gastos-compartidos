@@ -3,6 +3,7 @@ import { exportCsv, exportJson } from '../lib/exportData';
 import { partnerOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { ViewProps } from './common';
+import InstallCard from './InstallCard';
 
 export default function SettingsView(props: ViewProps & { email: string }) {
   const { data, me, reload, email } = props;
@@ -29,6 +30,8 @@ export default function SettingsView(props: ViewProps & { email: string }) {
         />
         <p className="muted small">Has entrado como {email}.</p>
       </section>
+
+      <InstallCard />
 
       <section className="card">
         <h3>Tu pareja</h3>

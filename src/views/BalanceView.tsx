@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { balanceFor, totalPaidBy } from '../lib/balance';
+import { balanceFor, shareOf, totalPaidBy } from '../lib/balance';
 import { formatDay, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
@@ -44,8 +44,10 @@ export default function BalanceView(props: ViewProps) {
           <dd>{formatEuros(totalPaidBy(me, data.expenses))}</dd>
           <dt>Ha pagado {partner.display_name}</dt>
           <dd>{formatEuros(totalPaidBy(partner.user_id, data.expenses))}</dd>
-          <dt>A cada persona le toca</dt>
-          <dd>{formatEuros(total / 2)}</dd>
+          <dt>Te toca a ti</dt>
+          <dd>{formatEuros(shareOf(me, data.expenses))}</dd>
+          <dt>Le toca a {partner.display_name}</dt>
+          <dd>{formatEuros(shareOf(partner.user_id, data.expenses))}</dd>
         </dl>
         <p className="muted small">La app solo lleva la cuenta: los reembolsos los hacéis vosotros (Bizum, transferencia, efectivo…) y aquí se anotan.</p>
       </section>

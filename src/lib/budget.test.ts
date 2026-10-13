@@ -5,7 +5,7 @@ import type { Budget, Category, Expense } from './types';
 const cat = (id: string, name: string, archived = false): Category => ({ id, household_id: 'h', name, archived });
 const exp = (category_id: string, spent_on: string, amount_cents: number): Expense => ({
   id: Math.random().toString(), household_id: 'h', amount_cents, spent_on, category_id, paid_by: 'a',
-  note: null, created_by: 'a', created_at: '', updated_at: '',
+  owed_cents: null, note: null, created_by: 'a', created_at: '', updated_at: '',
 });
 
 describe('monthlySummary', () => {
