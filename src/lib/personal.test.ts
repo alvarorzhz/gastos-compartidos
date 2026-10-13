@@ -3,7 +3,7 @@ import { categoryOptions, myCommonShare, personalMonth } from './personal';
 import type { Expense, PersonalEntry } from './types';
 
 const entry = (kind: PersonalEntry['kind'], amount_cents: number, entry_on: string, category = 'Otros'): PersonalEntry => ({
-  id: Math.random().toString(), user_id: 'a', kind, amount_cents, entry_on, category, note: null, created_at: '',
+  id: Math.random().toString(), user_id: 'a', kind, amount_cents, entry_on, category, note: null, recurring_id: null, created_at: '',
 });
 const exp = (paid_by: string, amount_cents: number, spent_on: string, owed_cents: number | null = null): Expense => ({
   id: Math.random().toString(), household_id: 'h', amount_cents, spent_on, category_id: 'c', paid_by,

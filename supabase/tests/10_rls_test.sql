@@ -159,12 +159,43 @@ select pg_temp.check((select count(*) from personal_entries where amount_cents >
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
+-- Huchas: las ven y usan los dos; la aportación tiene que ser de un miembro.
+insert into savings_goals (household_id, name, target_cents)
+select household_id, 'Viaje a Italia', 150000 from members where user_id = auth.uid();
+insert into savings_contributions (household_id, goal_id, user_id, amount_cents)
+select household_id, id, auth.uid(), 20000 from savings_goals;
+select pg_temp.expect_error($$
+  insert into savings_contributions (household_id, goal_id, user_id, amount_cents)
+  select household_id, id, '00000000-0000-0000-0000-00000000000c', 100 from savings_goals $$);
+select pg_temp.expect_error($$
+  insert into savings_contributions (household_id, goal_id, user_id, amount_cents)
+  select household_id, id, auth.uid(), 0 from savings_goals $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+insert into savings_contributions (household_id, goal_id, user_id, amount_cents)
+select household_id, id, auth.uid(), -5000 from savings_goals;
+select pg_temp.check((select sum(amount_cents) from savings_contributions) = 15000, 'B ve la hucha y puede sacar dinero');
+select pg_temp.login('00000000-0000-0000-0000-00000000000d', 'd@example.com');
+select pg_temp.check((select count(*) from savings_goals) + (select count(*) from savings_contributions) = 0, 'D no ve huchas ajenas');
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
+-- Fijos personales: la nómina mensual de A se apunta sola y solo para A.
+insert into personal_recurring (kind, amount_cents, category, frequency, start_on)
+values ('income', 200000, 'Nómina', 'monthly', current_date - interval '1 month');
+select pg_temp.check(public.generate_personal_recurring(current_date) = 2, 'nómina fija apuntada dos meses');
+select pg_temp.check(public.generate_personal_recurring(current_date) = 0, 'fijos personales no se duplican');
+select pg_temp.check((select count(*) from personal_entries where recurring_id is not null) = 2, 'movimientos enlazados a su fijo');
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from personal_recurring) = 0, 'la pareja no ve los fijos personales');
+select pg_temp.check(public.generate_personal_recurring(current_date) = 0, 'la pareja no genera los fijos de otro');
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;
 select pg_temp.check((select count(*) from expenses) = 0, 'gastos borrados con el espacio');
 select pg_temp.check((select count(*) from households) = 1, 'solo queda el espacio de C');
-select pg_temp.check((select count(*) from personal_entries) = 2, 'borrar el espacio no toca lo personal');
+select pg_temp.check((select count(*) from personal_entries) = 4, 'borrar el espacio no toca lo personal');
+select pg_temp.check((select count(*) from savings_goals) = 0, 'huchas borradas con el espacio');
 
 -- Borrar cuenta: C era la única, su espacio desaparece con ella.
 set role authenticated;
@@ -180,3 +211,4 @@ select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 select public.delete_my_account();
 reset role;
 select pg_temp.check((select count(*) from personal_entries) = 0, 'movimientos personales borrados con la cuenta');
+select pg_temp.check((select count(*) from personal_recurring) = 0, 'fijos personales borrados con la cuenta');

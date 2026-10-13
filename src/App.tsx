@@ -12,6 +12,7 @@ import PersonalView from './views/PersonalView';
 import SettingsView from './views/SettingsView';
 import { WhatsNewBanner } from './views/WhatsNew';
 import { AlertsOnEntry } from './views/AlertsDialog';
+import { markCloseSeen, MonthCloseSheet, pendingClose } from './views/MonthClose';
 
 type View = 'gastos' | 'saldo' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
@@ -59,6 +60,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [view, setView] = useState<View>(readView);
   // Última vista abierta de cada pestaña, para volver a ella al tocar la pestaña.
   const [lastView, setLastView] = useState<Record<string, View>>({});
+  const [closeDismissed, setCloseDismissed] = useState(false);
 
   useEffect(() => {
     if (location.hash.slice(1) !== view) history.replaceState(null, '', '#' + view);
@@ -86,6 +88,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
 
   const props = { data: state.data, me: userId, reload };
   const tab = tabOf(view);
+  const closeMonth = closeDismissed ? null : pendingClose(props);
   return (
     <div className="app">
       <header className="topbar">
@@ -109,7 +112,10 @@ function Home({ userId, email }: { userId: string; email: string }) {
         {view === 'personal' && <PersonalView {...props} />}
         {view === 'ajustes' && <SettingsView {...props} email={email} />}
       </main>
-      <AlertsOnEntry data={state.data} />
+      {closeMonth && (
+        <MonthCloseSheet {...props} month={closeMonth} onClose={() => { markCloseSeen(closeMonth); setCloseDismissed(true); }} />
+      )}
+      <AlertsOnEntry data={state.data} waiting={closeMonth != null} />
       <nav className="tabbar">
         {TABS.map((t) => (
           <button

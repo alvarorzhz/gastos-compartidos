@@ -24,7 +24,7 @@ export function recurringDate(start: string, frequency: Frequency, n: number): s
 }
 
 /** Próxima fecha en la que se apuntará el gasto fijo. */
-export function nextDate(r: RecurringExpense): string {
+export function nextDate(r: Pick<RecurringExpense, 'start_on' | 'frequency' | 'generated_count'>): string {
   return recurringDate(r.start_on, r.frequency, r.generated_count);
 }
 

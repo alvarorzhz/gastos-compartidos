@@ -92,5 +92,44 @@ export interface PersonalEntry {
   entry_on: string; // YYYY-MM-DD
   category: string;
   note: string | null;
+  /** Fijo personal que lo apuntó, si lo hay. */
+  recurring_id: string | null;
+  created_at: string;
+}
+
+/** Hucha: objetivo de ahorro común. */
+export interface SavingsGoal {
+  id: string;
+  household_id: string;
+  name: string;
+  target_cents: number;
+  archived: boolean;
+  created_at: string;
+}
+
+/** Aportación a una hucha (negativa si se saca dinero). */
+export interface SavingsContribution {
+  id: string;
+  household_id: string;
+  goal_id: string;
+  user_id: string;
+  amount_cents: number;
+  contributed_on: string; // YYYY-MM-DD
+  note: string | null;
+  created_at: string;
+}
+
+/** Ingreso o gasto personal que se repite. Solo lo ve su dueño. */
+export interface PersonalRecurring {
+  id: string;
+  user_id: string;
+  kind: 'expense' | 'income';
+  amount_cents: number;
+  category: string;
+  note: string | null;
+  frequency: Frequency;
+  start_on: string;
+  generated_count: number;
+  active: boolean;
   created_at: string;
 }

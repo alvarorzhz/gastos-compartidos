@@ -3,13 +3,16 @@ import { formatDay, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { categoryOptions, myCommonShare, personalByCategory, personalMonth } from '../lib/personal';
 import { errorMessage, supabase } from '../lib/supabase';
-import type { PersonalEntry } from '../lib/types';
+import { FREQUENCIES, frequencyText, monthlyEquivalent, nextDate, recurringDate } from '../lib/recurring';
+import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
 import { MonthNav, Sheet, type ViewProps } from './common';
 
 export default function PersonalView(props: ViewProps) {
   const { data, me } = props;
   const [month, setMonth] = useState(monthOf(today()));
   const [editing, setEditing] = useState<PersonalEntry | 'expense' | 'income' | null>(null);
+  const [template, setTemplate] = useState<PersonalRecurring | null>(null);
+  const [showFixed, setShowFixed] = useState(false);
 
   const sum = personalMonth(data.personal, month);
   const common = myCommonShare(me, data.expenses, month);
@@ -59,6 +62,10 @@ export default function PersonalView(props: ViewProps) {
         </section>
       )}
 
+      <div className="row spread list-head">
+        <span className="muted small">Movimientos del mes</span>
+        <button className="link small" onClick={() => setShowFixed(true)}>🔁 Fijos ({data.personalRecurring.length})</button>
+      </div>
       {entries.length === 0 ? (
         <p className="empty">No has apuntado nada personal este mes.</p>
       ) : (
@@ -67,7 +74,7 @@ export default function PersonalView(props: ViewProps) {
             <li key={e.id}>
               <button className="list-item" onClick={() => setEditing(e)}>
                 <div className="grow">
-                  <div className="title">{e.note || e.category}</div>
+                  <div className="title">{e.recurring_id && <span aria-label="Fijo">🔁 </span>}{e.note || e.category}</div>
                   <div className="muted small">{formatDay(e.entry_on)} · {e.category}</div>
                 </div>
                 <div className={'amounts title ' + (e.kind === 'income' ? 'positive' : '')}>
@@ -79,6 +86,19 @@ export default function PersonalView(props: ViewProps) {
         </ul>
       )}
 
+      {showFixed && !template && (
+        <Sheet title="Ingresos y gastos fijos" onClose={() => setShowFixed(false)}>
+          <FixedList items={data.personalRecurring} onEdit={setTemplate} />
+          <div className="row">
+            <button className="secondary grow" onClick={() => { setShowFixed(false); setEditing('income'); }}>＋ Ingreso fijo</button>
+            <button className="secondary grow" onClick={() => { setShowFixed(false); setEditing('expense'); }}>＋ Gasto fijo</button>
+          </div>
+          <p className="muted small">Al crear un ingreso o gasto, elige cada cuánto se repite y se apuntará solo.</p>
+        </Sheet>
+      )}
+      {template && (
+        <PersonalForm {...props} entry={null} template={template} kind={template.kind} onClose={() => setTemplate(null)} />
+      )}
       {editing && (
         <PersonalForm
           {...props}
@@ -91,16 +111,52 @@ export default function PersonalView(props: ViewProps) {
   );
 }
 
-function PersonalForm({ data, reload, entry, kind: initialKind, onClose }: ViewProps & {
+function FixedList({ items, onEdit }: { items: PersonalRecurring[]; onEdit: (r: PersonalRecurring) => void }) {
+  if (items.length === 0) return <p className="empty">Todavía no tienes fijos. Por ejemplo: la nómina, el gimnasio o Netflix.</p>;
+  const active = items.filter((r) => r.active);
+  const income = active.filter((r) => r.kind === 'income').reduce((s, r) => s + monthlyEquivalent(r), 0);
+  const expense = active.filter((r) => r.kind === 'expense').reduce((s, r) => s + monthlyEquivalent(r), 0);
+  const sorted = [...items].sort((a, b) => Number(b.active) - Number(a.active) || nextDate(a).localeCompare(nextDate(b)));
+  return (
+    <div className="stack">
+      <p className="small">Al mes, unos <strong className="positive">{formatEuros(income)}</strong> de ingresos fijos y <strong className="negative">{formatEuros(expense)}</strong> de gastos fijos.</p>
+      <ul className="list">
+        {sorted.map((r) => (
+          <li key={r.id}>
+            <button className={'list-item' + (r.active ? '' : ' paused')} onClick={() => onEdit(r)}>
+              <div className="grow">
+                <div className="title">{r.note || r.category}</div>
+                <div className="muted small">
+                  {r.active ? `${frequencyText(r.frequency)} · próximo ${formatDay(nextDate(r))}` : 'En pausa'} · {r.category}
+                </div>
+              </div>
+              <div className={'amounts title ' + (r.kind === 'income' ? 'positive' : '')}>
+                {r.kind === 'income' ? '+' : '−'}{formatEuros(r.amount_cents)}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PersonalForm({ data, reload, entry, template, kind: initialKind, onClose }: ViewProps & {
   entry: PersonalEntry | null;
+  /** Si se pasa, se edita este fijo en vez de un movimiento. */
+  template?: PersonalRecurring;
   kind: PersonalEntry['kind'];
   onClose: () => void;
 }) {
+  const source = template ?? entry;
+  const initialDate = template ? nextDate(template) : entry?.entry_on ?? today();
   const [kind, setKind] = useState(initialKind);
-  const [amount, setAmount] = useState(entry ? centsToInput(entry.amount_cents) : '');
-  const [category, setCategory] = useState(entry?.category ?? '');
-  const [date, setDate] = useState(entry?.entry_on ?? today());
-  const [note, setNote] = useState(entry?.note ?? '');
+  const [amount, setAmount] = useState(source ? centsToInput(source.amount_cents) : '');
+  const [category, setCategory] = useState(source?.category ?? '');
+  const [date, setDate] = useState(initialDate);
+  const [note, setNote] = useState(source?.note ?? '');
+  // '' = no se repite. Solo para movimientos nuevos y fijos.
+  const [frequency, setFrequency] = useState<Frequency | ''>(template?.frequency ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const options = categoryOptions(data.personal, kind);
@@ -112,10 +168,44 @@ function PersonalForm({ data, reload, entry, kind: initialKind, onClose }: ViewP
     const cat = category.trim() || options[options.length - 1];
     setBusy(true);
     setError(null);
-    const fields = { kind, amount_cents: cents, category: cat.slice(0, 40), entry_on: date, note: note.trim() || null };
-    const { error } = entry
-      ? await supabase.from('personal_entries').update(fields).eq('id', entry.id)
-      : await supabase.from('personal_entries').insert(fields);
+    const base = { kind, amount_cents: cents, category: cat.slice(0, 40), note: note.trim() || null };
+    let result;
+    if (template) {
+      const rescheduled = date !== initialDate || frequency !== template.frequency;
+      if (rescheduled && date <= today()) {
+        setBusy(false);
+        return setError('La próxima vez tiene que ser una fecha a partir de mañana');
+      }
+      result = await supabase
+        .from('personal_recurring')
+        .update(rescheduled ? { ...base, frequency, start_on: date, generated_count: 0 } : base)
+        .eq('id', template.id);
+    } else if (!entry && frequency) {
+      result = await supabase.from('personal_recurring').insert({ ...base, frequency, start_on: date });
+    } else {
+      const fields = { ...base, entry_on: date };
+      result = entry
+        ? await supabase.from('personal_entries').update(fields).eq('id', entry.id)
+        : await supabase.from('personal_entries').insert(fields);
+    }
+    const { error } = result;
+    setBusy(false);
+    if (error) return setError(errorMessage(error));
+    await reload();
+    onClose();
+  }
+
+  async function toggleActive() {
+    if (!template) return;
+    const patch: Partial<PersonalRecurring> = { active: !template.active };
+    if (!template.active) {
+      // Al reanudar no se apuntan los periodos en pausa.
+      let n = template.generated_count;
+      while (recurringDate(template.start_on, template.frequency, n) < today()) n++;
+      patch.generated_count = n;
+    }
+    setBusy(true);
+    const { error } = await supabase.from('personal_recurring').update(patch).eq('id', template.id);
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
@@ -123,9 +213,12 @@ function PersonalForm({ data, reload, entry, kind: initialKind, onClose }: ViewP
   }
 
   async function remove() {
-    if (!entry || !confirm('¿Borrar este movimiento?')) return;
+    const message = template ? '¿Borrar este fijo? Lo que ya se apuntó se queda.' : '¿Borrar este movimiento?';
+    if (!source || !confirm(message)) return;
     setBusy(true);
-    const { error } = await supabase.from('personal_entries').delete().eq('id', entry.id);
+    const { error } = template
+      ? await supabase.from('personal_recurring').delete().eq('id', template.id)
+      : await supabase.from('personal_entries').delete().eq('id', entry!.id);
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
@@ -133,7 +226,10 @@ function PersonalForm({ data, reload, entry, kind: initialKind, onClose }: ViewP
   }
 
   return (
-    <Sheet title={entry ? 'Editar movimiento personal' : kind === 'income' ? 'Nuevo ingreso' : 'Nuevo gasto personal'} onClose={onClose}>
+    <Sheet
+      title={template ? 'Editar fijo' : entry ? 'Editar movimiento personal' : kind === 'income' ? 'Nuevo ingreso' : 'Nuevo gasto personal'}
+      onClose={onClose}
+    >
       <form onSubmit={save} className="stack">
         <fieldset className="segmented">
           <legend>Tipo</legend>
@@ -160,17 +256,44 @@ function PersonalForm({ data, reload, entry, kind: initialKind, onClose }: ViewP
             <button type="button" key={o} className={'chip-btn ' + (category === o ? 'primary' : 'secondary')} onClick={() => setCategory(o)}>{o}</button>
           ))}
         </div>
+        {!entry && (
+          <fieldset className="segmented">
+            <legend>Repetir</legend>
+            {!template && (
+              <label className={frequency === '' ? 'selected' : ''}>
+                <input type="radio" name="pfreq" checked={frequency === ''} onChange={() => setFrequency('')} />
+                No
+              </label>
+            )}
+            {FREQUENCIES.map((f) => (
+              <label key={f.id} className={frequency === f.id ? 'selected' : ''}>
+                <input type="radio" name="pfreq" checked={frequency === f.id} onChange={() => setFrequency(f.id)} />
+                {f.label}
+              </label>
+            ))}
+          </fieldset>
+        )}
         <label>
-          Fecha
+          {template ? 'Próxima vez' : frequency ? 'Primera vez' : 'Fecha'}
           <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
+        {frequency && !template && (
+          <p className="muted small">
+            Se apuntará solo {frequencyText(frequency)} desde el {formatDay(date)}.
+            {date < today() && ' Como esa fecha ya pasó, también se apuntarán ahora los anteriores hasta hoy.'}
+          </p>
+        )}
+        {template && !template.active && <p className="muted small">En pausa: no se apunta hasta que lo reanudes.</p>}
         <label>
           Nota (opcional)
-          <input maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
+          <input maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder={frequency ? 'Ej.: nómina, gimnasio' : ''} />
         </label>
         {error && <p className="error">{error}</p>}
-        <div className="row">
-          {entry && <button type="button" className="danger" onClick={remove} disabled={busy}>Borrar</button>}
+        <div className="row wrap">
+          {source && <button type="button" className="danger" onClick={remove} disabled={busy}>Borrar</button>}
+          {template && (
+            <button type="button" className="secondary" onClick={toggleActive} disabled={busy}>{template.active ? 'Pausar' : 'Reanudar'}</button>
+          )}
           <button className="primary grow" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
         </div>
       </form>
