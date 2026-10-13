@@ -6,7 +6,7 @@ const ME = 'me';
 const OTHER = 'other';
 const base: Expense = {
   id: '1', household_id: 'h', amount_cents: 10000, spent_on: '2026-10-13', category_id: 'c', paid_by: ME,
-  owed_cents: null, note: null, created_by: ME, created_at: '', updated_at: '',
+  owed_cents: null, note: null, recurring_id: null, created_by: ME, created_at: '', updated_at: '',
 };
 
 describe('owedFromSplit', () => {

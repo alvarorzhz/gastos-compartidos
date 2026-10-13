@@ -29,8 +29,8 @@ export function owedFromSplit(split: SplitState, amountCents: number, payerIsMe:
   return payerIsMe ? amountCents - mine : mine;
 }
 
-/** Estado inicial del formulario a partir de un gasto guardado. */
-export function splitFromExpense(e: Expense | null, me: string): SplitState {
+/** Estado inicial del formulario a partir de un gasto (o gasto fijo) guardado. */
+export function splitFromExpense(e: Pick<Expense, 'amount_cents' | 'paid_by' | 'owed_cents'> | null | undefined, me: string): SplitState {
   if (!e || e.owed_cents == null) return { mode: 'equal', myShare: '50' };
   const mine = e.paid_by === me ? e.amount_cents - e.owed_cents : e.owed_cents;
   const percent = (mine * 100) / e.amount_cents;

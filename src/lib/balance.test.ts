@@ -8,7 +8,7 @@ const B = 'user-b';
 function expense(id: string, paid_by: string, amount_cents: number): Expense {
   return {
     id, household_id: 'h', amount_cents, spent_on: '2026-10-01', category_id: 'c', paid_by,
-    owed_cents: null, note: null, created_by: paid_by, created_at: '', updated_at: '',
+    owed_cents: null, note: null, recurring_id: null, created_by: paid_by, created_at: '', updated_at: '',
   };
 }
 

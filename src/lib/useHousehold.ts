@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { today } from './dates';
 import { supabase } from './supabase';
-import type { Budget, Category, Expense, Household, Invitation, Member, Settlement } from './types';
+import type { Budget, Category, Expense, Household, Invitation, Member, RecurringExpense, Settlement } from './types';
 
 export interface HouseholdData {
   household: Household;
@@ -10,6 +11,7 @@ export interface HouseholdData {
   expenses: Expense[];
   settlements: Settlement[];
   budgets: Budget[];
+  recurring: RecurringExpense[];
 }
 
 export type LoadState =
@@ -18,7 +20,7 @@ export type LoadState =
   | { status: 'no-household'; invitation: Invitation | null }
   | { status: 'ready'; data: HouseholdData };
 
-const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets'];
+const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses'];
 
 async function load(userId: string): Promise<LoadState> {
   const me = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle();
@@ -30,7 +32,10 @@ async function load(userId: string): Promise<LoadState> {
     return { status: 'no-household', invitation: inv.data };
   }
   const h = me.data.household_id as string;
-  const [household, members, invitation, categories, expenses, settlements, budgets] = await Promise.all([
+  // Antes de leer, apunta los gastos fijos que ya tocan (no hace nada si no hay ninguno pendiente).
+  const generated = await supabase.rpc('generate_recurring_expenses', { p_today: today() });
+  if (generated.error) throw generated.error;
+  const [household, members, invitation, categories, expenses, settlements, budgets, recurring] = await Promise.all([
     supabase.from('households').select('*').eq('id', h).single(),
     supabase.from('members').select('*').eq('household_id', h).order('joined_at'),
     supabase.from('invitations').select('*').eq('household_id', h).maybeSingle(),
@@ -38,8 +43,9 @@ async function load(userId: string): Promise<LoadState> {
     supabase.from('expenses').select('*').eq('household_id', h).order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
     supabase.from('settlements').select('*').eq('household_id', h).order('paid_on', { ascending: false }).order('created_at', { ascending: false }),
     supabase.from('budgets').select('*').eq('household_id', h),
+    supabase.from('recurring_expenses').select('*').eq('household_id', h).order('created_at'),
   ]);
-  for (const r of [household, members, invitation, categories, expenses, settlements, budgets]) {
+  for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring]) {
     if (r.error) throw r.error;
   }
   return {
@@ -52,6 +58,7 @@ async function load(userId: string): Promise<LoadState> {
       expenses: expenses.data ?? [],
       settlements: settlements.data ?? [],
       budgets: budgets.data ?? [],
+      recurring: recurring.data ?? [],
     },
   };
 }
@@ -93,7 +100,7 @@ export function useHousehold(userId: string) {
     }
     // Los borrados no se pueden filtrar por hogar (solo traen el id de la fila), así que se
     // escuchan aparte; como mucho provocan una recarga de más.
-    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members']) {
+    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses']) {
       channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, schedule);
     }
     channel.subscribe();

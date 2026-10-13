@@ -4,18 +4,20 @@ import { isConfigured, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
 import BalanceView from './views/BalanceView';
 import BudgetView from './views/BudgetView';
+import ChartsView from './views/ChartsView';
 import ExpensesView from './views/ExpensesView';
 import Login from './views/Login';
 import Onboarding from './views/Onboarding';
 import SettingsView from './views/SettingsView';
 import { WhatsNewBanner } from './views/WhatsNew';
 
-type Tab = 'gastos' | 'saldo' | 'presupuesto' | 'ajustes';
+type Tab = 'gastos' | 'saldo' | 'presupuesto' | 'graficos' | 'ajustes';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'gastos', label: 'Gastos', icon: '🧾' },
   { id: 'saldo', label: 'Saldo', icon: '⚖️' },
-  { id: 'presupuesto', label: 'Presupuesto', icon: '📊' },
+  { id: 'presupuesto', label: 'Presupuesto', icon: '🎯' },
+  { id: 'graficos', label: 'Gráficos', icon: '📊' },
   { id: 'ajustes', label: 'Ajustes', icon: '⚙️' },
 ];
 
@@ -85,6 +87,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
         {tab === 'gastos' && <ExpensesView {...props} />}
         {tab === 'saldo' && <BalanceView {...props} />}
         {tab === 'presupuesto' && <BudgetView {...props} />}
+        {tab === 'graficos' && <ChartsView {...props} />}
         {tab === 'ajustes' && <SettingsView {...props} email={email} />}
       </main>
       <nav className="tabbar">

@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { ALERT_OPTIONS } from '../lib/alerts';
 import { monthlySummary, totals, type BudgetRow } from '../lib/budget';
 import { addMonths, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { errorMessage, supabase } from '../lib/supabase';
+import type { AlertPercent } from '../lib/types';
 import { MonthNav, type ViewProps } from './common';
 
 export default function BudgetView({ data, reload }: ViewProps) {
@@ -20,6 +22,12 @@ export default function BudgetView({ data, reload }: ViewProps) {
       cents == null
         ? await supabase.from('budgets').delete().match(key)
         : await supabase.from('budgets').upsert({ ...key, amount_cents: cents });
+    if (error) alert(errorMessage(error));
+    await reload();
+  }
+
+  async function saveAlert(categoryId: string, value: AlertPercent | null) {
+    const { error } = await supabase.from('categories').update({ alert_percent: value }).eq('id', categoryId);
     if (error) alert(errorMessage(error));
     await reload();
   }
@@ -53,17 +61,29 @@ export default function BudgetView({ data, reload }: ViewProps) {
         )}
       </section>
 
-      <p className="muted small">Toca un presupuesto para cambiarlo. Déjalo vacío para quitarlo.</p>
+      <p className="muted small">
+        Toca un presupuesto para cambiarlo. Déjalo vacío para quitarlo. En cada categoría con presupuesto puedes elegir
+        cuándo avisar: la app lo muestra en Gastos al llegar a ese porcentaje.
+      </p>
       <ul className="list">
         {rows.map((r) => (
-          <BudgetLine key={r.category.id + month} row={r} onSave={(c) => saveBudget(r.category.id, c)} />
+          <BudgetLine
+            key={r.category.id + month}
+            row={r}
+            onSave={(c) => saveBudget(r.category.id, c)}
+            onAlert={(v) => saveAlert(r.category.id, v)}
+          />
         ))}
       </ul>
     </>
   );
 }
 
-function BudgetLine({ row, onSave }: { row: BudgetRow; onSave: (cents: number | null) => Promise<void> }) {
+function BudgetLine({ row, onSave, onAlert }: {
+  row: BudgetRow;
+  onSave: (cents: number | null) => Promise<void>;
+  onAlert: (value: AlertPercent | null) => Promise<void>;
+}) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(row.budgetCents != null ? centsToInput(row.budgetCents) : '');
   const [invalid, setInvalid] = useState(false);
@@ -101,7 +121,23 @@ function BudgetLine({ row, onSave }: { row: BudgetRow; onSave: (cents: number | 
           )}
         </span>
       </div>
-      {row.budgetCents != null && row.budgetCents > 0 && <Progress spent={row.spentCents} budget={row.budgetCents} />}
+      {row.budgetCents != null && row.budgetCents > 0 && (
+        <>
+          <Progress spent={row.spentCents} budget={row.budgetCents} />
+          <label className="alert-select">
+            Avisar al
+            <select
+              value={row.category.alert_percent ?? ''}
+              onChange={(e) => onAlert(e.target.value ? (Number(e.target.value) as AlertPercent) : null)}
+              aria-label={`Aviso de ${row.category.name}`}
+            >
+              {ALERT_OPTIONS.map((o) => (
+                <option key={o.label} value={o.value ?? ''}>{o.label}</option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
     </li>
   );
 }
