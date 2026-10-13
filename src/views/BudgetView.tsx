@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { ALERT_OPTIONS } from '../lib/alerts';
+import { useId, useState, type FormEvent } from 'react';
+import { ALERT_OPTIONS, alertText, budgetAlerts } from '../lib/alerts';
 import { monthlySummary, totals, type BudgetRow } from '../lib/budget';
-import { addMonths, monthOf, today } from '../lib/dates';
+import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { AlertPercent } from '../lib/types';
-import { MonthNav, type ViewProps } from './common';
+import { AmountField, CategoryIcon, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { Icon } from './icons';
 import { MonthCloseSheet } from './MonthClose';
 import Savings from './Savings';
 
@@ -14,27 +15,17 @@ export default function BudgetView(props: ViewProps) {
   const [month, setMonth] = useState(monthOf(today()));
   const [busy, setBusy] = useState(false);
   const [showClose, setShowClose] = useState(false);
+  const [editing, setEditing] = useState<BudgetRow | null>(null);
   const rows = monthlySummary(month, data.categories, data.expenses, data.budgets);
   const sum = totals(rows);
   const previous = addMonths(month, -1);
   const previousBudgets = data.budgets.filter((b) => b.month === previous);
   const hasBudget = data.budgets.some((b) => b.month === month);
-
-  async function saveBudget(categoryId: string, cents: number | null) {
-    const key = { household_id: data.household.id, category_id: categoryId, month };
-    const { error } =
-      cents == null
-        ? await supabase.from('budgets').delete().match(key)
-        : await supabase.from('budgets').upsert({ ...key, amount_cents: cents });
-    if (error) alert(errorMessage(error));
-    await reload();
-  }
-
-  async function saveAlert(categoryId: string, value: AlertPercent | null) {
-    const { error } = await supabase.from('categories').update({ alert_percent: value }).eq('id', categoryId);
-    if (error) alert(errorMessage(error));
-    await reload();
-  }
+  const isCurrent = month === monthOf(today());
+  const alerts = isCurrent ? budgetAlerts(month, data.categories, data.expenses, data.budgets) : [];
+  const left = sum.budgetCents - sum.spentCents;
+  const ratio = sum.budgetCents > 0 ? sum.spentCents / sum.budgetCents : 0;
+  const status = sum.budgetCents <= 0 ? null : ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok';
 
   async function copyPrevious() {
     setBusy(true);
@@ -42,7 +33,8 @@ export default function BudgetView(props: ViewProps) {
       .from('budgets')
       .upsert(previousBudgets.map((b) => ({ ...b, month })));
     setBusy(false);
-    if (error) alert(errorMessage(error));
+    if (error) toast(errorMessage(error), 'error');
+    else toast('Presupuesto copiado del mes anterior');
     await reload();
   }
 
@@ -50,118 +42,192 @@ export default function BudgetView(props: ViewProps) {
     <>
       <MonthNav month={month} onChange={setMonth} />
 
-      <section className="card">
-        <div className="row spread">
-          <span>Gastado</span>
-          <strong>{formatEuros(sum.spentCents)}</strong>
+      <section className="card hero" aria-label={`Presupuesto de ${formatMonth(month)}`}>
+        <div className="hero-top">
+          <div className="hero-label">
+            <p className="stat-label">{left >= 0 || !hasBudget ? 'Presupuesto restante' : 'Por encima del presupuesto'}</p>
+            {status && (
+              <span className={'status-pill status-' + status}>
+                <Icon name={status === 'ok' ? 'check' : 'alert'} size={15} />
+                {status === 'ok' ? 'Dentro del presupuesto' : status === 'warn' ? 'Cerca del límite' : 'Por encima'}
+              </span>
+            )}
+          </div>
+          <p className={'stat-big' + (hasBudget && left < 0 ? ' negative' : '')}>{hasBudget ? formatEuros(Math.abs(left)) : '—'}</p>
         </div>
-        <div className="row spread">
-          <span>Presupuesto</span>
-          <strong>{sum.budgetCents ? formatEuros(sum.budgetCents) : '—'}</strong>
+        {sum.budgetCents > 0 && <Progress value={sum.spentCents} max={sum.budgetCents} label="Presupuesto gastado" />}
+        <div className={'stat-grid' + (sum.budgetCents > 0 ? ' three' : '')}>
+          <div className="stat-tile">
+            <span className="stat-label">Presupuesto</span>
+            <strong>{sum.budgetCents ? formatEuros(sum.budgetCents) : 'Sin poner'}</strong>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-label">Gastado</span>
+            <strong>{formatEuros(sum.spentCents)}</strong>
+          </div>
+          {sum.budgetCents > 0 && (
+            <div className="stat-tile">
+              <span className="stat-label">Usado</span>
+              <strong>{Math.round(ratio * 100)} %</strong>
+            </div>
+          )}
         </div>
-        {sum.budgetCents > 0 && <Progress spent={sum.spentCents} budget={sum.budgetCents} />}
-        <button className="link small" onClick={() => setShowClose(true)}>📋 Ver resumen de este mes</button>
-        {!hasBudget && previousBudgets.length > 0 && (
-          <button className="secondary" onClick={copyPrevious} disabled={busy}>Copiar presupuesto del mes anterior</button>
+        {!hasBudget && (
+          <Notice
+            action={previousBudgets.length > 0 && (
+              <button className="sm tinted" onClick={copyPrevious} disabled={busy}>{busy ? 'Copiando…' : 'Copiar el anterior'}</button>
+            )}
+          >
+            Aún no hay presupuesto para este mes. Toca una categoría de abajo para ponerle un límite
+            {previousBudgets.length > 0 ? ', o copia el del mes anterior.' : '.'}
+          </Notice>
         )}
+        <div className="row wrap">
+          <button className="pill" onClick={() => setShowClose(true)}><Icon name="list" size={16} /> Resumen del mes</button>
+          <button className="pill" onClick={() => (location.hash = '#graficos')}><Icon name="chart" size={16} /> Ver evolución</button>
+        </div>
       </section>
 
-      <p className="muted small">
-        Toca un presupuesto para cambiarlo. Déjalo vacío para quitarlo. En cada categoría con presupuesto puedes elegir
-        cuándo avisar: la app lo muestra en Gastos al llegar a ese porcentaje.
-      </p>
-      <ul className="list">
-        {rows.map((r) => (
-          <BudgetLine
-            key={r.category.id + month}
-            row={r}
-            onSave={(c) => saveBudget(r.category.id, c)}
-            onAlert={(v) => saveAlert(r.category.id, v)}
-          />
-        ))}
-      </ul>
+      {alerts.length > 0 && (
+        <div className="stack-sm" aria-label="Avisos de presupuesto">
+          {alerts.map((a) => (
+            <Notice key={a.category.id} kind={a.spentCents > a.budgetCents ? 'over' : 'warn'}>{alertText(a)}</Notice>
+          ))}
+        </div>
+      )}
+
+      <section className="section" aria-labelledby="budget-categories">
+        <SectionHeader id="budget-categories" title="Por categoría" />
+        <ul className="list with-icons">
+          {rows.map((r) => (
+            <BudgetLine key={r.category.id + month} row={r} onOpen={() => setEditing(r)} />
+          ))}
+        </ul>
+        <p className="muted small" style={{ padding: '0 var(--s1)' }}>
+          Toca una categoría para cambiar su presupuesto o cuándo avisar. Los avisos salen al abrir la app y en Inicio.
+        </p>
+      </section>
 
       <Savings {...props} />
+
+      {editing && <BudgetSheet {...props} month={month} row={editing} onClose={() => setEditing(null)} />}
       {showClose && <MonthCloseSheet {...props} month={month} onClose={() => setShowClose(false)} />}
     </>
   );
 }
 
-function BudgetLine({ row, onSave, onAlert }: {
-  row: BudgetRow;
-  onSave: (cents: number | null) => Promise<void>;
-  onAlert: (value: AlertPercent | null) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(row.budgetCents != null ? centsToInput(row.budgetCents) : '');
-  const [invalid, setInvalid] = useState(false);
-
-  async function commit() {
-    const trimmed = value.trim();
-    const cents = trimmed === '' ? null : parseEuros(trimmed);
-    if (trimmed !== '' && cents == null) return setInvalid(true);
-    setInvalid(false);
-    setEditing(false);
-    if (cents !== row.budgetCents) await onSave(cents);
-  }
-
+function BudgetLine({ row, onOpen }: { row: BudgetRow; onOpen: () => void }) {
+  const budget = row.budgetCents;
+  const left = budget != null ? budget - row.spentCents : 0;
+  const pct = budget ? Math.round((row.spentCents * 100) / budget) : 0;
   return (
-    <li className="list-item static budget-line">
-      <div className="row spread">
-        <span className="title">{row.category.name}{row.category.archived ? ' (archivada)' : ''}</span>
-        <span>
-          {formatEuros(row.spentCents)} /{' '}
-          {editing ? (
-            <input
-              className={'inline-input' + (invalid ? ' invalid' : '')}
-              inputMode="decimal"
-              autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onBlur={commit}
-              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              aria-label={`Presupuesto de ${row.category.name}`}
-            />
+    <li>
+      <button className="row-item budget-item" onClick={onOpen} aria-label={`${row.category.name}: ${formatEuros(row.spentCents)}${budget != null ? ` de ${formatEuros(budget)}` : ', sin presupuesto'}. Cambiar presupuesto`}>
+        <span className="row-top">
+          <CategoryIcon name={row.category.name} />
+          <span className="row-main">
+            <span className="row-title">
+              {row.category.name}
+              {row.category.archived && <> <span className="tag">Archivada</span></>}
+            </span>
+            <span className="row-meta">{budget != null ? `${formatEuros(row.spentCents)} de ${formatEuros(budget)}` : `${formatEuros(row.spentCents)} · sin presupuesto`}</span>
+          </span>
+          {budget == null ? (
+            <span className="link-btn small">Poner</span>
           ) : (
-            <button className="link" onClick={() => setEditing(true)}>
-              {row.budgetCents != null ? formatEuros(row.budgetCents) : 'sin presupuesto'}
-            </button>
+            <span className={'row-amount ' + (left < 0 ? 'negative' : '')}>{pct} %</span>
           )}
         </span>
-      </div>
-      {row.budgetCents != null && row.budgetCents > 0 && (
-        <>
-          <Progress spent={row.spentCents} budget={row.budgetCents} />
-          <label className="alert-select">
-            Avisar al
-            <select
-              value={row.category.alert_percent ?? ''}
-              onChange={(e) => onAlert(e.target.value ? (Number(e.target.value) as AlertPercent) : null)}
-              aria-label={`Aviso de ${row.category.name}`}
-            >
-              {ALERT_OPTIONS.map((o) => (
-                <option key={o.label} value={o.value ?? ''}>{o.label}</option>
-              ))}
-            </select>
-          </label>
-        </>
-      )}
+        {budget != null && budget > 0 && (
+          <>
+            <Progress value={row.spentCents} max={budget} label={`Presupuesto de ${row.category.name}`} />
+            <span className="budget-foot">
+              <span className={left < 0 ? 'negative' : ''}>{left >= 0 ? `Quedan ${formatEuros(left)}` : `Os habéis pasado ${formatEuros(-left)}`}</span>
+              <span>{row.category.alert_percent ? `Aviso al ${row.category.alert_percent} %` : 'Sin aviso'}</span>
+            </span>
+          </>
+        )}
+      </button>
     </li>
   );
 }
 
-function Progress({ spent, budget }: { spent: number; budget: number }) {
-  const ratio = spent / budget;
-  const level = ratio > 1 ? 'over' : ratio > 0.85 ? 'warn' : 'ok';
-  const left = budget - spent;
+type AlertValue = '80' | '90' | '100' | 'none';
+const toAlertValue = (v: AlertPercent | null): AlertValue => (v == null ? 'none' : (String(v) as AlertValue));
+
+function BudgetSheet({ data, reload, month, row, onClose }: ViewProps & { month: string; row: BudgetRow; onClose: () => void }) {
+  const formId = useId();
+  const [value, setValue] = useState(row.budgetCents != null ? centsToInput(row.budgetCents) : '');
+  const [alertValue, setAlertValue] = useState<AlertValue>(toAlertValue(row.category.alert_percent));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(cents: number | null, alert: AlertValue) {
+    setBusy(true);
+    setError(null);
+    const key = { household_id: data.household.id, category_id: row.category.id, month };
+    if (cents !== row.budgetCents) {
+      const { error } =
+        cents == null
+          ? await supabase.from('budgets').delete().match(key)
+          : await supabase.from('budgets').upsert({ ...key, amount_cents: cents });
+      if (error) {
+        setBusy(false);
+        return setError(errorMessage(error));
+      }
+    }
+    if (alert !== toAlertValue(row.category.alert_percent)) {
+      const { error } = await supabase
+        .from('categories')
+        .update({ alert_percent: alert === 'none' ? null : (Number(alert) as AlertPercent) })
+        .eq('id', row.category.id);
+      if (error) {
+        setBusy(false);
+        await reload();
+        return setError(errorMessage(error));
+      }
+    }
+    await reload();
+    setBusy(false);
+    toast(cents == null && row.budgetCents != null ? 'Presupuesto quitado' : 'Presupuesto guardado');
+    onClose();
+  }
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const trimmed = value.trim();
+    const cents = trimmed === '' ? null : parseEuros(trimmed);
+    if (trimmed !== '' && cents == null) return setError('Escribe un importe válido, por ejemplo 300 o 250,50');
+    void save(cents, alertValue);
+  }
+
   return (
-    <div>
-      <div className={'progress ' + level} role="progressbar" aria-valuenow={Math.round(ratio * 100)} aria-valuemin={0} aria-valuemax={100}>
-        <div style={{ width: `${Math.min(ratio, 1) * 100}%` }} />
-      </div>
-      <div className={'small ' + (left < 0 ? 'negative' : 'muted')}>
-        {left >= 0 ? `Quedan ${formatEuros(left)}` : `Os habéis pasado ${formatEuros(-left)}`} · {Math.round(ratio * 100)} %
-      </div>
-    </div>
+    <Sheet
+      title={row.category.name}
+      subtitle={`${formatMonth(month)} · lleváis ${formatEuros(row.spentCents)}`}
+      onClose={onClose}
+      footer={
+        <>
+          {error && <p className="error" role="alert">{error}</p>}
+          <div className="row">
+            {row.budgetCents != null && (
+              <button type="button" className="danger" disabled={busy} onClick={() => save(null, alertValue)}>Quitar</button>
+            )}
+            <button type="submit" form={formId} className="primary lg" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
+          </div>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit} className="stack" noValidate>
+        <AmountField label="Límite para este mes" value={value} onChange={setValue} autoFocus />
+        <Segmented
+          legend="Avisar al llegar al"
+          value={alertValue}
+          options={ALERT_OPTIONS.map((o) => ({ value: toAlertValue(o.value), label: o.value == null ? 'No avisar' : o.label }))}
+          onChange={setAlertValue}
+        />
+        <p className="field-hint">El aviso de la categoría vale para todos los meses. Deja el límite vacío para quitar el presupuesto de este mes.</p>
+      </form>
+    </Sheet>
   );
 }

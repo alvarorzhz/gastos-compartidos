@@ -18,6 +18,20 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '2.0.0',
+    date: '2026-10-13',
+    changes: [
+      { kind: 'nuevo', text: 'Diseño nuevo en toda la app: más limpio, más cómodo en el móvil y con el mismo aspecto en todas las pantallas. Tus datos y cómo funciona todo siguen igual.' },
+      { kind: 'nuevo', text: 'Pantalla de Inicio: de un vistazo, cuánto lleváis gastado este mes, cuánto presupuesto os queda, si vais dentro, el saldo entre los dos, los últimos gastos y en qué se os va el dinero.' },
+      { kind: 'mejora', text: 'Botón central + en la barra de abajo para añadir un gasto desde cualquier sitio. El formulario tiene el importe en grande, las categorías con icono para elegir de un toque, botones de Hoy y Ayer, y el botón de guardar siempre a la vista.' },
+      { kind: 'mejora', text: 'Nueva navegación: Inicio, Gastos (movimientos y saldo), Presupuesto (presupuesto y gráficos) y Personal. Ajustes está arriba a la derecha.' },
+      { kind: 'mejora', text: 'Los gastos se agrupan por día, cada categoría tiene su icono y color, se ve quién pagó y quién lo apuntó, y se puede filtrar también por quién pagó.' },
+      { kind: 'mejora', text: 'Presupuesto más claro: lo que queda, lo gastado y el porcentaje arriba, y cada categoría con su barra. Tocando una categoría se cambia el límite y el aviso.' },
+      { kind: 'mejora', text: 'Mensajes de confirmación al guardar o borrar, ventanas propias para confirmar en lugar de las del navegador, y tema oscuro si el móvil lo usa.' },
+      { kind: 'mejora', text: 'Más accesible: mejor contraste, botones más grandes, uso con teclado y animaciones que respetan la opción de reducir movimiento.' },
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-10-13',
     changes: [

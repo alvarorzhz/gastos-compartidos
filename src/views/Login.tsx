@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { errorMessage, supabase } from '../lib/supabase';
+import { Notice } from './common';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -32,42 +33,50 @@ export default function Login() {
   }
 
   return (
-    <main className="centered">
-      <h1>💶 Gastos compartidos</h1>
-      {sent ? (
-        <form onSubmit={verify} className="stack">
-          <p>Te hemos enviado un correo a <strong>{email}</strong>. Pulsa el enlace que trae para entrar.</p>
-          <label>
-            Si el correo trae un código, escríbelo aquí
-            <input
-              className="code-input"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6,10}"
-              maxLength={10}
-              required
-              autoFocus
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            />
-          </label>
-          <button className="primary" disabled={busy || code.length < 6}>{busy ? 'Comprobando…' : 'Entrar'}</button>
-          {error && <p className="error">{error}</p>}
-          <button type="button" className="link" onClick={() => { setSent(false); setCode(''); setError(null); }}>
-            Usar otro email o pedir otro correo
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={sendCode} className="stack">
-          <label>
-            Tu email
-            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </label>
-          <button className="primary" disabled={busy}>{busy ? 'Enviando…' : 'Enviarme un enlace para entrar'}</button>
-          {error && <p className="error">{error}</p>}
-          <p className="muted small">Sin contraseñas: recibirás un enlace (o un código) por email.</p>
-        </form>
-      )}
+    <main className="screen-center">
+      <div className="auth">
+        <div className="auth-brand">
+          <img src="/icon.svg" alt="" />
+          <h1>Gastos compartidos</h1>
+          <p>Vuestros gastos y vuestro presupuesto, en un mismo sitio.</p>
+        </div>
+        {sent ? (
+          <form onSubmit={verify} className="card stack" noValidate>
+            <Notice icon="mail" kind="success">
+              Te hemos enviado un correo a <strong>{email}</strong>. Pulsa el enlace que trae para entrar.
+            </Notice>
+            <div className="field">
+              <label className="field-label" htmlFor="login-code">Si el correo trae un código, escríbelo aquí</label>
+              <input
+                id="login-code"
+                className="code-input"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6,10}"
+                maxLength={10}
+                autoFocus
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+            {error && <p className="error" role="alert">{error}</p>}
+            <button className="primary lg" disabled={busy || code.length < 6}>{busy ? 'Comprobando…' : 'Entrar'}</button>
+            <button type="button" className="link-btn small" onClick={() => { setSent(false); setCode(''); setError(null); }}>
+              Usar otro email o pedir otro correo
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={sendCode} className="card stack" noValidate>
+            <div className="field">
+              <label className="field-label" htmlFor="login-email">Tu email</label>
+              <input id="login-email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nombre@ejemplo.com" />
+            </div>
+            {error && <p className="error" role="alert">{error}</p>}
+            <button className="primary lg" disabled={busy || !email.trim()}>{busy ? 'Enviando…' : 'Enviarme un enlace para entrar'}</button>
+            <p className="field-hint">Sin contraseñas: recibirás un enlace (o un código) por email.</p>
+          </form>
+        )}
+      </div>
     </main>
   );
 }

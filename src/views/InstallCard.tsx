@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Icon } from './icons';
 
 interface InstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -30,16 +31,23 @@ export default function InstallCard() {
   if (installed) return null;
 
   return (
-    <section className="card">
-      <h3>Instalar en el móvil</h3>
-      {prompt ? (
-        <button className="primary" onClick={() => prompt.prompt().then(() => setPrompt(null))}>Añadir a la pantalla de inicio</button>
-      ) : isIos() ? (
-        <p className="small">En Safari, pulsa <strong>Compartir</strong> (el cuadrado con la flecha) y luego <strong>Añadir a pantalla de inicio</strong>.</p>
-      ) : (
-        <p className="small">En Chrome, abre el menú <strong>⋮</strong> y pulsa <strong>Añadir a pantalla de inicio</strong> o <strong>Instalar app</strong>.</p>
-      )}
-      <p className="muted small">Se abrirá a pantalla completa, como una app más.</p>
+    <section className="settings-group" aria-labelledby="set-install">
+      <h2 id="set-install">Instalar en el móvil</h2>
+      <div className="card">
+        <div className="row" style={{ alignItems: 'flex-start', gap: 'var(--s3)' }}>
+          <span className="icon-tile accent"><Icon name="phone" /></span>
+          <div className="grow stack-sm">
+            {prompt ? (
+              <button className="primary" onClick={() => prompt.prompt().then(() => setPrompt(null))}>Añadir a la pantalla de inicio</button>
+            ) : isIos() ? (
+              <p className="small">En Safari, pulsa <strong>Compartir</strong> (el cuadrado con la flecha) y luego <strong>Añadir a pantalla de inicio</strong>.</p>
+            ) : (
+              <p className="small">En Chrome, abre el menú <strong>⋮</strong> y pulsa <strong>Añadir a pantalla de inicio</strong> o <strong>Instalar app</strong>.</p>
+            )}
+            <p className="muted small">Se abrirá a pantalla completa, como una app más.</p>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

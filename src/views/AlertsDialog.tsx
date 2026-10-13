@@ -3,7 +3,8 @@ import { budgetAlerts, type BudgetAlert } from '../lib/alerts';
 import { formatMonth, monthOf, today } from '../lib/dates';
 import { formatEuros } from '../lib/money';
 import type { HouseholdData } from '../lib/useHousehold';
-import { Sheet } from './common';
+import { CategoryIcon, Progress, Sheet } from './common';
+import { Icon } from './icons';
 
 /** Tras cuánto tiempo en segundo plano se considera que se vuelve a entrar en la app. */
 const REENTRY_MS = 30 * 60 * 1000;
@@ -30,16 +31,19 @@ export function AlertsOnEntry({ data, waiting = false }: { data: HouseholdData; 
   if (!open || waiting || alerts.length === 0) return null;
 
   return (
-    <Sheet title="Avisos de presupuesto" onClose={() => setOpen(false)}>
+    <Sheet
+      title="Avisos de presupuesto"
+      subtitle={`${formatMonth(month)}: estas categorías han llegado a su aviso.`}
+      onClose={() => setOpen(false)}
+      footer={<button className="primary lg block" onClick={() => setOpen(false)} autoFocus>Entendido</button>}
+    >
       <div className="stack">
-        <p className="muted small">{formatMonth(month)}: estas categorías han llegado al aviso que tienen configurado.</p>
-        <ul className="list alert-list">
+        <ul className="list with-icons">
           {alerts.map((a) => (
             <AlertRow key={a.category.id} alert={a} />
           ))}
         </ul>
-        <p className="muted small">El porcentaje de aviso de cada categoría se cambia en Presupuesto.</p>
-        <button className="primary" onClick={() => setOpen(false)} autoFocus>Entendido</button>
+        <p className="field-hint">El porcentaje de aviso de cada categoría se cambia en Presupuesto.</p>
       </div>
     </Sheet>
   );
@@ -49,19 +53,22 @@ function AlertRow({ alert: a }: { alert: BudgetAlert }) {
   const over = a.spentCents > a.budgetCents;
   const left = a.budgetCents - a.spentCents;
   return (
-    <li className="list-item static budget-line">
-      <div className="row spread">
-        <span className="title">{over ? '🚨' : '⚠️'} {a.category.name}</span>
-        <span>
-          {formatEuros(a.spentCents)} / {formatEuros(a.budgetCents)}
+    <li className="row-item budget-item">
+      <span className="row-top">
+        <CategoryIcon name={a.category.name} />
+        <span className="row-main">
+          <span className="row-title">{a.category.name}</span>
+          <span className="row-meta">{formatEuros(a.spentCents)} de {formatEuros(a.budgetCents)}</span>
         </span>
-      </div>
-      <div className={'progress ' + (over ? 'over' : 'warn')}>
-        <div style={{ width: `${Math.min(a.percent, 100)}%` }} />
-      </div>
-      <div className={'small ' + (over ? 'negative' : 'muted')}>
-        {over ? `Os habéis pasado ${formatEuros(-left)}` : `Quedan ${formatEuros(left)}`} · {a.percent} % · aviso al {a.category.alert_percent} %
-      </div>
+        <span className={'status-pill status-' + (over ? 'over' : 'warn')}>
+          <Icon name="alert" size={14} /> {a.percent} %
+        </span>
+      </span>
+      <Progress value={a.spentCents} max={a.budgetCents} label={`Presupuesto de ${a.category.name}`} />
+      <span className="budget-foot">
+        <span className={over ? 'negative' : ''}>{over ? `Os habéis pasado ${formatEuros(-left)}` : `Quedan ${formatEuros(left)}`}</span>
+        <span>Aviso al {a.category.alert_percent} %</span>
+      </span>
     </li>
   );
 }

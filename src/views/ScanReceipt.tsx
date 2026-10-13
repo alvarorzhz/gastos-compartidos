@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { today } from '../lib/dates';
 import { parseReceipt, type ReceiptGuess } from '../lib/receipt';
+import { Spinner } from './common';
+import { Icon } from './icons';
 
 /**
  * Botón para hacer una foto al ticket y leerlo en el propio móvil (Tesseract).
@@ -49,7 +51,7 @@ export default function ScanReceipt({ onResult }: { onResult: (guess: ReceiptGue
   }
 
   return (
-    <div className="stack tight">
+    <div className="stack-sm" style={{ alignItems: 'center' }}>
       <input
         ref={input}
         type="file"
@@ -61,10 +63,10 @@ export default function ScanReceipt({ onResult }: { onResult: (guess: ReceiptGue
           if (file) void read(file);
         }}
       />
-      <button type="button" className="secondary" onClick={() => input.current?.click()} disabled={status != null}>
-        {status ?? '📷 Escanear ticket'}
+      <button type="button" className="pill" onClick={() => input.current?.click()} disabled={status != null}>
+        {status ? <Spinner label={status} /> : <><Icon name="camera" size={18} /> Escanear ticket</>}
       </button>
-      {error && <p className="error small">{error}</p>}
+      {error && <p className="error center" role="alert">{error}</p>}
     </div>
   );
 }
