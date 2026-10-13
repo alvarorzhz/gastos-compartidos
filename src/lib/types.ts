@@ -82,3 +82,15 @@ export interface Budget {
   month: string; // YYYY-MM-01
   amount_cents: number;
 }
+
+/** Gasto o ingreso personal: solo lo ve quien lo apunta y no cuenta en lo común. */
+export interface PersonalEntry {
+  id: string;
+  user_id: string;
+  kind: 'expense' | 'income';
+  amount_cents: number;
+  entry_on: string; // YYYY-MM-DD
+  category: string;
+  note: string | null;
+  created_at: string;
+}

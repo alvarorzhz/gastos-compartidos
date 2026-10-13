@@ -47,7 +47,7 @@ export default function SettingsView(props: ViewProps & { email: string }) {
 
       <section className="card">
         <h3>Tus datos</h3>
-        <p className="muted small">Descarga todo lo que hay en el espacio: gastos, reembolsos, presupuestos y categorías.</p>
+        <p className="muted small">Descarga todo lo que hay en el espacio (gastos, reembolsos, presupuestos y categorías) y tus movimientos personales.</p>
         <div className="row wrap">
           <button className="secondary" onClick={() => exportCsv(data)}>Exportar CSV (Excel)</button>
           <button className="secondary" onClick={() => exportJson(data)}>Exportar JSON</button>

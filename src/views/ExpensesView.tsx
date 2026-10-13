@@ -39,9 +39,9 @@ export default function ExpensesView(props: ViewProps) {
         <div className="notice">Aún estás sola/o en este espacio. Invita a tu pareja desde Ajustes.</div>
       )}
       {partner && (
-        <div className="balance-chip">
-          <BalanceText balance={balance} partnerName={partner.display_name} />
-        </div>
+        <a className="balance-chip" href="#saldo">
+          <BalanceText balance={balance} partnerName={partner.display_name} /> <span className="muted">›</span>
+        </a>
       )}
       {alerts.length > 0 && (
         <ul className="alerts" aria-label="Avisos de presupuesto de este mes">

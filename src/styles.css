@@ -316,7 +316,7 @@ button.full { width: 100%; margin-top: 0.75rem; }
 .alert-select { flex-direction: row; align-items: center; gap: 0.5rem; font-size: 0.82rem; }
 .alert-select select { width: auto; min-height: 0; padding: 0.25rem 0.5rem; font-size: 0.85rem; }
 
-.tabbar { grid-template-columns: repeat(5, 1fr); }
+.tabbar { grid-template-columns: repeat(4, 1fr); }
 .tabbar button { padding: 0.4rem 0.1rem; }
 
 .month-bars { width: 100%; height: auto; display: block; }
@@ -338,3 +338,11 @@ button.full { width: 100%; margin-top: 0.75rem; }
 .piece-2 { background: var(--muted); }
 .split-bar .legend { list-style: none; padding: 0; margin: 0.5rem 0 0; font-size: 0.88rem; display: flex; flex-direction: column; gap: 0.2rem; }
 .dot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.4rem; vertical-align: -1px; }
+
+/* 1.3.0: pestañas agrupadas y Personal */
+.subtabs { display: flex; gap: 0.25rem; background: var(--surface); border-radius: 12px; padding: 0.25rem; margin: 0 0 0.75rem; }
+.subtabs button { flex: 1; min-height: 38px; padding: 0.4rem; border-radius: 9px; color: var(--muted); font-weight: 500; }
+.subtabs button.active { background: var(--accent-soft); color: var(--text); font-weight: 600; }
+a.balance-chip { display: block; color: inherit; text-decoration: none; }
+.chips-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: -0.4rem; }
+.chips-row .chip-btn { min-height: 0; border-radius: 999px; }
