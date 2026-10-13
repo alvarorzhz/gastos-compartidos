@@ -18,6 +18,14 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.2.0',
+    date: '2026-10-13',
+    changes: [
+      { kind: 'nuevo', text: 'Escanear ticket: al añadir un gasto, haz una foto al ticket y la app rellena el importe total, la fecha, la tienda y, si la reconoce, la categoría. Revísalo antes de guardar.' },
+      { kind: 'nuevo', text: 'El ticket se lee dentro del móvil: la foto no se envía a ningún sitio ni se guarda. La primera vez descarga el lector (unos 6 MB).' },
+    ],
+  },
+  {
     version: '1.1.0',
     date: '2026-10-13',
     changes: [

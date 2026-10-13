@@ -7,6 +7,8 @@ import { owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, Frequency, RecurringExpense } from '../lib/types';
 import { Sheet, type ViewProps } from './common';
+import ScanReceipt from './ScanReceipt';
+import type { ReceiptGuess } from '../lib/receipt';
 
 interface Props extends ViewProps {
   /** Gasto a editar; null = nuevo. */
@@ -33,6 +35,30 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const partner = partnerOf(data.members, me);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [scanned, setScanned] = useState<string | null>(null);
+
+  function applyScan(g: ReceiptGuess) {
+    const filled: string[] = [];
+    if (g.amountCents != null) {
+      setAmount(centsToInput(g.amountCents));
+      filled.push('importe');
+    }
+    if (g.date) {
+      setDate(g.date);
+      filled.push('fecha');
+    }
+    if (g.merchant && !note.trim()) {
+      setNote(g.merchant);
+      filled.push('tienda');
+    }
+    const category = g.categoryName && activeCategories.find((c) => c.name.toLowerCase() === g.categoryName!.toLowerCase());
+    if (category) {
+      setCategoryId(category.id);
+      filled.push('categoría');
+    }
+    setScanned(`He rellenado: ${filled.join(', ')}. Revísalo antes de guardar.`);
+  }
 
   const payers = data.members.map((m) => m.user_id);
   if (!payers.includes(paidBy)) payers.push(paidBy); // gasto de una cuenta borrada
@@ -124,6 +150,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
         {expense?.recurring_id && (
           <p className="notice small">🔁 Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</p>
         )}
+        {!source && <ScanReceipt onResult={applyScan} />}
+        {scanned && <p className="notice small">{scanned}</p>}
         <label>
           Importe (€)
           <input
