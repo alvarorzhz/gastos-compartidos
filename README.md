@@ -7,6 +7,7 @@ App web privada, pensada para el móvil, para que dos personas apunten sus gasto
 - **Saldo**: se recalcula con cada gasto y reembolso. Los reembolsos (Bizum, transferencia…) solo se anotan; la app no mueve dinero.
 - **Presupuesto**: un importe mensual por categoría, con barra de progreso y opción de copiar el del mes anterior. Cada categoría avisa al llegar al 80, 90 o 100 % (o no avisa).
 - **Gastos fijos**: alquiler, luz, gimnasio… se apuntan solos cada semana, mes o año.
+- **Escanear tickets**: una foto al ticket rellena importe, fecha, tienda y categoría. Se lee en el propio móvil con [Tesseract](https://github.com/naptha/tesseract.js); la foto no se sube ni se guarda.
 - **Buscador y gráficos**: búsqueda por texto y categoría; gráficos de los últimos 12 meses, por categoría, por persona y fijos frente a variables.
 - **Privacidad**: solo las dos cuentas del espacio ven los datos (lo garantiza la base de datos, no solo la app). Se puede exportar todo (CSV o JSON), borrar el espacio o borrar la cuenta.
 - **Acceso sin contraseña**: se entra con el enlace que llega por email, o con un código de 6 dígitos si se configura la plantilla (ver abajo).
@@ -89,6 +90,10 @@ Cada gasto pagado por una persona hace que la otra le deba su parte: la mitad po
 ## Gastos fijos
 
 Cada gasto fijo es una plantilla (`recurring_expenses`) con fecha de inicio y frecuencia. Al abrir la app se llama a `generate_recurring_expenses`, que apunta como gastos normales los que ya tocan, una sola vez aunque los dos móviles la llamen a la vez. Los meses conservan el día (si no existe, el último del mes). No hace falta ningún servidor ni tarea programada: si nadie abre la app en semanas, al abrirla se apuntan todos los pendientes con su fecha.
+
+## Escaneo de tickets
+
+El lector (Tesseract compilado a WebAssembly y el modelo de español, unos 6 MB) se copia a `public/ocr/` al ejecutar `npm run dev` o `npm run build` (`scripts/copy-ocr.mjs`) y se sirve desde la propia web, sin CDNs externos. Solo se descarga la primera vez que alguien escanea. El texto leído se interpreta en [`src/lib/receipt.ts`](src/lib/receipt.ts): busca la línea del total (ignorando subtotal, IVA, entregado y cambio), la primera fecha válida no futura y la tienda; para tiendas conocidas (Mercadona, Lidl, Repsol…) propone categoría.
 
 ## Borrado de datos
 
