@@ -36,9 +36,9 @@ export default function Login() {
       <h1>💶 Gastos compartidos</h1>
       {sent ? (
         <form onSubmit={verify} className="stack">
-          <p>Te hemos enviado un código a <strong>{email}</strong>.</p>
+          <p>Te hemos enviado un correo a <strong>{email}</strong>. Pulsa el enlace que trae para entrar.</p>
           <label>
-            Código del correo
+            Si el correo trae un código, escríbelo aquí
             <input
               className="code-input"
               inputMode="numeric"
@@ -53,9 +53,8 @@ export default function Login() {
           </label>
           <button className="primary" disabled={busy || code.length < 6}>{busy ? 'Comprobando…' : 'Entrar'}</button>
           {error && <p className="error">{error}</p>}
-          <p className="muted small">También puedes pulsar el enlace del correo, si te llega.</p>
           <button type="button" className="link" onClick={() => { setSent(false); setCode(''); setError(null); }}>
-            Usar otro email o pedir otro código
+            Usar otro email o pedir otro correo
           </button>
         </form>
       ) : (
@@ -64,9 +63,9 @@ export default function Login() {
             Tu email
             <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
-          <button className="primary" disabled={busy}>{busy ? 'Enviando…' : 'Enviarme un código'}</button>
+          <button className="primary" disabled={busy}>{busy ? 'Enviando…' : 'Enviarme un enlace para entrar'}</button>
           {error && <p className="error">{error}</p>}
-          <p className="muted small">Sin contraseñas: recibirás un código de acceso por email.</p>
+          <p className="muted small">Sin contraseñas: recibirás un enlace (o un código) por email.</p>
         </form>
       )}
     </main>
@@ -75,7 +74,7 @@ export default function Login() {
 
 function friendlyError(err: unknown): string {
   const msg = errorMessage(err);
-  if (/rate limit/i.test(msg)) return 'Se han enviado demasiados correos. Espera un rato (hasta una hora) antes de pedir otro código.';
+  if (/rate limit/i.test(msg)) return 'Se han enviado demasiados correos. Espera un rato (hasta una hora) antes de pedir otro.';
   if (/expired|invalid/i.test(msg)) return 'El código no es válido o ha caducado. Pide uno nuevo.';
   if (/signups? not allowed/i.test(msg)) return 'Este email no tiene acceso a la app.';
   return msg;

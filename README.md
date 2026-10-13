@@ -7,7 +7,7 @@ App web privada, pensada para el móvil, para que dos personas apunten sus gasto
 - **Saldo**: se recalcula con cada gasto y reembolso. Los reembolsos (Bizum, transferencia…) solo se anotan; la app no mueve dinero.
 - **Presupuesto**: un importe mensual por categoría, con barra de progreso y opción de copiar el del mes anterior.
 - **Privacidad**: solo las dos cuentas del espacio ven los datos (lo garantiza la base de datos, no solo la app). Se puede exportar todo (CSV o JSON), borrar el espacio o borrar la cuenta.
-- **Acceso con código**: se entra con un código de 6 dígitos que llega por email (o con el enlace del mismo correo).
+- **Acceso sin contraseña**: se entra con el enlace que llega por email, o con un código de 6 dígitos si se configura la plantilla (ver abajo).
 - **Instalable**: se puede añadir a la pantalla de inicio del móvil y se abre a pantalla completa.
 - **Tiempo real**: lo que apunta una persona aparece al momento en el móvil de la otra.
 - Moneda: EUR. Sin conexión bancaria ni modo sin conexión en esta versión.
@@ -32,7 +32,7 @@ Toda la lógica de permisos está en [`supabase/migrations/0001_init.sql`](supab
 1. **Crea un proyecto en Supabase** (plan Free, región UE, por ejemplo Frankfurt o París).
 2. En **SQL Editor**, pega y ejecuta, en orden, cada archivo de `supabase/migrations/` (`0001_init.sql`, `0002_reparto_y_tiempo_real.sql`…). Cada archivo se ejecuta una sola vez.
 3. En **Authentication → URL Configuration**, pon como *Site URL* la dirección donde vaya a vivir la app (por ejemplo `https://gastos-xxx.vercel.app`) y añádela también en *Redirect URLs*. Para probar en local, añade `http://localhost:5173`.
-   En **Authentication → Emails → Templates**, edita las plantillas *Magic Link* y *Confirm signup* y añade el código, por ejemplo:
+   *Opcional:* para que el correo traiga también un código de 6 dígitos (más cómodo en el móvil), en **Authentication → Emails → Templates** edita las plantillas *Magic Link* y *Confirm signup*. Supabase solo permite editarlas si antes configuras un servidor de correo propio (**Set up SMTP**, por ejemplo con Brevo gratis), lo que además quita el límite de pocos correos por hora. Ejemplo de plantilla:
 
    ```html
    <h2>Tu código para Gastos compartidos</h2>
