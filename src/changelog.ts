@@ -18,6 +18,13 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.0.1',
+    date: '2026-10-14',
+    changes: [
+      { kind: 'mejora', text: 'Barra de abajo simétrica: tres secciones a cada lado del botón +. Ajustes pasa de la rueda de arriba a la barra, al final.' },
+    ],
+  },
+  {
     version: '3.0.0',
     date: '2026-10-14',
     changes: [
