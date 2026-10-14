@@ -18,6 +18,19 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '2.3.0',
+    date: '2026-10-14',
+    changes: [
+      { kind: 'nuevo', text: 'Lista de la compra compartida, en la nueva sección Compra de la barra de abajo. Los dos veis y cambiáis la misma lista, y lo que hace uno le aparece al otro al momento.' },
+      { kind: 'nuevo', text: 'Añadir es rápido: escribe «Leche» y pulsa Intro. También entiende «2 leche», «1,5 kg patatas» o «leche x6», y elige la categoría sola (si la cambias, la recuerda para la próxima vez).' },
+      { kind: 'nuevo', text: 'Un toque marca un producto como comprado, con unos segundos para Deshacer. Arriba ves cuántos quedan y cuántos lleváis. Lo comprado no se borra: queda en «Comprados» y en el historial.' },
+      { kind: 'nuevo', text: 'Recientes y habituales: lo que más compráis y lo último que comprasteis, para volver a apuntarlo con un toque y la misma cantidad.' },
+      { kind: 'nuevo', text: 'Si apuntas algo que ya está en la lista, la app pregunta si sumar la cantidad, editarlo o añadirlo aparte.' },
+      { kind: 'nuevo', text: 'Vista por pasillos (agrupada por categorías), buscador, cantidades con unidad (kg, g, litros, paquetes…), marca de importante, historial y «Terminar compra» para empezar la siguiente lista sin perder nada.' },
+      { kind: 'mejora', text: 'Si falla la conexión, lo que apuntes no se pierde: se queda en la lista con un botón para reintentar y se guarda solo al volver la conexión.' },
+    ],
+  },
+  {
     version: '2.2.0',
     date: '2026-10-14',
     changes: [
