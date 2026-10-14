@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { isConfigured, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
+import { useShopping } from './lib/useShopping';
 import BalanceView from './views/BalanceView';
 import BudgetView from './views/BudgetView';
 import ChartsView from './views/ChartsView';
@@ -13,22 +14,24 @@ import Login from './views/Login';
 import Onboarding from './views/Onboarding';
 import PersonalView from './views/PersonalView';
 import SettingsView from './views/SettingsView';
+import ShoppingView from './views/ShoppingView';
 import { WhatsNewBanner } from './views/WhatsNew';
 import { AlertsOnEntry } from './views/AlertsDialog';
 import { markCloseSeen, MonthCloseSheet, pendingClose } from './views/MonthClose';
 import { flushPendingDeletes, useHiddenIds, withoutHidden } from './views/undo';
 import { DialogHost, Notice, Segmented, Spinner, Toaster } from './views/common';
 
-type View = 'inicio' | 'gastos' | 'saldo' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
+type View = 'inicio' | 'gastos' | 'saldo' | 'compra' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
 /*
- * Navegación: cuatro secciones abajo (con el botón central para añadir un gasto) y Ajustes arriba.
+ * Navegación: cinco secciones abajo (con el botón para añadir un gasto entre Gastos y Compra) y Ajustes arriba.
  * Las secciones con dos vistas muestran un selector bajo el título. Cada vista tiene su dirección
  * (#gastos, #saldo, #presupuesto…), así que los enlaces de versiones anteriores siguen funcionando.
  */
 const SECTIONS: { id: string; label: string; icon: IconName; views: { id: View; label: string }[] }[] = [
   { id: 'inicio', label: 'Inicio', icon: 'home', views: [{ id: 'inicio', label: 'Inicio' }] },
   { id: 'gastos', label: 'Gastos', icon: 'receipt', views: [{ id: 'gastos', label: 'Movimientos' }, { id: 'saldo', label: 'Saldo' }] },
+  { id: 'compra', label: 'Compra', icon: 'cart', views: [{ id: 'compra', label: 'Lista de la compra' }] },
   { id: 'presupuesto', label: 'Presupuesto', icon: 'pie', views: [{ id: 'presupuesto', label: 'Presupuesto' }, { id: 'graficos', label: 'Gráficos' }] },
   { id: 'personal', label: 'Personal', icon: 'user', views: [{ id: 'personal', label: 'Personal' }] },
 ];
@@ -75,6 +78,8 @@ function Loading() {
 
 function Home({ userId, email }: { userId: string; email: string }) {
   const { state, reload } = useHousehold(userId);
+  // La lista de la compra se carga aquí para que no se pierda nada al cambiar de sección.
+  const shopping = useShopping(state.status === 'ready' ? state.data.household.id : null);
   const hiddenIds = useHiddenIds();
   const [view, setView] = useState<View>(readView);
   // Vista abierta por última vez en cada sección, para volver a ella al tocar la sección.
@@ -177,6 +182,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
           {view === 'inicio' && <HomeView {...props} onAdd={() => setAdding(true)} />}
           {view === 'gastos' && <ExpensesView {...props} onAdd={() => setAdding(true)} />}
           {view === 'saldo' && <BalanceView {...props} />}
+          {view === 'compra' && <ShoppingView {...props} shopping={shopping} />}
           {view === 'presupuesto' && <BudgetView {...props} />}
           {view === 'graficos' && <ChartsView {...props} onAdd={() => setAdding(true)} />}
           {view === 'personal' && <PersonalView {...props} />}

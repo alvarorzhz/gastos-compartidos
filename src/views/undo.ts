@@ -6,7 +6,7 @@ import { toast } from './common';
 /** Tiempo para tocar "Deshacer" antes de que el borrado sea definitivo. */
 const UNDO_MS = 6000;
 
-type Table = 'expenses' | 'settlements' | 'savings_contributions' | 'personal_entries';
+type Table = 'expenses' | 'settlements' | 'savings_contributions' | 'personal_entries' | 'shopping_items';
 
 /*
  * Borrar con "Deshacer": la fila se oculta al momento y se borra de verdad pasados unos

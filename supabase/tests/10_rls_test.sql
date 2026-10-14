@@ -195,6 +195,33 @@ select pg_temp.check((select default_split_percent from households) = 60, 'repar
 select pg_temp.expect_error($$ update households set default_split_percent = 120 $$);
 select pg_temp.expect_error($$ update households set default_split_user = null $$);
 
+-- Lista de la compra: la comparten los dos; comprar no borra el producto.
+insert into shopping_items (household_id, name, quantity, unit, category)
+select household_id, '  Leche ', 2, 'ud', 'lacteos' from members where user_id = auth.uid();
+select pg_temp.check((select name from shopping_items) = 'Leche', 'producto apuntado sin espacios de más');
+select pg_temp.check((select created_by from shopping_items) = auth.uid(), 'queda quién lo apuntó');
+select pg_temp.expect_error($$ insert into shopping_items (household_id, name, category) select household_id, 'X', 'juguetes' from members where user_id = auth.uid() $$);
+select pg_temp.expect_error($$ insert into shopping_items (household_id, name, quantity) select household_id, 'X', 0 from members where user_id = auth.uid() $$);
+select pg_temp.expect_error($$ insert into shopping_items (household_id, name) select household_id, '   ', 0 from members where user_id = auth.uid() $$);
+update shopping_items set status = 'bought';
+select pg_temp.check((select bought_at is not null and bought_by = auth.uid() from shopping_items), 'comprado con fecha y quién');
+update shopping_items set bought_at = '2000-01-01', created_by = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.check((select bought_at > '2001-01-01' and created_by = auth.uid() from shopping_items), 'la fecha de compra y el autor no se falsean');
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from shopping_items) = 1, 'la pareja ve la lista');
+update shopping_items set status = 'pending' where status = 'bought';
+select pg_temp.check((select status = 'pending' and bought_at is null and quantity = 2 and unit = 'ud' from shopping_items), 'deshacer la compra conserva cantidad y unidad');
+select household_id as hid from members where user_id = auth.uid() \gset
+select pg_temp.login('00000000-0000-0000-0000-00000000000d', 'd@example.com');
+select pg_temp.check((select count(*) from shopping_items) = 0, 'D no ve listas ajenas');
+update shopping_items set name = 'Hackeado';
+delete from shopping_items;
+select pg_temp.expect_error(format('insert into shopping_items (household_id, name) values (%L, %L)', :'hid', 'Colado'));
+reset role;
+select pg_temp.check((select name from shopping_items) = 'Leche', 'D no cambia ni borra la lista de otros');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;
@@ -202,6 +229,7 @@ select pg_temp.check((select count(*) from expenses) = 0, 'gastos borrados con e
 select pg_temp.check((select count(*) from households) = 1, 'solo queda el espacio de C');
 select pg_temp.check((select count(*) from personal_entries) = 4, 'borrar el espacio no toca lo personal');
 select pg_temp.check((select count(*) from savings_goals) = 0, 'huchas borradas con el espacio');
+select pg_temp.check((select count(*) from shopping_items) = 0, 'lista de la compra borrada con el espacio');
 
 -- Borrar cuenta: C era la única, su espacio desaparece con ella.
 set role authenticated;
