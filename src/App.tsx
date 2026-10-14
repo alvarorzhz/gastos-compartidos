@@ -24,7 +24,7 @@ import { DialogHost, Notice, Segmented, Spinner, Toaster } from './views/common'
 type View = 'inicio' | 'gastos' | 'saldo' | 'compra' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
 /*
- * Navegación: cinco secciones abajo (con el botón para añadir un gasto entre Gastos y Compra) y Ajustes arriba.
+ * Navegación: seis secciones abajo, tres a cada lado del botón central para añadir un gasto (Ajustes es la última).
  * Las secciones con dos vistas muestran un selector bajo el título. Cada vista tiene su dirección
  * (#gastos, #saldo, #presupuesto…), así que los enlaces de versiones anteriores siguen funcionando.
  */
@@ -34,11 +34,11 @@ const SECTIONS: { id: string; label: string; icon: IconName; views: { id: View; 
   { id: 'compra', label: 'Compra', icon: 'cart', views: [{ id: 'compra', label: 'Lista de la compra' }] },
   { id: 'presupuesto', label: 'Presupuesto', icon: 'pie', views: [{ id: 'presupuesto', label: 'Presupuesto' }, { id: 'graficos', label: 'Gráficos' }] },
   { id: 'personal', label: 'Personal', icon: 'user', views: [{ id: 'personal', label: 'Personal' }] },
+  { id: 'ajustes', label: 'Ajustes', icon: 'settings', views: [{ id: 'ajustes', label: 'Ajustes' }] },
 ];
-const SETTINGS = { id: 'ajustes', label: 'Ajustes', icon: 'settings' as IconName, views: [{ id: 'ajustes' as View, label: 'Ajustes' }] };
 
-const ALL_VIEWS: View[] = [...SECTIONS.flatMap((s) => s.views.map((v) => v.id)), 'ajustes'];
-const sectionOf = (view: View) => SECTIONS.find((s) => s.views.some((v) => v.id === view)) ?? SETTINGS;
+const ALL_VIEWS: View[] = SECTIONS.flatMap((s) => s.views.map((v) => v.id));
+const sectionOf = (view: View) => SECTIONS.find((s) => s.views.some((v) => v.id === view)) ?? SECTIONS[0];
 
 function readView(): View {
   const v = location.hash.slice(1);
@@ -84,8 +84,6 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [view, setView] = useState<View>(readView);
   // Vista abierta por última vez en cada sección, para volver a ella al tocar la sección.
   const [lastView, setLastView] = useState<Record<string, View>>({});
-  // Vista desde la que se abrió Ajustes, para el botón Volver.
-  const [beforeSettings, setBeforeSettings] = useState<View>('inicio');
   const [adding, setAdding] = useState(false);
   const [closeDismissed, setCloseDismissed] = useState(false);
 
@@ -134,29 +132,15 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const section = sectionOf(view);
   const current = section.views.find((v) => v.id === view)!;
   const closeMonth = closeDismissed ? null : pendingClose(props);
-  const openSettings = () => {
-    if (view !== 'ajustes') setBeforeSettings(view);
-    setView('ajustes');
-  };
 
   return (
     <div className="app">
       <header className="appbar">
         <div className="appbar-inner">
-          {view === 'ajustes' ? (
-            <button className="link-btn back-btn" onClick={() => setView(beforeSettings)}>
-              <Icon name="chevronLeft" /> Volver
-            </button>
-          ) : null}
           <div className="appbar-title">
             {view === 'inicio' && <p className="appbar-kicker">{state.data.household.name}</p>}
             <h1>{section.views.length > 1 ? section.label : current.label}</h1>
           </div>
-          {view !== 'ajustes' && (
-            <button className="icon-btn" onClick={openSettings} aria-label="Ajustes">
-              <Icon name="settings" />
-            </button>
-          )}
         </div>
         {section.views.length > 1 && (
           <div className="subnav">
@@ -196,13 +180,13 @@ function Home({ userId, email }: { userId: string; email: string }) {
             <img src="/icon.svg" alt="" />
             <span className="ellipsis">{state.data.household.name}</span>
           </div>
-          {SECTIONS.slice(0, 2).map((s) => (
+          {SECTIONS.slice(0, 3).map((s) => (
             <TabButton key={s.id} section={s} active={s === section} onClick={() => setView(lastView[s.id] ?? s.views[0].id)} />
           ))}
           <button className="tab-add" onClick={() => setAdding(true)} aria-label="Añadir gasto">
             <span className="add-circle"><Icon name="plus" /><span className="add-text">Añadir gasto</span></span>
           </button>
-          {SECTIONS.slice(2).map((s) => (
+          {SECTIONS.slice(3).map((s) => (
             <TabButton key={s.id} section={s} active={s === section} onClick={() => setView(lastView[s.id] ?? s.views[0].id)} />
           ))}
         </div>
