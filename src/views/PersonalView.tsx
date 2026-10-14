@@ -6,14 +6,14 @@ import { categoryOptions, myCommonShare, personalByCategory, personalMonth } fro
 import { errorMessage, supabase } from '../lib/supabase';
 import { FREQUENCIES, frequencyText, monthlyEquivalent, nextDate, recurringDate } from '../lib/recurring';
 import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
-import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
 import { deleteWithUndo } from './undo';
 
 export default function PersonalView(props: ViewProps) {
   const { data, me } = props;
-  const [month, setMonth] = useState(monthOf(today()));
+  const [month, setMonth] = useMonth();
   const [editing, setEditing] = useState<PersonalEntry | 'expense' | 'income' | null>(null);
   const [template, setTemplate] = useState<PersonalRecurring | null>(null);
   const [showFixed, setShowFixed] = useState(false);

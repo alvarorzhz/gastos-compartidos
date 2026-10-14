@@ -3,7 +3,7 @@ import { addDays, formatDay, formatShortDay, toIsoDate, today } from '../lib/dat
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recurring';
-import { owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
+import { defaultSplit, owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, Frequency, RecurringExpense } from '../lib/types';
 import { AmountField, Avatar, CategoryIcon, confirmAction, Notice, Segmented, Sheet, toast, type ViewProps  } from './common';
@@ -33,14 +33,15 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const [categoryId, setCategoryId] = useState(source?.category_id ?? activeCategories[0]?.id ?? '');
   const [paidBy, setPaidBy] = useState(source?.paid_by ?? me);
   const [note, setNote] = useState(source?.note ?? '');
-  const [split, setSplit] = useState(() => splitFromExpense(source, me));
+  const [split, setSplit] = useState(() => (source ? splitFromExpense(source, me) : defaultSplit(data.household, me, data.members)));
   // Solo los gastos nuevos y los fijos tienen frecuencia; '' = no se repite.
   const [frequency, setFrequency] = useState<Frequency | ''>(template?.frequency ?? (startAsFixed ? 'monthly' : ''));
   const partner = partnerOf(data.members, me);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [badAmount, setBadAmount] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(split.mode !== 'equal' || frequency !== '');
+  // Un gasto nuevo con el reparto por defecto no abre esta parte: el resumen ya lo dice.
+  const [moreOpen, setMoreOpen] = useState((source != null && split.mode !== 'equal') || frequency !== '');
 
   const [scanned, setScanned] = useState<string | null>(null);
 

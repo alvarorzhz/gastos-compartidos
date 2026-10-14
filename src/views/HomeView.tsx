@@ -7,9 +7,10 @@ import { formatEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { categoryStyle } from '../lib/categoryStyle';
 import { breakdown } from '../lib/stats';
+import { monthForecast, type Forecast } from '../lib/forecast';
 import type { Expense } from '../lib/types';
 import { BalanceText } from './BalanceView';
-import { Avatar, CategoryIcon, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, type ViewProps } from './common';
+import { Avatar, CategoryIcon, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, type ViewProps, useMonth } from './common';
 import ExpenseForm from './ExpenseForm';
 import { ExpenseRow } from './ExpenseRow';
 import { Icon } from './icons';
@@ -21,7 +22,7 @@ const go = (view: string) => () => {
 /** Pantalla de inicio: cuánto lleváis gastado, cuánto queda, en qué y los últimos gastos. */
 export default function HomeView(props: ViewProps & { onAdd: () => void }) {
   const { data, me, onAdd } = props;
-  const [month, setMonth] = useState(monthOf(today()));
+  const [month, setMonth] = useMonth();
   const [editing, setEditing] = useState<Expense | null>(null);
   const isCurrent = month === monthOf(today());
 
@@ -41,7 +42,13 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
 
       <div className="home-grid">
         <div className="home-col">
-          <SpendCard spent={sum.spentCents} budget={sum.budgetCents} count={monthExpenses.length} isCurrent={isCurrent} />
+          <SpendCard
+            spent={sum.spentCents}
+            budget={sum.budgetCents}
+            count={monthExpenses.length}
+            isCurrent={isCurrent}
+            forecast={isCurrent ? monthForecast(today(), data.expenses, data.recurring) : null}
+          />
 
           {alerts.length > 0 && (
             <div className="stack-sm o-2" aria-label="Avisos de presupuesto">
@@ -157,7 +164,13 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
 }
 
 /** Tarjeta principal: gasto del mes frente al presupuesto común. */
-export function SpendCard({ spent, budget, count, isCurrent }: { spent: number; budget: number; count: number; isCurrent: boolean }) {
+export function SpendCard({ spent, budget, count, isCurrent, forecast = null }: {
+  spent: number;
+  budget: number;
+  count: number;
+  isCurrent: boolean;
+  forecast?: Forecast | null;
+}) {
   const left = budget - spent;
   const ratio = budget > 0 ? spent / budget : 0;
   const status = budget <= 0 ? null : ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok';
@@ -192,6 +205,26 @@ export function SpendCard({ spent, budget, count, isCurrent }: { spent: number; 
           <button className="link-btn small" onClick={go('presupuesto')}>Poner presupuesto</button>
         </div>
       )}
+      {forecast && <ForecastLine forecast={forecast} budget={budget} />}
     </section>
+  );
+}
+
+/** "A este ritmo, acabaréis el mes en unos 1.350 €", comparado con el presupuesto si lo hay. */
+function ForecastLine({ forecast, budget }: { forecast: Forecast; budget: number }) {
+  const rounded = Math.round(forecast.cents / 1000) * 1000; // a decenas de euros: es una estimación
+  const diff = budget - rounded;
+  return (
+    <p className="forecast">
+      <Icon name="chart" size={16} />
+      <span>
+        A este ritmo acabaréis el mes en unos <strong>{formatEuros(rounded)}</strong>
+        {budget > 0 && Math.abs(diff) >= 1000 && (
+          diff > 0 ? <>: os sobrarían unos {formatEuros(diff)}.</> : <>: <span className="negative">os pasaríais unos {formatEuros(-diff)}</span>.</>
+        )}
+        {(budget <= 0 || Math.abs(diff) < 1000) && '.'}
+        {forecast.pendingFixedCents > 0 && <span className="muted"> Incluye {formatEuros(forecast.pendingFixedCents)} de gastos fijos que aún faltan.</span>}
+      </span>
+    </p>
   );
 }

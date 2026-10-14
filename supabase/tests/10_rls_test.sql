@@ -189,6 +189,12 @@ select pg_temp.check((select count(*) from personal_recurring) = 0, 'la pareja n
 select pg_temp.check(public.generate_personal_recurring(current_date) = 0, 'la pareja no genera los fijos de otro');
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
+-- Reparto por defecto: lo guarda cualquiera de los dos y debe ser un porcentaje válido.
+update households set default_split_user = '00000000-0000-0000-0000-00000000000a', default_split_percent = 60;
+select pg_temp.check((select default_split_percent from households) = 60, 'reparto por defecto guardado');
+select pg_temp.expect_error($$ update households set default_split_percent = 120 $$);
+select pg_temp.expect_error($$ update households set default_split_user = null $$);
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { formatDay, formatDayHeading, formatMonth, monthOf, today } from '../lib/dates';
+import { formatDay, formatDayHeading, formatMonth, monthOf } from '../lib/dates';
 import { formatEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { frequencyText, monthlyEquivalent, nextDate } from '../lib/recurring';
 import { filterExpenses } from '../lib/search';
 import type { Expense, RecurringExpense } from '../lib/types';
-import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps } from './common';
+import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps, useMonth } from './common';
 import ExpenseForm from './ExpenseForm';
 import { ExpenseRow, paidText } from './ExpenseRow';
 import { Icon } from './icons';
@@ -15,7 +15,7 @@ type Editing = { kind: 'expense'; expense: Expense | null; fixed?: boolean } | {
 
 export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
   const { data, me, onAdd } = props;
-  const [month, setMonth] = useState(monthOf(today()));
+  const [month, setMonth] = useMonth();
   const [editing, setEditing] = useState<Editing | null>(null);
   const [showFixed, setShowFixed] = useState(false);
   const [importing, setImporting] = useState(false);

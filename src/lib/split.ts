@@ -1,5 +1,5 @@
 import { centsToInput, parseEuros } from './money';
-import type { Expense } from './types';
+import type { Expense, Household, Member } from './types';
 
 export type SplitMode = 'equal' | 'percent' | 'amount';
 
@@ -27,6 +27,19 @@ export function owedFromSplit(split: SplitState, amountCents: number, payerIsMe:
     mine = cents;
   }
   return payerIsMe ? amountCents - mine : mine;
+}
+
+/** Mi parte (%) de cada gasto nuevo según el reparto por defecto del espacio. */
+export function defaultMyPercent(household: Pick<Household, 'default_split_user' | 'default_split_percent'>, me: string, members: Member[]): number {
+  const { default_split_user: user, default_split_percent: p } = household;
+  if (user == null || p == null || members.length < 2 || !members.some((m) => m.user_id === user)) return 50;
+  return user === me ? p : 100 - p;
+}
+
+/** Reparto con el que empieza un gasto nuevo. */
+export function defaultSplit(household: Pick<Household, 'default_split_user' | 'default_split_percent'>, me: string, members: Member[]): SplitState {
+  const mine = defaultMyPercent(household, me, members);
+  return mine === 50 ? { mode: 'equal', myShare: '50' } : { mode: 'percent', myShare: String(mine) };
 }
 
 /** Estado inicial del formulario a partir de un gasto (o gasto fijo) guardado. */

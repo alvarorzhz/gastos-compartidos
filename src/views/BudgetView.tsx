@@ -5,14 +5,14 @@ import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { AlertPercent } from '../lib/types';
-import { AmountField, CategoryIcon, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { AmountField, CategoryIcon, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import { MonthCloseSheet } from './MonthClose';
 import Savings from './Savings';
 
 export default function BudgetView(props: ViewProps) {
   const { data } = props;
-  const [month, setMonth] = useState(monthOf(today()));
+  const [month, setMonth] = useMonth();
   const [showClose, setShowClose] = useState(false);
   const [editing, setEditing] = useState<BudgetRow | null>(null);
   const rows = monthlySummary(month, data.categories, data.expenses, data.budgets);

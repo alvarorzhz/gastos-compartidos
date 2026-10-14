@@ -444,3 +444,28 @@ export function AmountField({ label, value, onChange, invalid, autoFocus, tone }
     </div>
   );
 }
+
+/**
+ * Mes que se está viendo, empezando por el actual. Si la app se queda abierta y se vuelve
+ * a ella en otro mes, salta al mes nuevo (antes se quedaba en el anterior).
+ */
+export function useMonth(): [string, (month: string) => void] {
+  const [month, setMonth] = useState(() => monthOf(today()));
+  const current = useRef(month);
+  useEffect(() => {
+    const check = () => {
+      const now = monthOf(today());
+      if (document.visibilityState === 'visible' && now !== current.current) {
+        current.current = now;
+        setMonth(now);
+      }
+    };
+    document.addEventListener('visibilitychange', check);
+    const timer = setInterval(check, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', check);
+      clearInterval(timer);
+    };
+  }, []);
+  return [month, setMonth];
+}

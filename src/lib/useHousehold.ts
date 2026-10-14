@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { today } from './dates';
-import { supabase } from './supabase';
+import { errorMessage, supabase } from './supabase';
 import type { Budget, Category, Expense, Household, Invitation, Member, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
 
 export interface HouseholdData {
@@ -108,7 +108,7 @@ export function useHousehold(userId: string) {
     try {
       setState(await load(userId));
     } catch (err) {
-      const message = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err);
+      const message = errorMessage(err);
       // Si ya había datos (p. ej. al volver a la app sin cobertura), se quedan en pantalla
       // para no perder lo que se estuviera escribiendo; solo se avisa.
       setState((prev) => (prev.status === 'ready' ? { ...prev, stale: true } : { status: 'error', message }));

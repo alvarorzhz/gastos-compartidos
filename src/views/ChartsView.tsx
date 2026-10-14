@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { categoryStyle } from '../lib/categoryStyle';
-import { formatMonth, monthOf, today } from '../lib/dates';
+import { formatMonth } from '../lib/dates';
 import { formatEuros } from '../lib/money';
 import { nameOf } from '../lib/people';
 import { averageOfActive, breakdown, monthlyTotals, type MonthTotal, type Slice } from '../lib/stats';
-import { CategoryIcon, EmptyState, MonthNav, personTone, SectionHeader, type ViewProps } from './common';
+import { CategoryIcon, EmptyState, MonthNav, personTone, SectionHeader, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 
 export default function ChartsView({ data, me, onAdd }: ViewProps & { onAdd: () => void }) {
-  const [month, setMonth] = useState(monthOf(today()));
+  const [month, setMonth] = useMonth();
   const [categoryId, setCategoryId] = useState('');
   const categoryName = new Map(data.categories.map((c) => [c.id, c.name]));
   const sortedCategories = [...data.categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));

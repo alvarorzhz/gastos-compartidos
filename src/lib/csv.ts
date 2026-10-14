@@ -7,9 +7,10 @@ export function toCsv(headers: string[], rows: (string | number | null)[][]): st
   return [headers, ...rows].map((r) => r.map(escape).join(';')).join('\r\n') + '\r\n';
 }
 
-export function downloadFile(filename: string, content: string, mime: string) {
+export function downloadFile(filename: string, content: string | Uint8Array, mime: string) {
   // BOM para que Excel lea bien los acentos.
-  const blob = new Blob([mime.startsWith('text/csv') ? '﻿' + content : content], { type: mime });
+  const part = typeof content === 'string' && mime.startsWith('text/csv') ? '\ufeff' + content : content;
+  const blob = new Blob([part as BlobPart], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

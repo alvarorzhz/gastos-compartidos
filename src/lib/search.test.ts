@@ -20,6 +20,8 @@ describe('filterExpenses', () => {
     expect(run('supermercado')).toEqual(['Mercadona', 'super']);
     expect(run('bea')).toEqual(['Café con Bea', 'Mercadona']);
     expect(run('45,20')).toEqual(['Mercadona']);
+    expect(run('45.20')).toEqual(['Mercadona']);
+    expect(run('45.2')).toEqual(['Mercadona']);
   });
   it('combina palabras y filtro de categoría', () => {
     expect(run('bea super')).toEqual(['Mercadona']);
