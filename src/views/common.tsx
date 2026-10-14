@@ -250,13 +250,17 @@ export function SectionHeader({ title, action, id }: { title: string; action?: R
 /* ───────────── Mensajes breves (confirmación de acciones) ───────────── */
 
 type ToastKind = 'success' | 'error' | 'info';
-interface ToastItem { id: number; text: string; kind: ToastKind }
+interface ToastAction { label: string; onClick: () => void }
+interface ToastItem { id: number; text: string; kind: ToastKind; action?: ToastAction; ms: number }
 const toastListeners = new Set<(t: ToastItem) => void>();
 let toastSeq = 0;
 
-/** Muestra un mensaje breve abajo, por ejemplo "Gasto guardado". */
-export function toast(text: string, kind: ToastKind = 'success') {
-  const item = { id: ++toastSeq, text, kind };
+/**
+ * Muestra un mensaje breve abajo, por ejemplo "Gasto guardado".
+ * Con `action` lleva un botón (p. ej. Deshacer) y dura `ms` milisegundos.
+ */
+export function toast(text: string, kind: ToastKind = 'success', options: { action?: ToastAction; ms?: number } = {}) {
+  const item = { id: ++toastSeq, text, kind, action: options.action, ms: options.ms ?? (kind === 'error' ? 6000 : 2800) };
   toastListeners.forEach((l) => l(item));
 }
 
@@ -265,7 +269,7 @@ export function Toaster() {
   useEffect(() => {
     const add = (t: ToastItem) => {
       setItems((prev) => [...prev.slice(-2), t]);
-      setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== t.id)), t.kind === 'error' ? 6000 : 2800);
+      setTimeout(() => setItems((prev) => prev.filter((x) => x.id !== t.id)), t.ms);
     };
     toastListeners.add(add);
     return () => void toastListeners.delete(add);
@@ -273,9 +277,20 @@ export function Toaster() {
   return (
     <div className="toaster" aria-live="polite">
       {items.map((t) => (
-        <div key={t.id} className={'toast toast-' + t.kind} role={t.kind === 'error' ? 'alert' : 'status'}>
+        <div key={t.id} className={'toast toast-' + t.kind + (t.action ? ' with-action' : '')} role={t.kind === 'error' ? 'alert' : 'status'}>
           <Icon name={t.kind === 'error' ? 'alert' : t.kind === 'success' ? 'check' : 'info'} size={18} />
           <span>{t.text}</span>
+          {t.action && (
+            <button
+              className="toast-action"
+              onClick={() => {
+                setItems((prev) => prev.filter((x) => x.id !== t.id));
+                t.action!.onClick();
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>

@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from 'react';
 import { ALERT_OPTIONS, alertText, budgetAlerts } from '../lib/alerts';
-import { monthlySummary, totals, type BudgetRow } from '../lib/budget';
+import { effectiveBudgets, monthlySummary, totals, type BudgetRow } from '../lib/budget';
 import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { errorMessage, supabase } from '../lib/supabase';
@@ -11,32 +11,18 @@ import { MonthCloseSheet } from './MonthClose';
 import Savings from './Savings';
 
 export default function BudgetView(props: ViewProps) {
-  const { data, reload } = props;
+  const { data } = props;
   const [month, setMonth] = useState(monthOf(today()));
-  const [busy, setBusy] = useState(false);
   const [showClose, setShowClose] = useState(false);
   const [editing, setEditing] = useState<BudgetRow | null>(null);
   const rows = monthlySummary(month, data.categories, data.expenses, data.budgets);
   const sum = totals(rows);
-  const previous = addMonths(month, -1);
-  const previousBudgets = data.budgets.filter((b) => b.month === previous);
-  const hasBudget = data.budgets.some((b) => b.month === month);
+  const hasBudget = rows.some((r) => r.budgetCents != null);
   const isCurrent = month === monthOf(today());
   const alerts = isCurrent ? budgetAlerts(month, data.categories, data.expenses, data.budgets) : [];
   const left = sum.budgetCents - sum.spentCents;
   const ratio = sum.budgetCents > 0 ? sum.spentCents / sum.budgetCents : 0;
   const status = sum.budgetCents <= 0 ? null : ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok';
-
-  async function copyPrevious() {
-    setBusy(true);
-    const { error } = await supabase
-      .from('budgets')
-      .upsert(previousBudgets.map((b) => ({ ...b, month })));
-    setBusy(false);
-    if (error) toast(errorMessage(error), 'error');
-    else toast('Presupuesto copiado del mes anterior');
-    await reload();
-  }
 
   return (
     <>
@@ -73,13 +59,8 @@ export default function BudgetView(props: ViewProps) {
           )}
         </div>
         {!hasBudget && (
-          <Notice
-            action={previousBudgets.length > 0 && (
-              <button className="sm tinted" onClick={copyPrevious} disabled={busy}>{busy ? 'Copiando…' : 'Copiar el anterior'}</button>
-            )}
-          >
-            Aún no hay presupuesto para este mes. Toca una categoría de abajo para ponerle un límite
-            {previousBudgets.length > 0 ? ', o copia el del mes anterior.' : '.'}
+          <Notice>
+            Aún no hay presupuesto. Toca una categoría de abajo para ponerle un límite: se mantendrá los meses siguientes hasta que lo cambies.
           </Notice>
         )}
         <div className="row wrap">
@@ -167,10 +148,13 @@ function BudgetSheet({ data, reload, month, row, onClose }: ViewProps & { month:
     setError(null);
     const key = { household_id: data.household.id, category_id: row.category.id, month };
     if (cents !== row.budgetCents) {
+      // El límite vale desde este mes hasta que se cambie. Para quitarlo, si venía de un mes
+      // anterior se guarda un 0 ("sin límite desde aquí"); si no, basta con borrar el de este mes.
+      const inherited = effectiveBudgets(addMonths(month, -1), data.budgets).has(row.category.id);
       const { error } =
-        cents == null
+        cents == null && !inherited
           ? await supabase.from('budgets').delete().match(key)
-          : await supabase.from('budgets').upsert({ ...key, amount_cents: cents });
+          : await supabase.from('budgets').upsert({ ...key, amount_cents: cents ?? 0 });
       if (error) {
         setBusy(false);
         return setError(errorMessage(error));
@@ -219,14 +203,14 @@ function BudgetSheet({ data, reload, month, row, onClose }: ViewProps & { month:
       }
     >
       <form id={formId} onSubmit={submit} className="stack" noValidate>
-        <AmountField label="Límite para este mes" value={value} onChange={setValue} autoFocus />
+        <AmountField label="Límite al mes" value={value} onChange={setValue} autoFocus />
         <Segmented
           legend="Avisar al llegar al"
           value={alertValue}
           options={ALERT_OPTIONS.map((o) => ({ value: toAlertValue(o.value), label: o.value == null ? 'No avisar' : o.label }))}
           onChange={setAlertValue}
         />
-        <p className="field-hint">El aviso de la categoría vale para todos los meses. Deja el límite vacío para quitar el presupuesto de este mes.</p>
+        <p className="field-hint">El límite se mantiene los meses siguientes hasta que lo cambies, y el aviso vale para todos los meses. Deja el límite vacío para quitarlo desde este mes.</p>
       </form>
     </Sheet>
   );

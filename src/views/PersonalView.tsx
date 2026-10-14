@@ -9,6 +9,7 @@ import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
 import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
+import { deleteWithUndo } from './undo';
 
 export default function PersonalView(props: ViewProps) {
   const { data, me } = props;
@@ -269,21 +270,18 @@ function PersonalForm({ data, reload, entry, template, kind: initialKind, onClos
 
   async function remove() {
     if (!source) return;
-    const ok = await confirmAction({
-      title: template ? '¿Borrar este fijo?' : '¿Borrar este movimiento?',
-      message: template ? 'Lo que ya se apuntó se queda.' : undefined,
-      confirmLabel: 'Borrar',
-      danger: true,
-    });
+    if (!template) {
+      deleteWithUndo({ table: 'personal_entries', id: entry!.id, done: 'Movimiento borrado', reload });
+      return onClose();
+    }
+    const ok = await confirmAction({ title: '¿Borrar este fijo?', message: 'Lo que ya se apuntó se queda.', confirmLabel: 'Borrar', danger: true });
     if (!ok) return;
     setBusy(true);
-    const { error } = template
-      ? await supabase.from('personal_recurring').delete().eq('id', template.id)
-      : await supabase.from('personal_entries').delete().eq('id', entry!.id);
+    const { error } = await supabase.from('personal_recurring').delete().eq('id', template.id);
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
-    toast(template ? 'Fijo borrado' : 'Movimiento borrado');
+    toast('Fijo borrado');
     onClose();
   }
 

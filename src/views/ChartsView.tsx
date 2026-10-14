@@ -13,7 +13,7 @@ export default function ChartsView({ data, me, onAdd }: ViewProps & { onAdd: () 
   const categoryName = new Map(data.categories.map((c) => [c.id, c.name]));
   const sortedCategories = [...data.categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
-  const year = monthlyTotals(data.expenses, data.budgets, month, 12, categoryId);
+  const year = monthlyTotals(data.expenses, data.budgets, month, 12, categoryId, new Set(data.categories.filter((c) => c.archived).map((c) => c.id)));
   const byCategory = breakdown(data.expenses, month, (e) => e.category_id);
   const byPayer = breakdown(data.expenses, month, (e) => e.paid_by);
   const byKind = breakdown(data.expenses, month, (e) => (e.recurring_id ? 'fijo' : 'variable'));

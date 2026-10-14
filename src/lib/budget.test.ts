@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { monthlySummary, totals } from './budget';
+import { effectiveBudgets, monthlySummary, totals } from './budget';
 import type { Budget, Category, Expense } from './types';
 
 const cat = (id: string, name: string, archived = false): Category => ({ id, household_id: 'h', name, archived, alert_percent: 90 });
@@ -16,17 +16,41 @@ describe('monthlySummary', () => {
     { household_id: 'h', category_id: 'ocio', month: '2026-09-01', amount_cents: 100 },
   ];
 
-  it('suma solo el gasto del mes y compara con su presupuesto', () => {
+  it('suma solo el gasto del mes y compara con su presupuesto (el de septiembre sigue en octubre)', () => {
     const rows = monthlySummary('2026-10-01', categories, expenses, budgets);
     expect(rows.map((r) => [r.category.id, r.budgetCents, r.spentCents])).toEqual([
       ['super', 30000, 7500],
-      ['ocio', null, 0],
+      ['ocio', 100, 0],
     ]);
-    expect(totals(rows)).toEqual({ budgetCents: 30000, spentCents: 7500 });
+    expect(totals(rows)).toEqual({ budgetCents: 30100, spentCents: 7500 });
   });
 
   it('muestra una categoría archivada si tuvo gasto ese mes', () => {
     const rows = monthlySummary('2026-10-01', categories, [...expenses, exp('viejo', '2026-10-05', 100)], budgets);
     expect(rows.some((r) => r.category.id === 'viejo')).toBe(true);
+  });
+});
+
+describe('effectiveBudgets', () => {
+  const b = (category_id: string, month: string, amount_cents: number): Budget => ({ household_id: 'h', category_id, month, amount_cents });
+  const budgets = [b('super', '2026-08-01', 30000), b('super', '2026-10-01', 35000), b('ocio', '2026-08-01', 5000), b('ocio', '2026-09-01', 0)];
+
+  it('mantiene el límite los meses siguientes hasta que se cambia', () => {
+    expect(effectiveBudgets('2026-07-01', budgets).size).toBe(0);
+    expect(effectiveBudgets('2026-08-01', budgets).get('super')).toBe(30000);
+    expect(effectiveBudgets('2026-09-01', budgets).get('super')).toBe(30000);
+    expect(effectiveBudgets('2026-10-01', budgets).get('super')).toBe(35000);
+    expect(effectiveBudgets('2027-03-01', budgets).get('super')).toBe(35000);
+  });
+
+  it('un límite de 0 lo quita desde ese mes', () => {
+    expect(effectiveBudgets('2026-08-01', budgets).get('ocio')).toBe(5000);
+    expect(effectiveBudgets('2026-09-01', budgets).has('ocio')).toBe(false);
+    expect(effectiveBudgets('2026-12-01', budgets).has('ocio')).toBe(false);
+  });
+
+  it('no muestra categorías archivadas solo por tener presupuesto', () => {
+    const rows = monthlySummary('2026-10-01', [cat('viejo', 'Viejo', true)], [], [b('viejo', '2026-01-01', 100)]);
+    expect(rows).toEqual([]);
   });
 });

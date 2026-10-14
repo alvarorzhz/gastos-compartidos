@@ -23,9 +23,29 @@ export type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
   | { status: 'no-household'; invitation: Invitation | null }
-  | { status: 'ready'; data: HouseholdData };
+  /** stale: la última actualización falló (sin conexión); se siguen mostrando los datos que había. */
+  | { status: 'ready'; data: HouseholdData; stale?: boolean };
 
 const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses', 'savings_goals', 'savings_contributions'];
+
+/** Filas por petición: Supabase no devuelve más de 1000 de una vez. */
+const PAGE = 1000;
+
+/**
+ * Lee todas las filas de una consulta, de 1000 en 1000, para que no se pierdan las más
+ * antiguas cuando haya muchas. La consulta debe tener un orden estable.
+ */
+async function fetchAll<T>(
+  query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<{ data: T[]; error: unknown }> {
+  const all: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await query(from, from + PAGE - 1);
+    if (error) return { data: all, error };
+    all.push(...(data ?? []));
+    if (!data || data.length < PAGE) return { data: all, error: null };
+  }
+}
 
 async function load(userId: string): Promise<LoadState> {
   const me = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle();
@@ -49,14 +69,14 @@ async function load(userId: string): Promise<LoadState> {
     supabase.from('members').select('*').eq('household_id', h).order('joined_at'),
     supabase.from('invitations').select('*').eq('household_id', h).maybeSingle(),
     supabase.from('categories').select('*').eq('household_id', h).order('name'),
-    supabase.from('expenses').select('*').eq('household_id', h).order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
-    supabase.from('settlements').select('*').eq('household_id', h).order('paid_on', { ascending: false }).order('created_at', { ascending: false }),
-    supabase.from('budgets').select('*').eq('household_id', h),
+    fetchAll<Expense>((a, b) => supabase.from('expenses').select('*').eq('household_id', h).order('spent_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(a, b)),
+    fetchAll<Settlement>((a, b) => supabase.from('settlements').select('*').eq('household_id', h).order('paid_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(a, b)),
+    fetchAll<Budget>((a, b) => supabase.from('budgets').select('*').eq('household_id', h).order('month').order('category_id').range(a, b)),
     supabase.from('recurring_expenses').select('*').eq('household_id', h).order('created_at'),
-    supabase.from('personal_entries').select('*').eq('user_id', userId).order('entry_on', { ascending: false }).order('created_at', { ascending: false }),
+    fetchAll<PersonalEntry>((a, b) => supabase.from('personal_entries').select('*').eq('user_id', userId).order('entry_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(a, b)),
     supabase.from('personal_recurring').select('*').eq('user_id', userId).order('created_at'),
     supabase.from('savings_goals').select('*').eq('household_id', h).order('created_at'),
-    supabase.from('savings_contributions').select('*').eq('household_id', h).order('contributed_on', { ascending: false }).order('created_at', { ascending: false }),
+    fetchAll<SavingsContribution>((a, b) => supabase.from('savings_contributions').select('*').eq('household_id', h).order('contributed_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(a, b)),
   ]);
   for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions]) {
     if (r.error) throw r.error;
@@ -88,7 +108,10 @@ export function useHousehold(userId: string) {
     try {
       setState(await load(userId));
     } catch (err) {
-      setState({ status: 'error', message: err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err) });
+      const message = err instanceof Error ? err.message : String((err as { message?: string })?.message ?? err);
+      // Si ya había datos (p. ej. al volver a la app sin cobertura), se quedan en pantalla
+      // para no perder lo que se estuviera escribiendo; solo se avisa.
+      setState((prev) => (prev.status === 'ready' ? { ...prev, stale: true } : { status: 'error', message }));
     }
   }, [userId]);
 
@@ -97,8 +120,13 @@ export function useHousehold(userId: string) {
     const onVisible = () => {
       if (document.visibilityState === 'visible') void reload();
     };
+    const onOnline = () => void reload();
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
   }, [reload]);
 
   // Tiempo real: cuando la otra persona cambia algo, se recarga todo (con un pequeño margen

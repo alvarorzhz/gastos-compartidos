@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from 'react';
-import { addDays, formatDay, formatShortDay, today } from '../lib/dates';
+import { addDays, formatDay, formatShortDay, toIsoDate, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recurring';
@@ -10,6 +10,7 @@ import { AmountField, Avatar, CategoryIcon, confirmAction, Notice, Segmented, Sh
 import { addedText } from './ExpenseRow';
 import { Icon } from './icons';
 import ScanReceipt from './ScanReceipt';
+import { deleteWithUndo } from './undo';
 import type { ReceiptGuess } from '../lib/receipt';
 
 interface Props extends ViewProps {
@@ -122,18 +123,19 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   }
 
   async function remove() {
-    const ok = template
-      ? await confirmAction({ title: '¿Borrar este gasto fijo?', message: 'Los gastos que ya se apuntaron se quedan.', confirmLabel: 'Borrar', danger: true })
-      : expense && await confirmAction({ title: '¿Borrar este gasto?', message: `${expense.note || 'Gasto'} · ${formatEuros(expense.amount_cents)}. El saldo se recalculará.`, confirmLabel: 'Borrar', danger: true });
+    if (!template) {
+      // Un gasto se borra al momento, con unos segundos para deshacerlo.
+      if (expense) deleteWithUndo({ table: 'expenses', id: expense.id, done: 'Gasto borrado', reload });
+      return onClose();
+    }
+    const ok = await confirmAction({ title: '¿Borrar este gasto fijo?', message: 'Los gastos que ya se apuntaron se quedan.', confirmLabel: 'Borrar', danger: true });
     if (!ok) return;
     setBusy(true);
-    const { error } = template
-      ? await supabase.from('recurring_expenses').delete().eq('id', template.id)
-      : await supabase.from('expenses').delete().eq('id', expense!.id);
+    const { error } = await supabase.from('recurring_expenses').delete().eq('id', template.id);
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
-    toast(template ? 'Gasto fijo borrado' : 'Gasto borrado');
+    toast('Gasto fijo borrado');
     onClose();
   }
 
@@ -158,7 +160,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const title = template ? 'Editar gasto fijo' : expense ? 'Editar gasto' : startAsFixed ? 'Nuevo gasto fijo' : 'Nuevo gasto';
   const showRepeat = !expense;
   const subtitle = expense?.created_by
-    ? `${addedText(data.members, expense.created_by, me).replace(/^lo/, 'Lo')} el ${formatShortDay(expense.created_at.slice(0, 10))}`
+    ? `${addedText(data.members, expense.created_by, me).replace(/^lo/, 'Lo')} el ${formatShortDay(toIsoDate(new Date(expense.created_at)))}`
     : undefined;
   const splitSummary = split.mode === 'equal' ? 'A medias' : split.mode === 'percent' ? `Tú ${split.myShare || '?'} %` : `Tu parte ${split.myShare || '?'} €`;
   const repeatSummary = frequency ? capitalizeFirst(frequencyText(frequency)) : 'No se repite';

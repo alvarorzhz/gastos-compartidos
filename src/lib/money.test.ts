@@ -10,6 +10,8 @@ describe('parseEuros', () => {
     ['1,234.56', 123456],
     [' 7,99 € ', 799],
     ['0,01', 1],
+    ['1.200', 120000],
+    ['1.234.567', 123456700],
   ])('%s -> %i', (input, cents) => expect(parseEuros(input)).toBe(cents));
 
   it.each(['', '0', '-3', 'abc', '1,234', '12,345', '1,2,3'])('rechaza %s', (input) => {

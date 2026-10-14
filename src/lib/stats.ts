@@ -1,3 +1,4 @@
+import { effectiveBudgets } from './budget';
 import { addMonths, monthOf } from './dates';
 import type { Budget, Expense } from './types';
 
@@ -7,13 +8,15 @@ export interface MonthTotal {
   budgetCents: number | null;
 }
 
-/** Gasto (y presupuesto, si hay) de los últimos `count` meses hasta `lastMonth`, del más antiguo al más reciente. */
+/** Gasto (y presupuesto vigente, si hay) de los últimos `count` meses hasta `lastMonth`, del más antiguo al más reciente. */
 export function monthlyTotals(
   expenses: Expense[],
   budgets: Budget[],
   lastMonth: string,
   count: number,
   categoryId = '',
+  /** Categorías cuyo presupuesto no cuenta (las archivadas). */
+  ignoreCategories: Set<string> = new Set(),
 ): MonthTotal[] {
   const months = Array.from({ length: count }, (_, i) => addMonths(lastMonth, i - count + 1));
   const spent = new Map<string, number>();
@@ -22,12 +25,14 @@ export function monthlyTotals(
     const m = monthOf(e.spent_on);
     spent.set(m, (spent.get(m) ?? 0) + e.amount_cents);
   }
-  const budgeted = new Map<string, number>();
-  for (const b of budgets) {
-    if (categoryId && b.category_id !== categoryId) continue;
-    budgeted.set(b.month, (budgeted.get(b.month) ?? 0) + b.amount_cents);
-  }
-  return months.map((month) => ({ month, spentCents: spent.get(month) ?? 0, budgetCents: budgeted.get(month) ?? null }));
+  return months.map((month) => {
+    let budget: number | null = null;
+    for (const [id, cents] of effectiveBudgets(month, budgets)) {
+      if ((categoryId && id !== categoryId) || ignoreCategories.has(id)) continue;
+      budget = (budget ?? 0) + cents;
+    }
+    return { month, spentCents: spent.get(month) ?? 0, budgetCents: budget };
+  });
 }
 
 export interface Slice {

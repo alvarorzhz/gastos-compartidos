@@ -16,7 +16,8 @@ import SettingsView from './views/SettingsView';
 import { WhatsNewBanner } from './views/WhatsNew';
 import { AlertsOnEntry } from './views/AlertsDialog';
 import { markCloseSeen, MonthCloseSheet, pendingClose } from './views/MonthClose';
-import { DialogHost, Segmented, Spinner, Toaster } from './views/common';
+import { flushPendingDeletes, useHiddenIds, withoutHidden } from './views/undo';
+import { DialogHost, Notice, Segmented, Spinner, Toaster } from './views/common';
 
 type View = 'inicio' | 'gastos' | 'saldo' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
@@ -74,6 +75,7 @@ function Loading() {
 
 function Home({ userId, email }: { userId: string; email: string }) {
   const { state, reload } = useHousehold(userId);
+  const hiddenIds = useHiddenIds();
   const [view, setView] = useState<View>(readView);
   // Vista abierta por última vez en cada sección, para volver a ella al tocar la sección.
   const [lastView, setLastView] = useState<Record<string, View>>({});
@@ -87,6 +89,19 @@ function Home({ userId, email }: { userId: string; email: string }) {
     setLastView((prev) => ({ ...prev, [sectionOf(view).id]: view }));
     window.scrollTo({ top: 0 });
   }, [view]);
+
+  // Al salir de la app, los borrados pendientes de "Deshacer" se hacen ya.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flushPendingDeletes();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', flushPendingDeletes);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', flushPendingDeletes);
+    };
+  }, []);
 
   useEffect(() => {
     const onHash = () => setView(readView());
@@ -109,7 +124,8 @@ function Home({ userId, email }: { userId: string; email: string }) {
     return <Onboarding email={email} invitation={state.invitation} onDone={reload} />;
   }
 
-  const props = { data: state.data, me: userId, reload };
+  const data = withoutHidden(state.data, hiddenIds);
+  const props = { data, me: userId, reload };
   const section = sectionOf(view);
   const current = section.views.find((v) => v.id === view)!;
   const closeMonth = closeDismissed ? null : pendingClose(props);
@@ -152,6 +168,11 @@ function Home({ userId, email }: { userId: string; email: string }) {
 
       <main className="content">
         <div className="view" key={view}>
+          {state.stale && (
+            <Notice kind="warn" icon="alert" action={<button className="sm tinted" onClick={reload}>Reintentar</button>}>
+              No se han podido actualizar los datos. Revisa la conexión; lo que ves puede no estar al día.
+            </Notice>
+          )}
           <WhatsNewBanner />
           {view === 'inicio' && <HomeView {...props} onAdd={() => setAdding(true)} />}
           {view === 'gastos' && <ExpensesView {...props} onAdd={() => setAdding(true)} />}
@@ -185,7 +206,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       {closeMonth && (
         <MonthCloseSheet {...props} month={closeMonth} onClose={() => { markCloseSeen(closeMonth); setCloseDismissed(true); }} />
       )}
-      <AlertsOnEntry data={state.data} waiting={closeMonth != null} />
+      <AlertsOnEntry data={data} waiting={closeMonth != null} />
       <Toaster />
       <DialogHost />
     </div>
