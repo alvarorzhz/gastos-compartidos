@@ -18,7 +18,7 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
-    version: '2.3.0',
+    version: '3.0.0',
     date: '2026-10-14',
     changes: [
       { kind: 'nuevo', text: 'Lista de la compra compartida, en la nueva sección Compra de la barra de abajo. Los dos veis y cambiáis la misma lista, y lo que hace uno le aparece al otro al momento.' },
