@@ -2,6 +2,9 @@ export interface Household {
   id: string;
   name: string;
   currency: 'EUR';
+  /** Reparto por defecto: la parte (%) de cada gasto nuevo que le toca a default_split_user. null = a medias. */
+  default_split_user: string | null;
+  default_split_percent: number | null;
 }
 
 export interface Member {

@@ -1,4 +1,4 @@
-import { centsToInput } from './money';
+import { centsToInput, parseEuros } from './money';
 import type { Expense } from './types';
 
 /** Minúsculas y sin tildes, para que "cafe" encuentre "Café". */
@@ -21,7 +21,11 @@ export function filterExpenses(
   categoryName: (id: string) => string,
   payerName: (id: string) => string,
 ): Expense[] {
-  const words = normalize(filter.text).split(/\s+/).filter(Boolean);
+  // Un importe escrito con punto ("12.50", "1.200") se busca como lo muestra la app ("12,50", "1200,00").
+  const words = normalize(filter.text).split(/\s+/).filter(Boolean).map((w) => {
+    const cents = w.includes('.') && /^[\d.,]+$/.test(w) ? parseEuros(w) : null;
+    return cents == null ? w : centsToInput(cents);
+  });
   return expenses.filter((e) => {
     if (filter.categoryId && e.category_id !== filter.categoryId) return false;
     if (words.length === 0) return true;

@@ -18,6 +18,19 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '2.2.0',
+    date: '2026-10-14',
+    changes: [
+      { kind: 'nuevo', text: 'Previsión en Inicio: a partir del día 5, la app calcula en cuánto acabaréis el mes a este ritmo (contando los gastos fijos que faltan) y si os sobrará o os pasaréis del presupuesto.' },
+      { kind: 'nuevo', text: 'Reparto por defecto: en Ajustes podéis elegir otro reparto distinto de a medias (por ejemplo 60/40) para todos los gastos nuevos. Se puede seguir cambiando en cada gasto, y los ya apuntados no cambian.' },
+      { kind: 'mejora', text: 'Exportar a Excel con una hoja para cada cosa: gastos, reembolsos, presupuestos mes a mes, huchas, sus movimientos y tus movimientos personales.' },
+      { kind: 'correccion', text: 'Tocar el nombre del espacio en Ajustes ya no deshace el cambio que hizo tu pareja.' },
+      { kind: 'correccion', text: 'Los errores salen en castellano y explicados (por ejemplo, sin conexión o una categoría con un nombre repetido).' },
+      { kind: 'correccion', text: 'El buscador encuentra importes escritos con punto, como 12.50 o 1.200.' },
+      { kind: 'correccion', text: 'Si la app se queda abierta y vuelves a ella otro mes, ya enseña el mes nuevo.' },
+    ],
+  },
+  {
     version: '2.1.0',
     date: '2026-10-14',
     changes: [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { owedFromSplit, splitFromExpense } from './split';
+import { defaultMyPercent, defaultSplit, owedFromSplit, splitFromExpense } from './split';
 import type { Expense } from './types';
 
 const ME = 'me';
@@ -65,5 +65,21 @@ describe('splitFromExpense', () => {
         expect(owedFromSplit(splitFromExpense(e, who), e.amount_cents, e.paid_by === who)).toBe(owed);
       }
     }
+  });
+});
+
+describe('reparto por defecto', () => {
+  const members = [{ household_id: 'h', user_id: ME, display_name: 'Yo' }, { household_id: 'h', user_id: 'otra', display_name: 'Otra' }];
+  it('empieza a medias si no hay reparto guardado', () => {
+    expect(defaultSplit({ default_split_user: null, default_split_percent: null }, ME, members)).toEqual({ mode: 'equal', myShare: '50' });
+  });
+  it('da a cada uno su parte', () => {
+    const h = { default_split_user: ME, default_split_percent: 60 };
+    expect(defaultMyPercent(h, ME, members)).toBe(60);
+    expect(defaultMyPercent(h, 'otra', members)).toBe(40);
+    expect(defaultSplit(h, 'otra', members)).toEqual({ mode: 'percent', myShare: '40' });
+  });
+  it('vuelve a medias si quien lo guardó ya no está', () => {
+    expect(defaultMyPercent({ default_split_user: 'antigua', default_split_percent: 70 }, ME, members)).toBe(50);
   });
 });

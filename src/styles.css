@@ -925,6 +925,11 @@ button.row-main:active:not(:disabled) { transform: none; }
 
 /* ───────────── Pantallas concretas ───────────── */
 
+/* Previsión de fin de mes en Inicio */
+.forecast { display: flex; gap: var(--s2); align-items: flex-start; margin: var(--s3) 0 0; padding-top: var(--s3); border-top: 1px solid var(--border); font-size: var(--fs-sm); color: var(--text-2); }
+.forecast .icon { margin-top: 2px; color: var(--accent); }
+.forecast strong { color: var(--text); }
+
 /* Cambio de mes */
 .month-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); background: var(--surface); border-radius: var(--r-full); padding: 2px; box-shadow: var(--shadow-1); }
 .month-nav .icon-btn { width: 40px; height: 40px; min-height: 40px; }

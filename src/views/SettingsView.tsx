@@ -1,6 +1,7 @@
-import { useId, useState, type FormEvent } from 'react';
-import { exportCsv, exportJson } from '../lib/exportData';
+import { useEffect, useId, useState, type FormEvent } from 'react';
+import { exportJson, exportXlsx } from '../lib/exportData';
 import { partnerOf } from '../lib/people';
+import { defaultMyPercent } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import { askText, Avatar, CategoryIcon, confirmAction, Notice, toast, type ViewProps } from './common';
 import { Icon } from './icons';
@@ -59,6 +60,8 @@ export default function SettingsView(props: ViewProps & { email: string }) {
         )}
       </section>
 
+      {partner && <DefaultSplit {...props} partnerName={partner.display_name} />}
+
       <Categories {...props} />
 
       <InstallCard />
@@ -67,9 +70,9 @@ export default function SettingsView(props: ViewProps & { email: string }) {
         <h2 id="set-data">Tus datos</h2>
         <ul className="list with-icons">
           <li>
-            <button className="row-item" onClick={() => exportCsv(data)}>
+            <button className="row-item" onClick={() => exportXlsx(data)}>
               <span className="icon-tile accent"><Icon name="download" /></span>
-              <span className="row-main"><span className="row-title">Exportar CSV</span><span className="row-meta">Para abrir con Excel</span></span>
+              <span className="row-main"><span className="row-title">Exportar a Excel</span><span className="row-meta">Una hoja para cada cosa</span></span>
             </button>
           </li>
           <li>
@@ -79,7 +82,7 @@ export default function SettingsView(props: ViewProps & { email: string }) {
             </button>
           </li>
         </ul>
-        <p className="note">Incluye gastos, reembolsos, presupuestos, categorías y tus movimientos personales.</p>
+        <p className="note">El Excel trae una hoja para gastos, reembolsos, presupuestos, huchas, sus movimientos y tus movimientos personales. El JSON es una copia completa de todo.</p>
       </section>
 
       <VersionCard />
@@ -109,8 +112,15 @@ function InlineText({ label, value, maxLength, onSave, reload }: {
 }) {
   const id = useId();
   const [text, setText] = useState(value);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Si la otra persona lo cambia mientras no lo estás editando, se muestra lo nuevo
+  // (antes se quedaba el texto viejo y al salir del campo se volvía a guardar).
+  useEffect(() => {
+    if (!editing) setText(value);
+  }, [value, editing]);
   async function commit() {
+    setEditing(false);
     const v = text.trim();
     if (!v || v === value) return setText(value);
     const { error } = await onSave(v);
@@ -130,7 +140,7 @@ function InlineText({ label, value, maxLength, onSave, reload }: {
           value={text}
           maxLength={maxLength}
           enterKeyHint="done"
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setEditing(true); setText(e.target.value); }}
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         />
@@ -138,6 +148,59 @@ function InlineText({ label, value, maxLength, onSave, reload }: {
       </div>
       <Icon name="edit" size={16} className="faint" />
     </div>
+  );
+}
+
+/** Reparto con el que empiezan los gastos nuevos (por ejemplo 60/40 según los sueldos). */
+function DefaultSplit({ data, me, reload, partnerName }: ViewProps & { partnerName: string }) {
+  const id = useId();
+  const saved = defaultMyPercent(data.household, me, data.members);
+  const [value, setValue] = useState(String(saved));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setValue(String(saved)), [saved]);
+
+  const p = Number(value.trim().replace(',', '.'));
+  const valid = value.trim() !== '' && Number.isInteger(p) && p >= 0 && p <= 100;
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!valid) return setError('Escribe un número entero entre 0 y 100');
+    setBusy(true);
+    setError(null);
+    const patch = p === 50 ? { default_split_user: null, default_split_percent: null } : { default_split_user: me, default_split_percent: p };
+    const { error } = await supabase.from('households').update(patch).eq('id', data.household.id);
+    setBusy(false);
+    if (error) return setError(errorMessage(error));
+    toast('Reparto guardado');
+    await reload();
+  }
+
+  return (
+    <section className="settings-group" aria-labelledby="set-split">
+      <h2 id="set-split">Reparto de los gastos</h2>
+      <form className="card stack" onSubmit={save} noValidate>
+        <div className="field">
+          <label className="field-label" htmlFor={id}>Tu parte de cada gasto nuevo (%)</label>
+          <div className="row">
+            <input id={id} className="grow" inputMode="numeric" maxLength={3} value={value} onChange={(e) => setValue(e.target.value)} />
+            <button className="primary" disabled={busy || !valid || p === saved}>{busy ? 'Guardando…' : 'Guardar'}</button>
+          </div>
+          <div className="chips" role="group" aria-label="Repartos habituales">
+            {[50, 60, 40].map((n) => (
+              <button key={n} type="button" className={'chip' + (p === n ? ' selected' : '')} onClick={() => setValue(String(n))}>
+                {n === 50 ? 'A medias' : `${n} / ${100 - n}`}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="field-hint">
+          {valid ? (p === 50 ? 'Cada gasto nuevo se reparte a medias.' : `A ${partnerName} le toca el ${100 - p} %.`) : 'Escribe un número entre 0 y 100.'}{' '}
+          Se puede cambiar en cada gasto, y los que ya están apuntados no cambian.
+        </p>
+        {error && <p className="error" role="alert">{error}</p>}
+      </form>
+    </section>
   );
 }
 
