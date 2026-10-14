@@ -7,13 +7,16 @@ import { errorMessage, supabase } from '../lib/supabase';
 import type { SavingsGoal } from '../lib/types';
 import { AmountField, Avatar, confirmAction, EmptyState, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
 import { Icon } from './icons';
+import { deleteWithUndo } from './undo';
 
 /** Huchas comunes: objetivos de ahorro con lo que aporta cada uno. No cuentan en el saldo. */
 export default function Savings(props: ViewProps) {
   const { data, me } = props;
   const [editing, setEditing] = useState<SavingsGoal | 'new' | null>(null);
   const [contributing, setContributing] = useState<SavingsGoal | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const goals = data.goals.filter((g) => !g.archived);
+  const archived = data.goals.filter((g) => g.archived);
 
   return (
     <section className="section" aria-labelledby="savings-title">
@@ -63,6 +66,17 @@ export default function Savings(props: ViewProps) {
         })
       )}
 
+      {archived.length > 0 && (
+        <div className="row wrap">
+          <button className="pill" onClick={() => setShowArchived(true)}>
+            <Icon name="archive" size={16} /> Huchas archivadas <span className="count">{archived.length}</span>
+          </button>
+        </div>
+      )}
+
+      {showArchived && !editing && archived.length > 0 && (
+        <ArchivedGoals {...props} goals={archived} onOpen={setEditing} onClose={() => setShowArchived(false)} />
+      )}
       {editing && <GoalForm {...props} goal={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       {contributing && <ContributionForm {...props} goal={contributing} onClose={() => setContributing(null)} />}
     </section>
@@ -112,13 +126,16 @@ function GoalForm({ data, me, reload, goal, onClose }: ViewProps & { goal: Savin
   }
 
   async function archive() {
-    if (goal && (await run(supabase.from('savings_goals').update({ archived: true }).eq('id', goal.id), 'Hucha archivada'))) onClose();
+    if (!goal) return;
+    const ok = await run(
+      supabase.from('savings_goals').update({ archived: !goal.archived }).eq('id', goal.id),
+      goal.archived ? 'Hucha recuperada' : 'Hucha archivada',
+    );
+    if (ok) onClose();
   }
 
-  async function removeContribution(id: string) {
-    if (await confirmAction({ title: '¿Borrar esta aportación?', confirmLabel: 'Borrar', danger: true })) {
-      await run(supabase.from('savings_contributions').delete().eq('id', id), 'Aportación borrada');
-    }
+  function removeContribution(id: string) {
+    deleteWithUndo({ table: 'savings_contributions', id, done: 'Aportación borrada', reload });
   }
 
   return (
@@ -130,7 +147,7 @@ function GoalForm({ data, me, reload, goal, onClose }: ViewProps & { goal: Savin
           {error && <p className="error" role="alert">{error}</p>}
           <div className="row">
             {goal && <button type="button" className="danger" onClick={remove} disabled={busy}>Borrar</button>}
-            {goal && <button type="button" className="secondary" onClick={archive} disabled={busy}>Archivar</button>}
+            {goal && <button type="button" className="secondary" onClick={archive} disabled={busy}>{goal.archived ? 'Recuperar' : 'Archivar'}</button>}
             <button type="submit" form={formId} className="primary lg" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
           </div>
         </>
@@ -145,7 +162,13 @@ function GoalForm({ data, me, reload, goal, onClose }: ViewProps & { goal: Savin
           <label className="field-label" htmlFor={formId + '-target'}>Objetivo (€)</label>
           <input id={formId + '-target'} inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="1500" />
         </div>
-        {goal && <p className="field-hint">Archivar la oculta de Presupuesto sin borrar lo ahorrado.</p>}
+        {goal && (
+          <p className="field-hint">
+            {goal.archived
+              ? 'Está archivada. Recuperarla la vuelve a mostrar en Presupuesto.'
+              : 'Archivar la oculta de Presupuesto sin borrar lo ahorrado. Seguirá en "Huchas archivadas".'}
+          </p>
+        )}
       </form>
       {contributions.length > 0 && (
         <div className="section" style={{ marginTop: 'var(--s5)' }}>
@@ -165,6 +188,42 @@ function GoalForm({ data, me, reload, goal, onClose }: ViewProps & { goal: Savin
           </ul>
         </div>
       )}
+    </Sheet>
+  );
+}
+
+/** Carpeta con las huchas archivadas: se pueden consultar y recuperar. */
+function ArchivedGoals({ data, reload, goals, onOpen, onClose }: ViewProps & { goals: SavingsGoal[]; onOpen: (g: SavingsGoal) => void; onClose: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  async function restore(g: SavingsGoal) {
+    setBusy(true);
+    const { error } = await supabase.from('savings_goals').update({ archived: false }).eq('id', g.id);
+    setBusy(false);
+    if (error) return toast(errorMessage(error), 'error');
+    await reload();
+    toast('Hucha recuperada');
+  }
+
+  return (
+    <Sheet title="Huchas archivadas" subtitle="Toca una para ver sus movimientos." onClose={onClose}>
+      <ul className="list with-icons">
+        {goals.map((g) => {
+          const p = goalProgress(g, data.contributions);
+          return (
+            <li key={g.id} className="row-item">
+              <span className="icon-tile accent"><Icon name="piggy" /></span>
+              <button className="row-main" onClick={() => onOpen(g)} aria-label={`Ver la hucha ${g.name}`}>
+                <span className="row-title">{g.name}</span>
+                <span className="row-meta">{formatEuros(p.savedCents)} de {formatEuros(g.target_cents)}</span>
+              </button>
+              <button className="sm tinted" onClick={() => restore(g)} disabled={busy}>
+                <Icon name="undo" size={16} /> Recuperar
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </Sheet>
   );
 }

@@ -18,6 +18,19 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '2.1.0',
+    date: '2026-10-14',
+    changes: [
+      { kind: 'nuevo', text: 'Presupuestos que se mantienen: el límite que pongas a una categoría sigue valiendo los meses siguientes hasta que lo cambies. Ya no hace falta copiarlo cada mes.' },
+      { kind: 'nuevo', text: 'Deshacer al borrar: al borrar un gasto, un reembolso, una aportación a una hucha o un movimiento personal, tienes unos segundos para tocar Deshacer.' },
+      { kind: 'nuevo', text: 'Huchas archivadas: las huchas que archives quedan en Presupuesto → Huchas archivadas, donde puedes ver sus movimientos y recuperarlas.' },
+      { kind: 'correccion', text: 'Sin límite de gastos: antes, a partir de 1.000 gastos los más antiguos dejaban de cargarse y el saldo podía salir mal. Ahora se cargan todos.' },
+      { kind: 'correccion', text: 'Los importes con punto de miles, como 1.200, ya se aceptan.' },
+      { kind: 'correccion', text: 'Si al volver a la app falla la conexión, ya no se pierde lo que estabas escribiendo: sigues viendo los datos y sale un aviso para reintentar.' },
+      { kind: 'correccion', text: 'El día de "Lo apuntó…" salía con un día de menos en los gastos apuntados de madrugada.' },
+    ],
+  },
+  {
     version: '2.0.0',
     date: '2026-10-13',
     changes: [

@@ -4,8 +4,9 @@ import { formatDayHeading, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
-import { AmountField, Avatar, confirmAction, EmptyState, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { AmountField, Avatar, EmptyState, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
 import { Icon } from './icons';
+import { deleteWithUndo } from './undo';
 
 export function BalanceText({ balance, partnerName }: { balance: number; partnerName: string }) {
   const rounded = Math.round(balance);
@@ -38,13 +39,8 @@ export default function BalanceView(props: ViewProps) {
   const rounded = Math.round(balance);
   const total = data.expenses.reduce((t, e) => t + e.amount_cents, 0);
 
-  async function removeSettlement(id: string) {
-    const ok = await confirmAction({ title: '¿Borrar este reembolso?', message: 'El saldo se recalculará.', confirmLabel: 'Borrar', danger: true });
-    if (!ok) return;
-    const { error } = await supabase.from('settlements').delete().eq('id', id);
-    if (error) toast(errorMessage(error), 'error');
-    else toast('Reembolso borrado');
-    await reload();
+  function removeSettlement(id: string) {
+    deleteWithUndo({ table: 'settlements', id, done: 'Reembolso borrado', reload });
   }
 
   return (

@@ -20,6 +20,12 @@ describe('monthlyTotals', () => {
     expect(monthlyTotals(expenses, [], '2026-10-01', 1, 'ocio')[0].spentCents).toBe(1000);
     expect(averageOfActive(t)).toBe(4500);
   });
+
+  it('el presupuesto se mantiene los meses siguientes y se pueden ignorar categorías', () => {
+    const budgets = [{ household_id: 'h', category_id: 'super', month: '2026-08-01', amount_cents: 20000 }, { household_id: 'h', category_id: 'ocio', month: '2026-09-01', amount_cents: 5000 }];
+    expect(monthlyTotals(expenses, budgets, '2026-10-01', 3).map((x) => x.budgetCents)).toEqual([20000, 25000, 25000]);
+    expect(monthlyTotals(expenses, budgets, '2026-10-01', 3, '', new Set(['ocio'])).map((x) => x.budgetCents)).toEqual([20000, 20000, 20000]);
+  });
 });
 
 describe('breakdown', () => {

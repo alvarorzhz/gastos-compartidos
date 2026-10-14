@@ -6,7 +6,7 @@ export function formatEuros(cents: number): string {
 }
 
 /**
- * Convierte lo que escribe la persona ("12,5", "12.50", "1.234,56") a céntimos.
+ * Convierte lo que escribe la persona ("12,5", "12.50", "1.200", "1.234,56") a céntimos.
  * Devuelve null si no es un importe positivo válido (o cero, con allowZero).
  */
 export function parseEuros(input: string, { allowZero = false } = {}): number | null {
@@ -21,6 +21,9 @@ export function parseEuros(input: string, { allowZero = false } = {}): number | 
     s = s.split(thousands).join('').replace(decimal, '.');
   } else if (lastComma >= 0) {
     s = s.replace(',', '.');
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    // Solo puntos en grupos de tres: son de miles ("1.200" = mil doscientos).
+    s = s.split('.').join('');
   }
   if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
   const cents = Math.round(parseFloat(s) * 100);
