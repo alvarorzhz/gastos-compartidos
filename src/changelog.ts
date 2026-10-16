@@ -18,6 +18,13 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.1.1',
+    date: '2026-10-16',
+    changes: [
+      { kind: 'correccion', text: 'En iPhone ya se puede entrar en la app instalada: el enlace del correo siempre abría Safari. Crea una contraseña en Ajustes → Contraseña y entra con tu email y esa contraseña desde la app.' },
+    ],
+  },
+  {
     version: '3.1.0',
     date: '2026-10-16',
     changes: [
