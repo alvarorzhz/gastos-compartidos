@@ -129,7 +129,7 @@ function MonthBars({ totals, selected, onSelect }: { totals: MonthTotal[]; selec
       {totals.map((t, i) => {
         const x = i * slot + slot * 0.2;
         const w = slot * 0.6;
-        const over = t.budgetCents != null && t.spentCents > t.budgetCents;
+        const over = t.budgetCents != null && t.budgetedSpentCents > t.budgetCents;
         const isSelected = t.month === selected;
         const label = `${formatMonth(t.month)}: ${formatEuros(t.spentCents)}${t.budgetCents ? ` de ${formatEuros(t.budgetCents)}` : ''}`;
         return (

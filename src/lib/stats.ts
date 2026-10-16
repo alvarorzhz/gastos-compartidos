@@ -6,6 +6,8 @@ export interface MonthTotal {
   month: string; // YYYY-MM-01
   spentCents: number;
   budgetCents: number | null;
+  /** Lo gastado en categorías con presupuesto (lo que se compara con él). */
+  budgetedSpentCents: number;
 }
 
 /** Gasto (y presupuesto vigente, si hay) de los últimos `count` meses hasta `lastMonth`, del más antiguo al más reciente. */
@@ -20,18 +22,23 @@ export function monthlyTotals(
 ): MonthTotal[] {
   const months = Array.from({ length: count }, (_, i) => addMonths(lastMonth, i - count + 1));
   const spent = new Map<string, number>();
+  const byCategory = new Map<string, number>(); // "mes|categoría"
   for (const e of expenses) {
     if (categoryId && e.category_id !== categoryId) continue;
     const m = monthOf(e.spent_on);
     spent.set(m, (spent.get(m) ?? 0) + e.amount_cents);
+    const k = m + '|' + e.category_id;
+    byCategory.set(k, (byCategory.get(k) ?? 0) + e.amount_cents);
   }
   return months.map((month) => {
     let budget: number | null = null;
+    let budgetedSpentCents = 0;
     for (const [id, cents] of effectiveBudgets(month, budgets)) {
       if ((categoryId && id !== categoryId) || ignoreCategories.has(id)) continue;
       budget = (budget ?? 0) + cents;
+      budgetedSpentCents += byCategory.get(month + '|' + id) ?? 0;
     }
-    return { month, spentCents: spent.get(month) ?? 0, budgetCents: budget };
+    return { month, spentCents: spent.get(month) ?? 0, budgetCents: budget, budgetedSpentCents };
   });
 }
 

@@ -41,9 +41,17 @@ export function monthlySummary(month: string, categories: Category[], expenses: 
     .sort((a, b) => b.spentCents - a.spentCents || a.category.name.localeCompare(b.category.name, 'es'));
 }
 
-export function totals(rows: BudgetRow[]): { budgetCents: number; spentCents: number } {
+/**
+ * Totales del mes. budgetedSpentCents es lo gastado solo en categorías con presupuesto:
+ * es lo que se compara con el presupuesto (lo gastado en categorías sin límite no os "pasa").
+ */
+export function totals(rows: BudgetRow[]): { budgetCents: number; spentCents: number; budgetedSpentCents: number } {
   return rows.reduce(
-    (acc, r) => ({ budgetCents: acc.budgetCents + (r.budgetCents ?? 0), spentCents: acc.spentCents + r.spentCents }),
-    { budgetCents: 0, spentCents: 0 },
+    (acc, r) => ({
+      budgetCents: acc.budgetCents + (r.budgetCents ?? 0),
+      spentCents: acc.spentCents + r.spentCents,
+      budgetedSpentCents: acc.budgetedSpentCents + (r.budgetCents != null ? r.spentCents : 0),
+    }),
+    { budgetCents: 0, spentCents: 0, budgetedSpentCents: 0 },
   );
 }

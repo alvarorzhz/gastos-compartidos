@@ -1,4 +1,5 @@
 import { expenseEffect } from '../lib/balance';
+import { isQueued } from '../lib/expenseOutbox';
 import { formatShortDay } from '../lib/dates';
 import { formatEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
@@ -28,13 +29,17 @@ export function splitLabel(e: Expense, me: string, partnerName: string): string 
 }
 
 /** Fila de un gasto común: categoría, concepto, quién pagó, importe y cómo afecta al saldo. */
-export function ExpenseRow({ expense: e, data, me, onOpen, showDate }: {
+export function ExpenseRow({ expense: e, data, me, onOpen, showDate, hideEvent }: {
   expense: Expense;
   data: HouseholdData;
   me: string;
   onOpen: (e: Expense) => void;
   showDate?: boolean;
+  /** No enseñar el viaje (dentro del propio viaje sobra). */
+  hideEvent?: boolean;
 }) {
+  const event = !hideEvent && e.event_id ? data.events.find((x) => x.id === e.event_id) : undefined;
+  const pending = isQueued(e.id);
   const category = data.categories.find((c) => c.id === e.category_id)?.name ?? 'Sin categoría';
   const partner = partnerOf(data.members, me);
   const effect = expenseEffect(me, e);
@@ -52,6 +57,8 @@ export function ExpenseRow({ expense: e, data, me, onOpen, showDate }: {
           <span className="row-title">{e.note || category}</span>
           <span className="row-meta">
             {partner && e.owed_cents != null && <><span className="tag tag-accent">{splitLabel(e, me, partner.display_name)}</span>{' '}</>}
+            {pending && <><span className="tag tag-warn"><Icon name="clock" size={12} /> Sin subir</span>{' '}</>}
+            {event && <><span className="tag"><Icon name="suitcase" size={12} /> {event.name}</span>{' '}</>}
             {e.recurring_id && <><Icon name="repeat" size={14} label="Gasto fijo" />{' '}</>}
             {meta.join(' · ')}
           </span>

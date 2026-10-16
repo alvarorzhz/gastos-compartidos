@@ -15,6 +15,7 @@ export function exportSheets(data: HouseholdData, todayIso = today()): Sheet[] {
   const category = new Map(data.categories.map((c) => [c.id, c.name]));
   const who = (id: string) => nameOf(data.members, id);
   const goalName = new Map(data.goals.map((g) => [g.id, g.name]));
+  const eventName = new Map((data.events ?? []).map((e) => [e.id, e.name]));
 
   // Presupuestos mes a mes, desde el primer mes con presupuesto o gasto hasta el actual.
   const firstMonth = [...data.budgets.map((b) => b.month), ...data.expenses.map((e) => monthOf(e.spent_on))].sort()[0];
@@ -29,11 +30,11 @@ export function exportSheets(data: HouseholdData, todayIso = today()): Sheet[] {
   return [
     {
       name: 'Gastos',
-      headers: ['Fecha', 'Concepto', 'Categoría', 'Importe', 'Pagó', 'Parte de quien no pagó', 'Reparto', 'Gasto fijo', 'Apuntado por'],
-      widths: [12, 30, 18, 12, 14, 22, 14, 11, 14],
+      headers: ['Fecha', 'Concepto', 'Categoría', 'Importe', 'Pagó', 'Parte de quien no pagó', 'Reparto', 'Gasto fijo', 'Viaje o evento', 'Apuntado por'],
+      widths: [12, 30, 18, 12, 14, 22, 14, 11, 18, 14],
       rows: data.expenses.map((e) => [
         date(e.spent_on), e.note, category.get(e.category_id) ?? '', money(e.amount_cents), who(e.paid_by),
-        money(owedOf(e)), e.owed_cents == null ? 'A medias' : 'Personalizado', e.recurring_id ? 'Sí' : '', e.created_by ? who(e.created_by) : '',
+        money(owedOf(e)), e.owed_cents == null ? 'A medias' : 'Personalizado', e.recurring_id ? 'Sí' : '', e.event_id ? eventName.get(e.event_id) ?? '' : '', e.created_by ? who(e.created_by) : '',
       ]),
     },
     {

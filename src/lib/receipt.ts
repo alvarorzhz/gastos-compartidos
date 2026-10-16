@@ -38,8 +38,9 @@ const GENERIC_CATEGORY: { match: RegExp; category: string }[] = [
   { match: /gasoleo|gasolina|diesel|sin plomo|surtidor/, category: 'Transporte' },
 ];
 
-// Un importe con dos decimales: 12,34 · 1.234,56 · 12.34
-const AMOUNT = /(\d{1,3}(?:[.\s]\d{3})*|\d+)[,.](\d{2})(?!\d)/g;
+// Un importe con dos decimales: 12,34 · 1.234,56 · 12.34. No vale un trozo de fecha u hora
+// (16.10.2026, 16-10.20…): ni pegado detrás de un número con separador ni seguido de otro.
+const AMOUNT = /(?<![\d.,/:-])(\d{1,3}(?:[.\s]\d{3})*|\d+)[,.](\d{2})(?![\d]|[.,/:-]\d)/g;
 
 function amountsIn(line: string): number[] {
   const out: number[] = [];

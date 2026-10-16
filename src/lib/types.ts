@@ -42,9 +42,23 @@ export interface Expense {
   note: string | null;
   /** Gasto fijo que lo apuntó, si lo hay. */
   recurring_id: string | null;
+  /** Viaje o evento al que pertenece, si lo hay. */
+  event_id?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Viaje o evento: agrupa gastos comunes para ver su total aparte. */
+export interface TripEvent {
+  id: string;
+  household_id: string;
+  name: string;
+  starts_on: string | null; // YYYY-MM-DD
+  ends_on: string | null;
+  archived: boolean;
+  created_by: string | null;
+  created_at: string;
 }
 
 export type Frequency = 'weekly' | 'monthly' | 'yearly';

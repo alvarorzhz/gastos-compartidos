@@ -20,8 +20,10 @@ export default function BudgetView(props: ViewProps) {
   const hasBudget = rows.some((r) => r.budgetCents != null);
   const isCurrent = month === monthOf(today());
   const alerts = isCurrent ? budgetAlerts(month, data.categories, data.expenses, data.budgets) : [];
-  const left = sum.budgetCents - sum.spentCents;
-  const ratio = sum.budgetCents > 0 ? sum.spentCents / sum.budgetCents : 0;
+  // Solo cuenta contra el presupuesto lo gastado en categorías que lo tienen.
+  const left = sum.budgetCents - sum.budgetedSpentCents;
+  const ratio = sum.budgetCents > 0 ? sum.budgetedSpentCents / sum.budgetCents : 0;
+  const unbudgeted = sum.spentCents - sum.budgetedSpentCents;
   const status = sum.budgetCents <= 0 ? null : ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok';
 
   return (
@@ -41,7 +43,7 @@ export default function BudgetView(props: ViewProps) {
           </div>
           <p className={'stat-big' + (hasBudget && left < 0 ? ' negative' : '')}>{hasBudget ? formatEuros(Math.abs(left)) : '—'}</p>
         </div>
-        {sum.budgetCents > 0 && <Progress value={sum.spentCents} max={sum.budgetCents} label="Presupuesto gastado" />}
+        {sum.budgetCents > 0 && <Progress value={sum.budgetedSpentCents} max={sum.budgetCents} label="Presupuesto gastado" />}
         <div className={'stat-grid' + (sum.budgetCents > 0 ? ' three' : '')}>
           <div className="stat-tile">
             <span className="stat-label">Presupuesto</span>
@@ -58,6 +60,9 @@ export default function BudgetView(props: ViewProps) {
             </div>
           )}
         </div>
+        {hasBudget && unbudgeted > 0 && (
+          <p className="muted small">De lo gastado, {formatEuros(unbudgeted)} son de categorías sin presupuesto y no cuentan para el límite.</p>
+        )}
         {!hasBudget && (
           <Notice>
             Aún no hay presupuesto. Toca una categoría de abajo para ponerle un límite: se mantendrá los meses siguientes hasta que lo cambies.

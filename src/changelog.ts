@@ -18,6 +18,21 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.1.0',
+    date: '2026-10-16',
+    changes: [
+      { kind: 'nuevo', text: 'Viajes y eventos: en Gastos → Viajes, crea uno con sus fechas (un viaje, una boda, una mudanza). Mientras dure, los gastos nuevos se apuntan en él solos, y ves su total, quién pagó qué y el saldo del viaje.' },
+      { kind: 'nuevo', text: 'Avisos en el móvil: en Ajustes → Avisos en el móvil, el móvil te avisa cuando tu pareja apunta un gasto y cuando un presupuesto llega a su aviso, aunque la app esté cerrada. En iPhone hace falta tener la app instalada.' },
+      { kind: 'nuevo', text: 'Sin cobertura también se puede apuntar: el gasto se guarda en el móvil con la marca «Sin subir» y se sube solo al volver la conexión. Y la app se abre sin conexión con los datos de la última vez.' },
+      { kind: 'nuevo', text: 'Gastos habituales: al añadir un gasto salen los que más repetís (el café, la gasolina…). Un toque lo rellena todo como la última vez.' },
+      { kind: 'correccion', text: 'El saldo ya sale igual en los dos móviles con importes impares a medias (antes uno veía 6,18 € y el otro 6,17 €).' },
+      { kind: 'correccion', text: 'Al escanear un ticket sin «Total», la fecha con puntos (16.10.2026) ya no se toma por el importe.' },
+      { kind: 'correccion', text: 'Los porcentajes del reparto se ven bien (29,3 % en vez de 29.299999999999997 %).' },
+      { kind: 'correccion', text: 'Inicio y Presupuesto ya no dicen que os habéis pasado por gastos de categorías sin presupuesto: solo cuenta lo de las categorías con límite.' },
+      { kind: 'correccion', text: 'El mes que estás mirando se mantiene al cambiar de pantalla, y en Gastos no se borra lo que estabas buscando.' },
+    ],
+  },
+  {
     version: '3.0.1',
     date: '2026-10-14',
     changes: [

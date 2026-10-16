@@ -5,11 +5,12 @@ import { nameOf, partnerOf } from '../lib/people';
 import { frequencyText, monthlyEquivalent, nextDate } from '../lib/recurring';
 import { filterExpenses } from '../lib/search';
 import type { Expense, RecurringExpense } from '../lib/types';
-import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps, useMonth } from './common';
+import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps, useMonth, useSticky } from './common';
 import ExpenseForm from './ExpenseForm';
 import { ExpenseRow, paidText } from './ExpenseRow';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
+import { EventsSheet } from './EventsView';
 
 type Editing = { kind: 'expense'; expense: Expense | null; fixed?: boolean } | { kind: 'template'; template: RecurringExpense };
 
@@ -19,10 +20,12 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [showFixed, setShowFixed] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [text, setText] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [payer, setPayer] = useState('');
-  const [allMonths, setAllMonths] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
+  // Lo que se busca se conserva al ir a otra pantalla y volver.
+  const [text, setText] = useSticky('gastos.texto', '');
+  const [categoryId, setCategoryId] = useSticky('gastos.categoria', '');
+  const [payer, setPayer] = useSticky('gastos.pagador', '');
+  const [allMonths, setAllMonths] = useSticky('gastos.todo', false);
 
   const categoryName = useMemo(() => new Map(data.categories.map((c) => [c.id, c.name])), [data.categories]);
   const partner = partnerOf(data.members, me);
@@ -83,6 +86,9 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
         <button className="pill" onClick={() => setShowFixed(true)}>
           <Icon name="repeat" size={16} /> Gastos fijos <span className="count">{data.recurring.length}</span>
         </button>
+        <button className="pill" onClick={() => setShowEvents(true)}>
+          <Icon name="suitcase" size={16} /> Viajes{data.events.some((e) => !e.archived) && <span className="count">{data.events.filter((e) => !e.archived).length}</span>}
+        </button>
         <button className="pill" onClick={() => setImporting(true)}>
           <Icon name="fileIn" size={16} /> Importar extracto
         </button>
@@ -137,6 +143,8 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
           onClose={() => setShowFixed(false)}
         />
       )}
+
+      {showEvents && <EventsSheet {...props} onClose={() => setShowEvents(false)} />}
 
       {importing && <ImportStatement {...props} onClose={() => setImporting(false)} />}
 

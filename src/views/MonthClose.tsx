@@ -67,10 +67,10 @@ export function MonthCloseSheet({ data, me, month, onClose }: ViewProps & { mont
             <span className="stat-label">Presupuesto</span>
             <strong>{c.budgetCents ? formatEuros(c.budgetCents) : 'Sin poner'}</strong>
             {c.budgetCents > 0 && (
-              <span className={'xsmall ' + (c.spentCents > c.budgetCents ? 'negative' : 'positive')}>
-                {c.spentCents > c.budgetCents
-                  ? `Os pasasteis ${formatEuros(c.spentCents - c.budgetCents)}`
-                  : `Sobraron ${formatEuros(c.budgetCents - c.spentCents)}`}
+              <span className={'xsmall ' + (c.budgetedSpentCents > c.budgetCents ? 'negative' : 'positive')}>
+                {c.budgetedSpentCents > c.budgetCents
+                  ? `Os pasasteis ${formatEuros(c.budgetedSpentCents - c.budgetCents)}`
+                  : `Sobraron ${formatEuros(c.budgetCents - c.budgetedSpentCents)}`}
               </span>
             )}
           </div>

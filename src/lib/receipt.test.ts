@@ -59,4 +59,12 @@ Otra 7,80`;
   it('devuelve vacío si no entiende nada', () => {
     expect(parseReceipt('###\n@@', TODAY)).toEqual({ amountCents: null, date: null, merchant: null, categoryName: null });
   });
+
+  it('no confunde una fecha con puntos con el importe', () => {
+    const text = `BAR PEPE
+CAFE 1,50
+TOSTADA 2,30
+FECHA 16.10.2026 12:30`;
+    expect(parseReceipt(text, '2026-10-16').amountCents).toBe(230);
+  });
 });

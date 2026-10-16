@@ -445,27 +445,52 @@ export function AmountField({ label, value, onChange, invalid, autoFocus, tone }
   );
 }
 
-/**
- * Mes que se está viendo, empezando por el actual. Si la app se queda abierta y se vuelve
- * a ella en otro mes, salta al mes nuevo (antes se quedaba en el anterior).
+/*
+ * Mes que se está viendo. Es el mismo en todas las pantallas: si miras septiembre en Gastos
+ * y pasas a Presupuesto, sigues en septiembre. Empieza en el mes actual y, si la app se
+ * queda abierta y se vuelve a ella en otro mes, salta al mes nuevo.
  */
+let sharedMonth = monthOf(today());
+let calendarMonth = sharedMonth;
+const monthListeners = new Set<(month: string) => void>();
+
+function setSharedMonth(month: string) {
+  sharedMonth = month;
+  monthListeners.forEach((l) => l(month));
+}
+
+function checkMonthChange() {
+  const now = monthOf(today());
+  if (document.visibilityState === 'visible' && now !== calendarMonth) {
+    calendarMonth = now;
+    setSharedMonth(now);
+  }
+}
+
 export function useMonth(): [string, (month: string) => void] {
-  const [month, setMonth] = useState(() => monthOf(today()));
-  const current = useRef(month);
+  const [month, setMonth] = useState(sharedMonth);
   useEffect(() => {
-    const check = () => {
-      const now = monthOf(today());
-      if (document.visibilityState === 'visible' && now !== current.current) {
-        current.current = now;
-        setMonth(now);
-      }
-    };
-    document.addEventListener('visibilitychange', check);
-    const timer = setInterval(check, 60_000);
+    monthListeners.add(setMonth);
+    checkMonthChange();
+    setMonth(sharedMonth);
+    document.addEventListener('visibilitychange', checkMonthChange);
+    const timer = setInterval(checkMonthChange, 60_000);
     return () => {
-      document.removeEventListener('visibilitychange', check);
+      monthListeners.delete(setMonth);
+      document.removeEventListener('visibilitychange', checkMonthChange);
       clearInterval(timer);
     };
   }, []);
-  return [month, setMonth];
+  return [month, setSharedMonth];
+}
+
+/** Como useState, pero el valor se conserva al cambiar de pantalla y volver (mientras la app siga abierta). */
+const sticky = new Map<string, unknown>();
+export function useSticky<T>(key: string, initial: T): [T, (value: T) => void] {
+  const [value, setValue] = useState<T>(() => (sticky.has(key) ? (sticky.get(key) as T) : initial));
+  const set = (v: T) => {
+    sticky.set(key, v);
+    setValue(v);
+  };
+  return [value, set];
 }
