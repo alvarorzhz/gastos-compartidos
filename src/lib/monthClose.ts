@@ -1,4 +1,4 @@
-import { balanceFor } from './balance';
+import { balanceFor, roundBalance } from './balance';
 import { monthlySummary, totals } from './budget';
 import { addMonths } from './dates';
 import { breakdown } from './stats';
@@ -15,6 +15,8 @@ export interface MonthClose {
   month: string;
   spentCents: number;
   budgetCents: number;
+  /** Lo gastado en categorías con presupuesto (lo que se compara con él). */
+  budgetedSpentCents: number;
   /** Gasto del mes anterior a este, para comparar. */
   previousSpentCents: number;
   /** Categorías del mes, de más a menos gasto, con lo del mes anterior. */
@@ -35,6 +37,7 @@ export function monthClose(data: HouseholdData, me: string, month: string): Mont
     month,
     spentCents: sum.spentCents,
     budgetCents: sum.budgetCents,
+    budgetedSpentCents: sum.budgetedSpentCents,
     previousSpentCents: [...prevRows.values()].reduce((a, b) => a + b, 0),
     categories: rows
       .filter((r) => r.spentCents > 0)
@@ -43,6 +46,6 @@ export function monthClose(data: HouseholdData, me: string, month: string): Mont
       .filter((r) => r.budgetCents != null && r.spentCents > r.budgetCents)
       .map((r) => ({ name: r.category.name, overCents: r.spentCents - (r.budgetCents ?? 0) })),
     paidBy: breakdown(data.expenses, month, (e) => e.paid_by).map((s) => ({ userId: s.id, cents: s.cents })),
-    balanceCents: Math.round(balanceFor(me, data.expenses, data.settlements)),
+    balanceCents: roundBalance(balanceFor(me, data.expenses, data.settlements)),
   };
 }

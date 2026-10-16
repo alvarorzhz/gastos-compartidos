@@ -29,6 +29,11 @@ export function owedFromSplit(split: SplitState, amountCents: number, payerIsMe:
   return payerIsMe ? amountCents - mine : mine;
 }
 
+/** Porcentaje para mostrar: como mucho dos decimales y con coma (100 − 70,7 → "29,3"). */
+export function formatPercent(p: number): string {
+  return String(Math.round(p * 100) / 100).replace('.', ',');
+}
+
 /** Mi parte (%) de cada gasto nuevo según el reparto por defecto del espacio. */
 export function defaultMyPercent(household: Pick<Household, 'default_split_user' | 'default_split_percent'>, me: string, members: Member[]): number {
   const { default_split_user: user, default_split_percent: p } = household;

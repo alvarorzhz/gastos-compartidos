@@ -22,7 +22,12 @@ describe('monthlySummary', () => {
       ['super', 30000, 7500],
       ['ocio', 100, 0],
     ]);
-    expect(totals(rows)).toEqual({ budgetCents: 30100, spentCents: 7500 });
+    expect(totals(rows)).toEqual({ budgetCents: 30100, spentCents: 7500, budgetedSpentCents: 7500 });
+  });
+
+  it('no compara con el presupuesto lo gastado en categorías sin límite', () => {
+    const rows = monthlySummary('2026-10-01', [...categories, cat('resto', 'Restaurantes')], [...expenses, exp('resto', '2026-10-04', 50000)], budgets);
+    expect(totals(rows)).toEqual({ budgetCents: 30100, spentCents: 57500, budgetedSpentCents: 7500 });
   });
 
   it('muestra una categoría archivada si tuvo gasto ese mes', () => {

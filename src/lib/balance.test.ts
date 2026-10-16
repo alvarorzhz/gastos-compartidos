@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { balanceFor, expenseEffect, settlementEffect, shareOf } from './balance';
+import { balanceFor, expenseEffect, roundBalance, settlementEffect, shareOf } from './balance';
 import type { Expense, Settlement } from './types';
 
 const A = 'user-a';
@@ -89,5 +89,14 @@ describe('balanceFor', () => {
     const settlements = [settlement('s', B, A, 200)];
     const sum = expenses.reduce((t, e) => t + expenseEffect(A, e), 0) + settlements.reduce((t, s) => t + settlementEffect(A, s), 0);
     expect(sum).toBe(balanceFor(A, expenses, settlements));
+  });
+});
+
+describe('roundBalance', () => {
+  it('da la misma cifra a los dos con medio céntimo', () => {
+    const e = [expense('1', A, 1235)];
+    expect(roundBalance(balanceFor(A, e, []))).toBe(618);
+    expect(roundBalance(balanceFor(B, e, []))).toBe(-618);
+    expect(Object.is(roundBalance(-0.4), 0)).toBe(true);
   });
 });

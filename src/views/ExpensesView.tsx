@@ -5,7 +5,7 @@ import { nameOf, partnerOf } from '../lib/people';
 import { frequencyText, monthlyEquivalent, nextDate } from '../lib/recurring';
 import { filterExpenses } from '../lib/search';
 import type { Expense, RecurringExpense } from '../lib/types';
-import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps, useMonth } from './common';
+import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps, useMonth, useSticky } from './common';
 import ExpenseForm from './ExpenseForm';
 import { ExpenseRow, paidText } from './ExpenseRow';
 import { Icon } from './icons';
@@ -19,10 +19,11 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [showFixed, setShowFixed] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [text, setText] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [payer, setPayer] = useState('');
-  const [allMonths, setAllMonths] = useState(false);
+  // Lo que se busca se conserva al ir a otra pantalla y volver.
+  const [text, setText] = useSticky('gastos.texto', '');
+  const [categoryId, setCategoryId] = useSticky('gastos.categoria', '');
+  const [payer, setPayer] = useSticky('gastos.pagador', '');
+  const [allMonths, setAllMonths] = useSticky('gastos.todo', false);
 
   const categoryName = useMemo(() => new Map(data.categories.map((c) => [c.id, c.name])), [data.categories]);
   const partner = partnerOf(data.members, me);

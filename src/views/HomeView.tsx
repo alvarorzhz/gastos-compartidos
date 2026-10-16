@@ -44,6 +44,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
         <div className="home-col">
           <SpendCard
             spent={sum.spentCents}
+            budgetedSpent={sum.budgetedSpentCents}
             budget={sum.budgetCents}
             count={monthExpenses.length}
             isCurrent={isCurrent}
@@ -164,15 +165,17 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
 }
 
 /** Tarjeta principal: gasto del mes frente al presupuesto común. */
-export function SpendCard({ spent, budget, count, isCurrent, forecast = null }: {
+export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurrent, forecast = null }: {
   spent: number;
+  /** Lo gastado en categorías con presupuesto: es lo único que se compara con él. */
+  budgetedSpent?: number;
   budget: number;
   count: number;
   isCurrent: boolean;
   forecast?: Forecast | null;
 }) {
-  const left = budget - spent;
-  const ratio = budget > 0 ? spent / budget : 0;
+  const left = budget - budgetedSpent;
+  const ratio = budget > 0 ? budgetedSpent / budget : 0;
   const status = budget <= 0 ? null : ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok';
 
   return (
@@ -191,7 +194,7 @@ export function SpendCard({ spent, budget, count, isCurrent, forecast = null }: 
       </div>
       {budget > 0 ? (
         <>
-          <Progress value={spent} max={budget} label="Presupuesto gastado" />
+          <Progress value={budgetedSpent} max={budget} label="Presupuesto gastado" />
           <div className="hero-foot">
             <span>
               {left >= 0 ? <>Presupuesto restante <strong>{formatEuros(left)}</strong></> : <>Os habéis pasado <strong className="negative">{formatEuros(-left)}</strong></>}
@@ -205,15 +208,16 @@ export function SpendCard({ spent, budget, count, isCurrent, forecast = null }: 
           <button className="link-btn small" onClick={go('presupuesto')}>Poner presupuesto</button>
         </div>
       )}
-      {forecast && <ForecastLine forecast={forecast} budget={budget} />}
+      {forecast && <ForecastLine forecast={forecast} budget={budget} unbudgeted={spent - budgetedSpent} />}
     </section>
   );
 }
 
 /** "A este ritmo, acabaréis el mes en unos 1.350 €", comparado con el presupuesto si lo hay. */
-function ForecastLine({ forecast, budget }: { forecast: Forecast; budget: number }) {
+function ForecastLine({ forecast, budget, unbudgeted }: { forecast: Forecast; budget: number; unbudgeted: number }) {
   const rounded = Math.round(forecast.cents / 1000) * 1000; // a decenas de euros: es una estimación
-  const diff = budget - rounded;
+  // Lo ya gastado en categorías sin presupuesto no cuenta para el límite.
+  const diff = budget - Math.round((forecast.cents - unbudgeted) / 1000) * 1000;
   return (
     <p className="forecast">
       <Icon name="chart" size={16} />

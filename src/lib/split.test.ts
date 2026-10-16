@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultMyPercent, defaultSplit, owedFromSplit, splitFromExpense } from './split';
+import { formatPercent, defaultMyPercent, defaultSplit, owedFromSplit, splitFromExpense } from './split';
 import type { Expense } from './types';
 
 const ME = 'me';
@@ -81,5 +81,12 @@ describe('reparto por defecto', () => {
   });
   it('vuelve a medias si quien lo guardó ya no está', () => {
     expect(defaultMyPercent({ default_split_user: 'antigua', default_split_percent: 70 }, ME, members)).toBe(50);
+  });
+});
+
+describe('formatPercent', () => {
+  it('no enseña decimales raros', () => {
+    expect(formatPercent(100 - 70.7)).toBe('29,3');
+    expect(formatPercent(40)).toBe('40');
   });
 });

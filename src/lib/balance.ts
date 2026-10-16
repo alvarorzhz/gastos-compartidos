@@ -26,6 +26,14 @@ export function balanceFor(me: string, expenses: Expense[], settlements: Settlem
   return owedToMe;
 }
 
+/**
+ * Redondea el saldo a céntimos alejándose del cero, para que los dos veáis la misma cifra:
+ * con medio céntimo, Math.round daría 6,18 € a quien le deben y 6,17 € a quien debe.
+ */
+export function roundBalance(cents: number): number {
+  return Math.sign(cents) * Math.round(Math.abs(cents)) + 0;
+}
+
 /** Efecto de un gasto en el saldo de `me` (para mostrarlo en el historial). */
 export function expenseEffect(me: string, e: Expense): number {
   return e.paid_by === me ? owedOf(e) : -owedOf(e);

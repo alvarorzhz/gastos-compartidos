@@ -3,7 +3,7 @@ import { addDays, formatDay, formatShortDay, toIsoDate, today } from '../lib/dat
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recurring';
-import { defaultSplit, owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
+import { defaultSplit, formatPercent, owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, Frequency, RecurringExpense } from '../lib/types';
 import { AmountField, Avatar, CategoryIcon, confirmAction, Notice, Segmented, Sheet, toast, type ViewProps  } from './common';
@@ -330,7 +330,7 @@ function SplitPicker({ mode, myShare, amountCents, partnerName, onChange }: {
   let summary = 'Cada uno asume la mitad.';
   if (mode === 'percent') {
     const p = Number(myShare.replace(',', '.'));
-    summary = Number.isFinite(p) && p >= 0 && p <= 100 ? `A ${partnerName} le toca el ${100 - p} %.` : 'Escribe un porcentaje entre 0 y 100.';
+    summary = Number.isFinite(p) && p >= 0 && p <= 100 ? `A ${partnerName} le toca el ${formatPercent(100 - p)} %.` : 'Escribe un porcentaje entre 0 y 100.';
   } else if (mode === 'amount') {
     const mine = parseEuros(myShare, { allowZero: true });
     summary = mine != null && mine <= amountCents ? `A ${partnerName} le tocan ${formatEuros(amountCents - mine)}.` : 'Tu parte no puede superar el importe.';

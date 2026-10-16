@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from 'react';
-import { balanceFor, shareOf, totalPaidBy } from '../lib/balance';
+import { balanceFor, roundBalance, shareOf, totalPaidBy } from '../lib/balance';
 import { formatDayHeading, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
@@ -9,7 +9,7 @@ import { Icon } from './icons';
 import { deleteWithUndo } from './undo';
 
 export function BalanceText({ balance, partnerName }: { balance: number; partnerName: string }) {
-  const rounded = Math.round(balance);
+  const rounded = roundBalance(balance);
   if (rounded === 0) return <span>Estáis en paz</span>;
   if (rounded > 0) {
     return <span>{partnerName} te debe <strong className="positive">{formatEuros(rounded)}</strong></span>;
@@ -36,7 +36,7 @@ export default function BalanceView(props: ViewProps) {
   }
 
   const balance = balanceFor(me, data.expenses, data.settlements);
-  const rounded = Math.round(balance);
+  const rounded = roundBalance(balance);
   const total = data.expenses.reduce((t, e) => t + e.amount_cents, 0);
 
   function removeSettlement(id: string) {
@@ -122,7 +122,7 @@ function SettlementForm({ data, me, reload, balance, partnerId, onClose }: ViewP
   const formId = useId();
   // Por defecto, quien debe paga a quien le deben el saldo completo.
   const [from, setFrom] = useState(balance > 0 ? partnerId : me);
-  const [amount, setAmount] = useState(centsToInput(Math.round(Math.abs(balance))));
+  const [amount, setAmount] = useState(centsToInput(Math.abs(roundBalance(balance))));
   const [date, setDate] = useState(today());
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
