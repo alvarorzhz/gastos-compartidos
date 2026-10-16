@@ -76,7 +76,7 @@ export default function PushSettings({ hasPartner }: { hasPartner: boolean }) {
         </div>
 
         {support === 'install-first' && (
-          <Notice icon="phone">En iPhone, los avisos solo funcionan con la app instalada. Instálala arriba («Instalar en el móvil») y ábrela desde su icono para activarlos.</Notice>
+          <Notice icon="phone">En iPhone, los avisos solo funcionan con la app instalada. Crea antes una contraseña (arriba, «Contraseña»), instala la app («Instalar en el móvil»), ábrela desde su icono, entra con tu email y la contraseña, y actívalos aquí.</Notice>
         )}
         {support === 'unsupported' && <Notice>Este navegador no permite avisos. Prueba desde Chrome o Safari en el móvil.</Notice>}
 

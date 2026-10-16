@@ -7,6 +7,7 @@ import { signOut } from '../lib/session';
 import { askText, Avatar, CategoryIcon, confirmAction, Notice, toast, type ViewProps } from './common';
 import { Icon } from './icons';
 import InstallCard from './InstallCard';
+import PasswordSettings from './PasswordSettings';
 import PushSettings from './PushSettings';
 import { VersionCard } from './WhatsNew';
 
@@ -65,6 +66,8 @@ export default function SettingsView(props: ViewProps & { email: string }) {
       {partner && <DefaultSplit {...props} partnerName={partner.display_name} />}
 
       <Categories {...props} />
+
+      <PasswordSettings email={email} />
 
       <InstallCard />
 
