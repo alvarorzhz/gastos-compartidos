@@ -3,9 +3,11 @@ import { exportJson, exportXlsx } from '../lib/exportData';
 import { partnerOf } from '../lib/people';
 import { defaultMyPercent } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
+import { signOut } from '../lib/session';
 import { askText, Avatar, CategoryIcon, confirmAction, Notice, toast, type ViewProps } from './common';
 import { Icon } from './icons';
 import InstallCard from './InstallCard';
+import PushSettings from './PushSettings';
 import { VersionCard } from './WhatsNew';
 
 export default function SettingsView(props: ViewProps & { email: string }) {
@@ -66,6 +68,8 @@ export default function SettingsView(props: ViewProps & { email: string }) {
 
       <InstallCard />
 
+      <PushSettings hasPartner={partner != null} />
+
       <section className="settings-group" aria-labelledby="set-data">
         <h2 id="set-data">Tus datos</h2>
         <ul className="list with-icons">
@@ -90,7 +94,7 @@ export default function SettingsView(props: ViewProps & { email: string }) {
       <section className="settings-group" aria-label="Sesión">
         <ul className="list with-icons">
           <li>
-            <button className="row-item" onClick={() => supabase.auth.signOut()}>
+            <button className="row-item" onClick={() => void signOut()}>
               <span className="icon-tile"><Icon name="logout" /></span>
               <span className="row-main"><span className="row-title">Cerrar sesión</span></span>
             </button>
@@ -333,7 +337,7 @@ function DangerZone({ data, reload }: ViewProps) {
     const { error } = await supabase.rpc('delete_my_account');
     setBusy(false);
     if (error) return toast(errorMessage(error), 'error');
-    await supabase.auth.signOut();
+    await signOut();
   }
 
   return (

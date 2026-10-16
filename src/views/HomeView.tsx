@@ -208,16 +208,16 @@ export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurre
           <button className="link-btn small" onClick={go('presupuesto')}>Poner presupuesto</button>
         </div>
       )}
-      {forecast && <ForecastLine forecast={forecast} budget={budget} unbudgeted={spent - budgetedSpent} />}
+      {forecast && <ForecastLine forecast={forecast} budget={budget} budgetedShare={spent > 0 ? budgetedSpent / spent : 1} />}
     </section>
   );
 }
 
 /** "A este ritmo, acabaréis el mes en unos 1.350 €", comparado con el presupuesto si lo hay. */
-function ForecastLine({ forecast, budget, unbudgeted }: { forecast: Forecast; budget: number; unbudgeted: number }) {
+function ForecastLine({ forecast, budget, budgetedShare }: { forecast: Forecast; budget: number; budgetedShare: number }) {
   const rounded = Math.round(forecast.cents / 1000) * 1000; // a decenas de euros: es una estimación
-  // Lo ya gastado en categorías sin presupuesto no cuenta para el límite.
-  const diff = budget - Math.round((forecast.cents - unbudgeted) / 1000) * 1000;
+  // Con el límite solo se compara la parte de las categorías que tienen presupuesto.
+  const diff = budget - Math.round((forecast.cents * budgetedShare) / 1000) * 1000;
   return (
     <p className="forecast">
       <Icon name="chart" size={16} />

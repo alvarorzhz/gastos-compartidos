@@ -222,6 +222,38 @@ select pg_temp.check((select name from shopping_items) = 'Leche', 'D no cambia n
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
+-- Viajes y eventos: los comparten los dos; un gasto solo va a un viaje de su espacio.
+insert into events (household_id, name, starts_on, ends_on)
+select household_id, 'Roma', '2026-11-01', '2026-11-05' from members where user_id = auth.uid();
+select pg_temp.expect_error($$ insert into events (household_id, name, starts_on, ends_on) select household_id, 'Mal', '2026-11-05', '2026-11-01' from members where user_id = auth.uid() $$);
+insert into expenses (household_id, amount_cents, category_id, paid_by, created_by, event_id)
+select h.id, 5000, c.id, auth.uid(), auth.uid(), e.id
+from households h join categories c on c.household_id = h.id and c.name = 'Casa' join events e on e.household_id = h.id;
+select pg_temp.check((select count(*) from expenses where event_id is not null) = 1, 'gasto apuntado en el viaje');
+select id as eid from events \gset
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from events) = 1, 'la pareja ve el viaje');
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+select pg_temp.check((select count(*) from events) = 0, 'C no ve viajes ajenos');
+select pg_temp.expect_error(format($$ insert into expenses (household_id, amount_cents, category_id, paid_by, created_by, event_id)
+  select h.id, 100, c.id, auth.uid(), auth.uid(), %L from households h join categories c on c.household_id = h.id limit 1 $$, :'eid'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+delete from events;
+select pg_temp.check((select count(*) from expenses where amount_cents = 5000 and event_id is null) = 1, 'borrar el viaje deja sus gastos');
+
+-- Avisos en el móvil: cada uno solo ve los suyos; las claves y lo enviado no se leen.
+select public.save_push_subscription('https://push.example.com/a', 'p', 'k', true, false);
+select pg_temp.check((select count(*) from push_subscriptions) = 1, 'avisos guardados');
+select pg_temp.expect_error($$ insert into push_subscriptions (endpoint, user_id, p256dh, auth) values ('https://push.example.com/x', '00000000-0000-0000-0000-00000000000b', 'p', 'k') $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from push_subscriptions) = 0, 'la pareja no ve los avisos de A');
+select public.save_push_subscription('https://push.example.com/a', 'p2', 'k2', true, true);
+select pg_temp.check((select count(*) from push_subscriptions) = 1, 'el móvil pasa a ser de quien entra');
+select pg_temp.check((select count(*) from push_keys) = 0 and (select count(*) from push_sent) = 0, 'claves y enviados no se leen');
+select pg_temp.expect_error($$ insert into push_keys (vapid) values ('{}') $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select count(*) from push_subscriptions) = 0, 'A ya no recibe en ese móvil');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;

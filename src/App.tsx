@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
-import { isConfigured, supabase } from './lib/supabase';
+import { isOfflineError, useQueuedVersion, withQueued } from './lib/expenseOutbox';
+import { isConfigured, storedSession, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
 import { useShopping } from './lib/useShopping';
 import BalanceView from './views/BalanceView';
@@ -50,8 +51,12 @@ export default function App() {
 
   useEffect(() => {
     if (!isConfigured) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    // Sin conexión y con la sesión caducada, Supabase no puede renovarla pero tampoco la borra:
+    // se entra igualmente con la guardada para ver la copia de los datos y apuntar gastos.
+    supabase.auth.getSession().then(({ data, error }) => setSession(data.session ?? (error && isOfflineError(error) ? storedSession() : null)));
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      if (s || event === 'SIGNED_OUT') setSession(s);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -81,6 +86,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   // La lista de la compra se carga aquí para que no se pierda nada al cambiar de sección.
   const shopping = useShopping(state.status === 'ready' ? state.data.household.id : null);
   const hiddenIds = useHiddenIds();
+  useQueuedVersion(); // vuelve a pintar al apuntar o subir gastos hechos sin conexión
   const [view, setView] = useState<View>(readView);
   // Vista abierta por última vez en cada sección, para volver a ella al tocar la sección.
   const [lastView, setLastView] = useState<Record<string, View>>({});
@@ -127,7 +133,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
     return <Onboarding email={email} invitation={state.invitation} onDone={reload} />;
   }
 
-  const data = withoutHidden(state.data, hiddenIds);
+  const data = withQueued(withoutHidden(state.data, hiddenIds), userId);
   const props = { data, me: userId, reload };
   const section = sectionOf(view);
   const current = section.views.find((v) => v.id === view)!;

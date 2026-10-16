@@ -12,6 +12,10 @@ import { Icon } from './icons';
 import ScanReceipt from './ScanReceipt';
 import { deleteWithUndo } from './undo';
 import type { ReceiptGuess } from '../lib/receipt';
+import { currentEvent, eventDates, selectableEvents } from '../lib/events';
+import { isOfflineError, isQueued, queueExpense, removeQueued, updateQueued } from '../lib/expenseOutbox';
+import { habituals, type Habitual } from '../lib/favorites';
+import { notifyNewExpenses } from '../lib/push';
 
 interface Props extends ViewProps {
   /** Gasto a editar; null = nuevo. */
@@ -44,6 +48,23 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const [moreOpen, setMoreOpen] = useState((source != null && split.mode !== 'equal') || frequency !== '');
 
   const [scanned, setScanned] = useState<string | null>(null);
+  // Viaje o evento: los gastos nuevos van solos al que esté en curso.
+  const [eventId, setEventId] = useState(() => (template ? '' : expense ? expense.event_id ?? '' : currentEvent(data.events, today())?.id ?? ''));
+  const events = template ? [] : selectableEvents(data.events, eventId);
+  const quick = !source && !startAsFixed ? habituals(data.expenses, today()) : [];
+  const [filledFrom, setFilledFrom] = useState<string | null>(null);
+
+  function applyHabitual(h: Habitual) {
+    setAmount(centsToInput(h.amountCents));
+    setBadAmount(false);
+    setNote(h.note ?? '');
+    if (activeCategories.some((c) => c.id === h.categoryId)) setCategoryId(h.categoryId);
+    setSplit(splitFromExpense({ ...h.last, paid_by: paidBy }, me));
+    setDate(today());
+    setFrequency('');
+    setError(null);
+    setFilledFrom(h.key);
+  }
 
   function applyScan(g: ReceiptGuess) {
     const filled: string[] = [];
@@ -83,6 +104,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       return setError(split.mode === 'percent' ? 'El porcentaje debe estar entre 0 y 100' : 'Tu parte no puede ser mayor que el importe');
     }
     const fields = { amount_cents: cents, category_id: categoryId, paid_by: paidBy, owed_cents: owed, note: note.trim() || null };
+    // Solo se manda el viaje si se usa (así no hace falta para quien no tenga viajes).
+    const eventFields = eventId ? { event_id: eventId } : expense?.event_id ? { event_id: null } : {};
 
     if (template) {
       const rescheduled = date !== initialDate || frequency !== template.frequency;
@@ -113,17 +136,49 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       return onClose();
     }
 
-    const { error } = expense
-      ? await supabase.from('expenses').update({ ...fields, spent_on: date }).eq('id', expense.id)
-      : await supabase.from('expenses').insert({ ...fields, spent_on: date, household_id: data.household.id, created_by: me });
+    if (expense && isQueued(expense.id)) {
+      // Aún no se ha subido: se cambia la copia del móvil.
+      updateQueued(expense.id, { ...fields, ...eventFields, spent_on: date });
+      setBusy(false);
+      toast('Gasto actualizado');
+      return onClose();
+    }
+
+    if (expense) {
+      const { error } = await supabase.from('expenses').update({ ...fields, ...eventFields, spent_on: date }).eq('id', expense.id);
+      setBusy(false);
+      if (error) return setError(errorMessage(error));
+      await reload();
+      toast('Gasto actualizado');
+      return onClose();
+    }
+
+    // Gasto nuevo: lleva su id desde el móvil para poder guardarlo sin conexión y subirlo luego sin duplicarlo.
+    const now = new Date().toISOString();
+    const row: Expense = {
+      ...fields, ...eventFields, id: crypto.randomUUID(), spent_on: date, household_id: data.household.id,
+      created_by: me, recurring_id: null, created_at: now, updated_at: now,
+    };
+    const { error } = await supabase.from('expenses').insert({ ...fields, ...eventFields, id: row.id, spent_on: date, household_id: data.household.id, created_by: me });
     setBusy(false);
+    if (error && isOfflineError(error)) {
+      queueExpense(me, row);
+      toast('Sin conexión: guardado en el móvil. Se subirá solo al volver la conexión.', 'info', { ms: 5000 });
+      return onClose();
+    }
     if (error) return setError(errorMessage(error));
+    notifyNewExpenses([row.id]);
     await reload();
-    toast(expense ? 'Gasto actualizado' : 'Gasto guardado');
+    toast('Gasto guardado');
     onClose();
   }
 
   async function remove() {
+    if (expense && isQueued(expense.id)) {
+      removeQueued(expense.id);
+      toast('Gasto borrado');
+      return onClose();
+    }
     if (!template) {
       // Un gasto se borra al momento, con unos segundos para deshacerlo.
       if (expense) deleteWithUndo({ table: 'expenses', id: expense.id, done: 'Gasto borrado', reload });
@@ -199,6 +254,23 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
 
         <AmountField label="Importe" value={amount} onChange={(v) => { setAmount(v); setBadAmount(false); }} invalid={badAmount} autoFocus={!source} />
 
+        {quick.length > 0 && (
+          <div className="stack-sm">
+            <span className="field-label">Habituales</span>
+            <div className="chips" role="group" aria-label="Gastos habituales">
+              {quick.map((h) => {
+                const label = h.note || activeCategories.find((c) => c.id === h.categoryId)?.name || 'Gasto';
+                return (
+                  <button key={h.key} type="button" className={'chip' + (filledFrom === h.key ? ' selected' : '')} onClick={() => applyHabitual(h)}>
+                    {label} · {formatEuros(h.amountCents)}
+                  </button>
+                );
+              })}
+            </div>
+            {filledFrom && <p className="field-hint">Rellenado como la última vez. Cambia lo que quieras y pulsa Guardar.</p>}
+          </div>
+        )}
+
         {!source && <ScanReceipt onResult={applyScan} />}
         {scanned && <Notice kind="success">{scanned}</Notice>}
 
@@ -255,6 +327,18 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
             )}
           </div>
         </div>
+
+        {events.length > 0 && !frequency && (
+          <div className="field">
+            <label className="field-label" htmlFor={formId + '-event'}>Viaje o evento</label>
+            <select id={formId + '-event'} value={eventId} onChange={(e) => setEventId(e.target.value)}>
+              <option value="">Ninguno</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>{ev.name}{eventDates(ev) ? ` (${eventDates(ev)})` : ''}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {(partner || showRepeat) && (
           <button type="button" className="disclosure" aria-expanded={moreOpen} onClick={() => setMoreOpen((v) => !v)}>

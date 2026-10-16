@@ -4,6 +4,7 @@ import { categoryOptions } from '../lib/personal';
 import { defaultSplit, owedFromSplit } from '../lib/split';
 import { parseCsv, parseStatement, proposeImport, type Destination, type ImportRow } from '../lib/statement';
 import { errorMessage, supabase } from '../lib/supabase';
+import { notifyNewExpenses } from '../lib/push';
 import { readXlsx } from '../lib/xlsx';
 import { Notice, Segmented, Sheet, toast, type ViewProps } from './common';
 import { Icon } from './icons';
@@ -86,11 +87,12 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
         note: r.note.trim().slice(0, 200) || null,
       }));
     if (common.length) {
-      const { error } = await supabase.from('expenses').insert(common);
+      const { data: inserted, error } = await supabase.from('expenses').insert(common).select('id');
       if (error) {
         setBusy(false);
         return setError(errorMessage(error));
       }
+      notifyNewExpenses((inserted ?? []).map((x) => x.id as string));
     }
     if (personal.length) {
       const { error } = await supabase.from('personal_entries').insert(personal);

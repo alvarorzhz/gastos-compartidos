@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { errorMessage, supabase } from '../lib/supabase';
+import { signOut } from '../lib/session';
 import type { Invitation } from '../lib/types';
 
 interface Props {
@@ -51,7 +52,7 @@ export default function Onboarding({ email, invitation, onDone }: Props) {
           </button>
         </form>
         <p className="muted small center">
-          Has entrado como {email}. <button type="button" className="link-btn small" onClick={() => supabase.auth.signOut()}>Salir</button>
+          Has entrado como {email}. <button type="button" className="link-btn small" onClick={() => void signOut()}>Salir</button>
         </p>
       </div>
     </main>

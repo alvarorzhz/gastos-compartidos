@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type Session } from '@supabase/supabase-js';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -8,6 +8,21 @@ export const isConfigured = Boolean(url && anonKey);
 export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'missing', {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
+
+/** Sesión guardada en el móvil, aunque esté caducada (para abrir la app sin conexión). */
+export function storedSession(): Session | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !/^sb-.*-auth-token$/.test(key)) continue;
+      const s = JSON.parse(localStorage.getItem(key) ?? 'null') as Session | null;
+      if (s?.user?.id && s.access_token) return s;
+    }
+  } catch {
+    // Sin almacenamiento.
+  }
+  return null;
+}
 
 /** Mensaje de error legible (en castellano) a partir de un error de Supabase o de la red. */
 export function errorMessage(err: unknown): string {

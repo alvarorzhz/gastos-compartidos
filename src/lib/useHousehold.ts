@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { today } from './dates';
+import { flushQueued } from './expenseOutbox';
+import { notifyNewExpenses } from './push';
 import { errorMessage, supabase } from './supabase';
-import type { Budget, Category, Expense, Household, Invitation, Member, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
+import type { Budget, Category, TripEvent, Expense, Household, Invitation, Member, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
 
 export interface HouseholdData {
   household: Household;
@@ -17,6 +19,7 @@ export interface HouseholdData {
   personalRecurring: PersonalRecurring[];
   goals: SavingsGoal[];
   contributions: SavingsContribution[];
+  events: TripEvent[];
 }
 
 export type LoadState =
@@ -26,7 +29,7 @@ export type LoadState =
   /** stale: la última actualización falló (sin conexión); se siguen mostrando los datos que había. */
   | { status: 'ready'; data: HouseholdData; stale?: boolean };
 
-const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses', 'savings_goals', 'savings_contributions'];
+const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses', 'savings_goals', 'savings_contributions', 'events'];
 
 /** Filas por petición: Supabase no devuelve más de 1000 de una vez. */
 const PAGE = 1000;
@@ -47,7 +50,45 @@ async function fetchAll<T>(
   }
 }
 
+/*
+ * Copia de los últimos datos en el móvil, para poder abrir la app sin conexión (se ven los
+ * datos de la última vez y se pueden apuntar gastos, que se suben al volver la conexión).
+ */
+const SNAPSHOT_KEY = 'gastos.copiaDatos';
+
+function saveSnapshot(userId: string, data: HouseholdData) {
+  try {
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ userId, data }));
+  } catch {
+    // Sin espacio o sin almacenamiento: sin copia, la app necesitará conexión al abrirse.
+  }
+}
+
+function readSnapshot(userId: string): HouseholdData | null {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) ?? 'null') as { userId: string; data: HouseholdData } | null;
+    if (saved?.userId !== userId || !saved.data?.household) return null;
+    return { ...saved.data, events: saved.data.events ?? [] };
+  } catch {
+    return null;
+  }
+}
+
+/** Al cerrar sesión no se deja en el móvil la copia de los datos. */
+export function forgetSnapshot() {
+  try {
+    localStorage.removeItem(SNAPSHOT_KEY);
+  } catch {
+    // Nada que borrar.
+  }
+}
+
 async function load(userId: string): Promise<LoadState> {
+  // Sin conexión no se espera a los reintentos: se enseña enseguida la copia del móvil.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Failed to fetch');
+  // Primero sube lo que se apuntó sin conexión, y avisa a la pareja.
+  const sent = await flushQueued(userId).catch(() => [] as string[]);
+  notifyNewExpenses(sent);
   const me = await supabase.from('members').select('*').eq('user_id', userId).maybeSingle();
   if (me.error) throw me.error;
   if (!me.data) {
@@ -64,7 +105,7 @@ async function load(userId: string): Promise<LoadState> {
   ]);
   if (generated.error) throw generated.error;
   if (generatedPersonal.error) throw generatedPersonal.error;
-  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions] = await Promise.all([
+  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions, events] = await Promise.all([
     supabase.from('households').select('*').eq('id', h).single(),
     supabase.from('members').select('*').eq('household_id', h).order('joined_at'),
     supabase.from('invitations').select('*').eq('household_id', h).maybeSingle(),
@@ -77,6 +118,7 @@ async function load(userId: string): Promise<LoadState> {
     supabase.from('personal_recurring').select('*').eq('user_id', userId).order('created_at'),
     supabase.from('savings_goals').select('*').eq('household_id', h).order('created_at'),
     fetchAll<SavingsContribution>((a, b) => supabase.from('savings_contributions').select('*').eq('household_id', h).order('contributed_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(a, b)),
+    supabase.from('events').select('*').eq('household_id', h).order('created_at', { ascending: false }),
   ]);
   for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions]) {
     if (r.error) throw r.error;
@@ -96,6 +138,8 @@ async function load(userId: string): Promise<LoadState> {
       personalRecurring: personalRecurring.data ?? [],
       goals: goals.data ?? [],
       contributions: contributions.data ?? [],
+      // Si aún no se ha ejecutado la migración de viajes, la app sigue funcionando sin ellos.
+      events: events.error ? [] : events.data ?? [],
     },
   };
 }
@@ -106,12 +150,19 @@ export function useHousehold(userId: string) {
 
   const reload = useCallback(async () => {
     try {
-      setState(await load(userId));
+      const next = await load(userId);
+      if (next.status === 'ready') saveSnapshot(userId, next.data);
+      setState(next);
     } catch (err) {
       const message = errorMessage(err);
       // Si ya había datos (p. ej. al volver a la app sin cobertura), se quedan en pantalla
-      // para no perder lo que se estuviera escribiendo; solo se avisa.
-      setState((prev) => (prev.status === 'ready' ? { ...prev, stale: true } : { status: 'error', message }));
+      // para no perder lo que se estuviera escribiendo; solo se avisa. Si la app se abre sin
+      // conexión, se enseña la copia de la última vez.
+      setState((prev) => {
+        if (prev.status === 'ready') return { ...prev, stale: true };
+        const copy = readSnapshot(userId);
+        return copy ? { status: 'ready', data: copy, stale: true } : { status: 'error', message };
+      });
     }
   }, [userId]);
 
@@ -145,7 +196,7 @@ export function useHousehold(userId: string) {
     }
     // Los borrados no se pueden filtrar por hogar (solo traen el id de la fila), así que se
     // escuchan aparte; como mucho provocan una recarga de más.
-    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses', 'personal_entries', 'savings_goals', 'savings_contributions', 'personal_recurring']) {
+    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses', 'personal_entries', 'savings_goals', 'savings_contributions', 'personal_recurring', 'events']) {
       channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, schedule);
     }
     // Lo personal solo llega a la propia cuenta (RLS), por si se usa en dos dispositivos.
