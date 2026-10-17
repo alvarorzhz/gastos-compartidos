@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { isOfflineError, useQueuedVersion, withQueued } from './lib/expenseOutbox';
 import { isConfigured, storedSession, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
-import { useShopping } from './lib/useShopping';
+import { ShoppingItemsContext, useShopping } from './lib/useShopping';
 import BalanceView from './views/BalanceView';
 import BudgetView from './views/BudgetView';
 import ChartsView from './views/ChartsView';
@@ -140,6 +140,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const closeMonth = closeDismissed ? null : pendingClose(props);
 
   return (
+    <ShoppingItemsContext.Provider value={shopping.items}>
     <div className="app">
       <header className="appbar">
         <div className="appbar-inner">
@@ -206,6 +207,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       <Toaster />
       <DialogHost />
     </div>
+    </ShoppingItemsContext.Provider>
   );
 }
 
