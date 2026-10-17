@@ -18,6 +18,18 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.2.0',
+    date: '2026-10-17',
+    changes: [
+      { kind: 'nuevo', text: 'La compra se apunta sola como gasto: al pulsar «Terminar compra», escanea el ticket y la app rellena el total, la tienda y la fecha. Elige quién ha pagado y se guarda como gasto común con el reparto de siempre. Si no era una compra común, pulsa «Sin gasto».' },
+      { kind: 'nuevo', text: 'Lo que costó cada producto: al escanear el ticket, la app empareja cada producto comprado con su línea del ticket. Si alguno no cuadra, eliges su línea; también puedes escribir el precio a mano.' },
+      { kind: 'nuevo', text: 'La app recuerda los precios y cómo se llama cada producto en el ticket, así la próxima vez los empareja sola.' },
+      { kind: 'nuevo', text: 'Cuánto costará la lista antes de ir: arriba sale «Unos 42 €» con los productos sin precio, y cuánto os queda del presupuesto del súper este mes. Cada producto enseña lo que costó la última vez.' },
+      { kind: 'nuevo', text: 'Al abrir el gasto de una compra ves lo que se compró y lo que costó cada cosa. En el historial de la compra también salen los precios.' },
+      { kind: 'mejora', text: 'El lector de tickets lee mejor las fotos difíciles: si la suma de los productos no cuadra con el total, vuelve a leer la foto de otra forma y se queda con la mejor lectura. Reconoce HiperDino, SuperDino y Spar, y Mercadona o Alcampo aunque no se lea el logotipo.' },
+    ],
+  },
+  {
     version: '3.1.1',
     date: '2026-10-16',
     changes: [

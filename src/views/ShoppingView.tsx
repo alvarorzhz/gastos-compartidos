@@ -1,6 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type PointerEvent, type RefObject } from 'react';
 import { formatShortDay, toIsoDate, today } from '../lib/dates';
-import { centsToInput, parseEuros } from '../lib/money';
+import { centsToInput, formatEuros, parseEuros } from '../lib/money';
+import { itemEstimate, listEstimate, shoppingBudgetLeft, shoppingCategory } from '../lib/shoppingPrices';
+import FinishTripSheet from './FinishTripSheet';
 import { nameOf } from '../lib/people';
 import {
   boughtHistory, currentBought, formatQuantity, frequentAndRecent, guessCategory, matchesFilter, MAX_NAME, parseQuantity,
@@ -8,7 +10,7 @@ import {
   tripProgress, type KnownProduct, type ShopCategory, type ShopUnit,
 } from '../lib/shopping';
 import { emptyDraft, type ListItem, type NewItem, type Shopping } from '../lib/useShopping';
-import { confirmAction, EmptyState, Notice, Progress, SectionHeader, Segmented, Sheet, Spinner, toast, type ViewProps } from './common';
+import { EmptyState, Notice, Progress, SectionHeader, Segmented, Sheet, Spinner, toast, type ViewProps } from './common';
 import { Icon } from './icons';
 import { deleteWithUndo, useHiddenIds } from './undo';
 
@@ -41,7 +43,7 @@ function savePref(key: string, value: string) {
 
 type Duplicate = { existing: ListItem; input: NewItem; fromDraft: boolean };
 
-export default function ShoppingView({ data, me, shopping }: ViewProps & { shopping: Shopping }) {
+export default function ShoppingView({ data, me, reload, shopping }: ViewProps & { shopping: Shopping }) {
   const hiddenIds = useHiddenIds();
   const [mode, setMode] = useState<Mode>(() => (readPref(MODE_KEY, 'lista') === 'categorias' ? 'categorias' : 'lista'));
   const [boughtOpen, setBoughtOpen] = useState(() => readPref(BOUGHT_OPEN_KEY, '0') === '1');
@@ -51,6 +53,7 @@ export default function ShoppingView({ data, me, shopping }: ViewProps & { shopp
   const [editing, setEditing] = useState<ListItem | null>(null);
   const [duplicate, setDuplicate] = useState<Duplicate | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // hiddenIds es el mismo Set aunque cambie (lo que se está quitando con Deshacer): se filtra en cada render.
@@ -135,20 +138,14 @@ export default function ShoppingView({ data, me, shopping }: ViewProps & { shopp
     });
   }
 
-  async function finish() {
-    const ok = await confirmAction({
-      title: '¿Terminar esta compra?',
-      message: `Los ${progress.bought} productos comprados pasan al historial: no se borra nada y seguirán saliendo en «Recientes y habituales».`
-        + (progress.pending > 0 ? `\nLos ${progress.pending} que faltan se quedan en la lista para la próxima vez.` : '\nLa lista quedará vacía para la próxima compra.'),
-      confirmLabel: 'Terminar compra',
-    });
-    if (!ok) return;
-    const r = await shopping.finishTrip();
-    if (r.ok) toast('Compra terminada. ¡Lista para la próxima!');
-    else toast(`No se ha podido terminar la compra: ${r.message}`, 'error');
+  function finish() {
+    setFinishing(true);
   }
 
-  const sharedRowProps = { mode, onToggle: markBought, onEdit: setEditing, onRetry: (id: string) => void shopping.retry(id), onDiscard: shopping.discard };
+  const sharedRowProps = {
+    mode, onToggle: markBought, onEdit: setEditing, onRetry: (id: string) => void shopping.retry(id), onDiscard: shopping.discard,
+    priceOf: (i: ListItem) => itemEstimate(i, items),
+  };
 
   return (
     <div className="shop-layout">
@@ -169,6 +166,7 @@ export default function ShoppingView({ data, me, shopping }: ViewProps & { shopp
               <p className="muted small">{progress.bought} de {progress.total} comprados</p>
             </div>
           )}
+          <ListCost data={data} items={items} />
           <AddBar shopping={shopping} items={items} inputRef={inputRef} onRequestAdd={requestAdd} />
         </section>
 
@@ -263,7 +261,7 @@ export default function ShoppingView({ data, me, shopping }: ViewProps & { shopp
               />
             </div>
           ) : progress.bought > 0 ? (
-            <Notice kind="success" icon="check" action={<button className="sm primary" onClick={() => void finish()}>Terminar</button>}>
+            <Notice kind="success" icon="check" action={<button className="sm primary" onClick={finish}>Terminar</button>}>
               <strong>¡Compra completada!</strong> Lo tenéis todo. Cuando queráis, terminad la compra para empezar la siguiente lista.
             </Notice>
           ) : (
@@ -305,7 +303,7 @@ export default function ShoppingView({ data, me, shopping }: ViewProps & { shopp
                 )}
                 <div className="row">
                   <p className="muted small grow">Toca uno para devolverlo a pendientes.</p>
-                  {progress.bought > 0 && <button className="sm tinted" onClick={() => void finish()}>Terminar compra</button>}
+                  {progress.bought > 0 && <button className="sm tinted" onClick={finish}>Terminar compra</button>}
                 </div>
               </>
             )}
@@ -356,6 +354,9 @@ export default function ShoppingView({ data, me, shopping }: ViewProps & { shopp
           }}
         />
       )}
+      {finishing && (
+        <FinishTripSheet data={data} me={me} reload={reload} shopping={shopping} items={items} onClose={() => setFinishing(false)} />
+      )}
       {historyOpen && (
         <HistorySheet
           items={items}
@@ -385,6 +386,37 @@ function boughtWhen(iso: string): string {
   const day = toIsoDate(d);
   const time = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   return day === today() ? `hoy a las ${time}` : formatShortDay(day);
+}
+
+/* ───────────── Lo que costará la lista ───────────── */
+
+/** "Unos 42 € · 3 sin precio" y lo que queda del presupuesto de la compra este mes. */
+function ListCost({ data, items }: { data: ViewProps['data']; items: ListItem[] }) {
+  const estimate = listEstimate(items);
+  if (estimate.priced === 0) return null;
+  const category = shoppingCategory(data.categories, data.expenses, items);
+  const left = category ? shoppingBudgetLeft(category, data.expenses, data.budgets, today()) : null;
+  const after = left == null ? null : left - estimate.cents;
+  return (
+    <div className="shop-cost">
+      <p className="shop-cost-main">
+        <Icon name="receipt" size={18} />
+        <span>
+          <strong>Unos {formatEuros(estimate.cents)}</strong>
+          {estimate.missing > 0 && <span className="muted"> · {estimate.missing === 1 ? '1 producto sin precio' : `${estimate.missing} productos sin precio`}</span>}
+        </span>
+      </p>
+      {category && left != null && after != null && (
+        <p className={'small ' + (after < 0 ? 'negative' : 'muted')}>
+          {left <= 0
+            ? `Ya os habéis pasado del presupuesto de ${category.name} este mes.`
+            : after < 0
+              ? `Con esta lista os pasaríais ${formatEuros(-after)} del presupuesto de ${category.name}.`
+              : `Os quedan ${formatEuros(left)} de ${category.name} este mes (después de esta lista, unos ${formatEuros(after)}).`}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /* ───────────── Indicador de conexión ───────────── */
@@ -599,8 +631,9 @@ export function ShopCategoryIcon({ category, size = 'sm' }: { category: ShopCate
   );
 }
 
-function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard }: {
+function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard, priceOf }: {
   item: ListItem;
+  priceOf: (i: ListItem) => number | null;
   checked: boolean;
   mode: Mode;
   onToggle: (i: ListItem) => void;
@@ -610,6 +643,7 @@ function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard 
 }) {
   const qty = formatQuantity(item.quantity, item.unit);
   const cat = shopCategory(item.category);
+  const price = item.unsaved ? null : priceOf(item);
   return (
     <li className={'shop-item' + (checked ? ' leaving' : '') + (item.unsaved === 'failed' ? ' failed' : '')}>
       <button
@@ -627,7 +661,11 @@ function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard 
           {item.unsaved === 'failed' ? (
             <span className="row-meta negative">No se ha guardado</span>
           ) : mode === 'lista' ? (
-            <span className="row-meta shop-meta"><ShopCategoryIcon category={item.category} /> {cat.label}</span>
+            <span className="row-meta shop-meta">
+              <ShopCategoryIcon category={item.category} /> {cat.label}{price != null && <> · unos {formatEuros(price)}</>}
+            </span>
+          ) : price != null ? (
+            <span className="row-meta">unos {formatEuros(price)}</span>
           ) : null}
         </span>
       </button>
@@ -916,7 +954,7 @@ function EditSheet({ item: opened, live, shopping, onClose }: {
         <div className="field">
           <label className="field-label" htmlFor={formId + '-price'}>Precio aproximado (opcional)</label>
           <input id={formId + '-price'} inputMode="decimal" placeholder="Por ejemplo 2,50" value={price} onChange={(e) => setPrice(e.target.value)} autoComplete="off" />
-          <span className="field-hint">Solo como referencia: no se apunta ningún gasto ni cuenta en el presupuesto.</span>
+          <span className="field-hint">Para calcular cuánto costará la lista. Si lo dejas vacío, se usa lo que costó la última vez.</span>
         </div>
         {error && <p className="error" role="alert">{error}</p>}
       </form>
@@ -958,7 +996,7 @@ function HistorySheet({ items, data, me, onClose, onReAdd, onUndo, isOnList }: P
                       <span className="row-main">
                         <span className="row-title">{i.name}</span>
                         <span className="row-meta">
-                          {[formatQuantity(i.quantity, i.unit), i.bought_by && byWhom(data, me, i.bought_by), !i.cleared_at && 'en la compra actual'].filter(Boolean).join(' · ')}
+                          {[formatQuantity(i.quantity, i.unit), i.price_cents != null && formatEuros(i.price_cents), i.bought_by && byWhom(data, me, i.bought_by), !i.cleared_at && 'en la compra actual'].filter(Boolean).join(' · ')}
                         </span>
                       </span>
                       {!i.cleared_at && (

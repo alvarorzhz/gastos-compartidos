@@ -222,6 +222,30 @@ select pg_temp.check((select name from shopping_items) = 'Leche', 'D no cambia n
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
+-- Compra y gastos: al terminar la compra los productos se enlazan al gasto con su precio.
+update shopping_items set status = 'bought';
+insert into expenses (household_id, amount_cents, category_id, paid_by, created_by)
+select h.id, 1234, c.id, auth.uid(), auth.uid() from households h join categories c on c.household_id = h.id and c.name = 'Casa';
+update shopping_items set cleared_at = now(), price_cents = 189, ticket_name = 'LECHE ENTERA', expense_id = (select id from expenses where amount_cents = 1234);
+select pg_temp.check((select price_cents = 189 and expense_id is not null from shopping_items), 'producto enlazado al gasto con su precio');
+select id as sid from shopping_items \gset
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+insert into expenses (household_id, amount_cents, category_id, paid_by, created_by)
+select h.id, 999, c.id, auth.uid(), auth.uid() from households h join categories c on c.household_id = h.id limit 1;
+select id as cexp from expenses where amount_cents = 999 \gset
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.expect_error(format('update shopping_items set expense_id = %L', :'cexp'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+delete from expenses where amount_cents = 999;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+update shopping_items set status = 'pending';
+select pg_temp.check((select price_cents is null and expense_id is null and ticket_name is null from shopping_items), 'deshacer la compra quita precio y gasto');
+update shopping_items set status = 'bought';
+update shopping_items set expense_id = (select id from expenses where amount_cents = 1234);
+delete from expenses where amount_cents = 1234;
+select pg_temp.check((select count(*) = 1 and bool_and(expense_id is null) from shopping_items), 'borrar el gasto deja el producto en el historial');
+update shopping_items set status = 'pending';
+
 -- Viajes y eventos: los comparten los dos; un gasto solo va a un viaje de su espacio.
 insert into events (household_id, name, starts_on, ends_on)
 select household_id, 'Roma', '2026-11-01', '2026-11-05' from members where user_id = auth.uid();

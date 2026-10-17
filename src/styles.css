@@ -1213,3 +1213,23 @@ button.row-main:active:not(:disabled) { transform: none; }
   .tab-add .add-circle { width: 50px; height: 50px; }
 }
 @media (max-width: 380px) { .tab { font-size: 0.59rem; letter-spacing: -0.025em; } }
+
+/* ───────────── Compra y gastos (3.2.0) ───────────── */
+.shop-cost { display: flex; flex-direction: column; gap: 2px; }
+.shop-cost-main { display: flex; align-items: center; gap: var(--s2); }
+.shop-cost-main .icon { color: var(--text-2); flex: none; }
+.finish-prices { display: flex; flex-direction: column; }
+.finish-price-row { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s2) 0; border-bottom: 1px solid var(--border); }
+.finish-price-row:last-child { border-bottom: 0; }
+.finish-price-row .row-main { flex: 1; min-width: 0; }
+.finish-price-row .select-pill { align-self: flex-start; max-width: 100%; }
+.price-input { width: 6.5em; text-align: right; flex: none; }
+.finish-loose summary { cursor: pointer; padding: var(--s1) 0; }
+.finish-loose li { padding: var(--s1) 0; gap: var(--s2); }
+.expense-items { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+.expense-items li { display: flex; gap: var(--s2); padding: var(--s1) 0; font-size: var(--fs-sm); }
+.expense-bought summary { list-style: none; cursor: pointer; }
+.expense-bought summary::-webkit-details-marker { display: none; }
+.expense-bought[open] summary .icon:last-child { transform: rotate(180deg); }
+.expense-bought .expense-items { margin-top: var(--s2); }
+.finish-prices, .finish-loose ul { list-style: none; margin: 0; padding: 0; }
