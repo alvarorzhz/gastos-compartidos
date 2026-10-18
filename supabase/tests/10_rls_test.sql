@@ -278,12 +278,40 @@ select pg_temp.expect_error($$ insert into push_keys (vapid) values ('{}') $$);
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 select pg_temp.check((select count(*) from push_subscriptions) = 0, 'A ya no recibe en ese móvil');
 
+-- Resúmenes: la preferencia se guarda y una app antigua (sin ella) no la cambia.
+select public.save_push_subscription('https://push.example.com/s', 'p', 'k', true, true, false);
+select pg_temp.check((select notify_summary from push_subscriptions where endpoint = 'https://push.example.com/s') = false, 'sin resúmenes en ese móvil');
+select public.save_push_subscription('https://push.example.com/s', 'p', 'k', true, true);
+select pg_temp.check((select notify_summary from push_subscriptions where endpoint = 'https://push.example.com/s') = false, 'una app antigua no reactiva los resúmenes');
+
+-- Trabajo de cada mañana: solo lo lanza el servidor y su clave no se lee.
+select pg_temp.expect_error($$ select public.run_automation() $$);
+select pg_temp.expect_error($$ select public.generate_recurring_for(household_id, current_date) from members limit 1 $$);
+select pg_temp.expect_error($$ select public.generate_personal_for(auth.uid(), current_date) $$);
+select pg_temp.check((select count(*) from automation) = 0 and (select count(*) from push_digests) = 0, 'la clave del trabajo diario no se lee');
+select pg_temp.check((select last_run_at from automation_status()) is null, 'aún no ha trabajado');
+insert into recurring_expenses (household_id, amount_cents, category_id, paid_by, frequency, start_on, note, created_by)
+select household_id, 4500, id, auth.uid(), 'monthly', current_date, 'Luz', auth.uid() from categories where name = 'Casa';
+insert into personal_recurring (kind, amount_cents, category, frequency, start_on, note)
+values ('expense', 1000, 'Ocio', 'monthly', current_date, 'Gimnasio');
+reset role;
+select pg_temp.check(public.run_automation() = '1 gasto fijo y 1 fijo personal', 'cada mañana apunta los fijos de todos');
+select pg_temp.check(public.run_automation() = '0 gastos fijos y 0 fijos personales', 'el trabajo diario no duplica');
+select pg_temp.check((select count(*) from expenses where note = 'Luz') = 1, 'gasto fijo apuntado sin abrir la app');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select last_run_at from automation_status()) is not null, 'Ajustes ve cuándo trabajó');
+select pg_temp.check(public.generate_recurring_expenses(current_date) = 0, 'al abrir la app ya estaba apuntado');
+select pg_temp.login('00000000-0000-0000-0000-00000000000d', 'd@example.com');
+select pg_temp.check((select count(*) from automation_status()) = 0, 'quien no tiene espacio no ve nada');
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;
 select pg_temp.check((select count(*) from expenses) = 0, 'gastos borrados con el espacio');
 select pg_temp.check((select count(*) from households) = 1, 'solo queda el espacio de C');
-select pg_temp.check((select count(*) from personal_entries) = 4, 'borrar el espacio no toca lo personal');
+select pg_temp.check((select count(*) from personal_entries) = 5, 'borrar el espacio no toca lo personal');
 select pg_temp.check((select count(*) from savings_goals) = 0, 'huchas borradas con el espacio');
 select pg_temp.check((select count(*) from shopping_items) = 0, 'lista de la compra borrada con el espacio');
 

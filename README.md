@@ -6,7 +6,8 @@ App web privada, pensada para el móvil, para que dos personas apunten sus gasto
 - **Reparto**: 50/50 por defecto; en cada gasto se puede elegir otro porcentaje, un importe exacto o que sea solo de una persona.
 - **Saldo**: se recalcula con cada gasto y reembolso. Los reembolsos (Bizum, transferencia…) solo se anotan; la app no mueve dinero.
 - **Presupuesto**: un importe mensual por categoría, con barra de progreso y opción de copiar el del mes anterior. Cada categoría avisa al llegar al 80, 90 o 100 % (o no avisa).
-- **Gastos fijos**: alquiler, luz, gimnasio… se apuntan solos cada semana, mes o año.
+- **Gastos fijos**: alquiler, luz, gimnasio… se apuntan solos cada semana, mes o año, cada mañana aunque nadie abra la app. Si algo se repite cada mes sin ser fijo, la app propone hacerlo fijo.
+- **Lo hace sola**: al escribir el concepto de un gasto, elige la categoría, quién suele pagar y el reparto como otras veces. Cada mañana avisa en el móvil de los fijos apuntados; los lunes manda el resumen de la semana y el día 1 el del mes con el saldo.
 - **Personal**: cada persona apunta sus propios gastos e ingresos. Solo los ve quien los apunta (ni la pareja) y no cuentan en el saldo, el presupuesto ni los gráficos comunes.
 - **Escanear tickets**: una foto al ticket rellena importe, fecha, tienda y categoría. Se lee en el propio móvil con [Tesseract](https://github.com/naptha/tesseract.js); la foto no se sube ni se guarda.
 - **Buscador y gráficos**: búsqueda por texto y categoría; gráficos de los últimos 12 meses, por categoría, por persona y fijos frente a variables.
@@ -57,6 +58,10 @@ Toda la lógica de permisos está en [`supabase/migrations/0001_init.sql`](supab
 ## Al actualizar la app
 
 Vercel publica solo cada cambio que llega a `main`. Si el cambio trae un archivo nuevo en `supabase/migrations/`, ejecútalo una vez en el **SQL Editor** de Supabase **antes** de fusionar, para que la base de datos ya tenga lo que la nueva versión necesita.
+
+## El trabajo de cada mañana
+
+`0010_automatico.sql` programa con **pg_cron** (gratis en Supabase) la función `run_automation()` a las 8:00 UTC: apunta los gastos fijos de todos y, con **pg_net**, llama a la función `avisar` con la clave guardada en la tabla `automation`. La función `avisar` tiene que desplegarse con **Verify JWT desactivado** (la llamada del servidor no lleva sesión; la función comprueba ella misma la sesión o la clave). Ajustes → *Lo que la app hace sola* dice cuándo trabajó por última vez. Para lanzarlo a mano: `select public.run_automation();` en el SQL Editor.
 
 ## Versiones
 

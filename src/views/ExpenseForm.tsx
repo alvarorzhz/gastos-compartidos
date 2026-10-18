@@ -1,4 +1,4 @@
-import { useContext, useId, useState, type FormEvent } from 'react';
+import { useContext, useId, useRef, useState, type FormEvent } from 'react';
 import { addDays, formatDay, formatShortDay, toIsoDate, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
@@ -18,6 +18,7 @@ import { habituals, type Habitual } from '../lib/favorites';
 import { notifyNewExpenses } from '../lib/push';
 import { formatQuantity } from '../lib/shopping';
 import { ShoppingItemsContext } from '../lib/useShopping';
+import { suggestForNote } from '../lib/suggest';
 
 interface Props extends ViewProps {
   /** Gasto a editar; null = nuevo. */
@@ -58,6 +59,37 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   // Si el gasto se apuntó al terminar una compra: lo que se compró.
   const shoppingItems = useContext(ShoppingItemsContext);
   const boughtHere = expense ? shoppingItems.filter((i) => i.expense_id === expense.id) : [];
+  // Lo que se elige a mano no lo vuelve a cambiar la propuesta del concepto.
+  const touched = useRef({ category: false, paidBy: false, split: false });
+  const [suggested, setSuggested] = useState<string | null>(null);
+
+  /** Gasto nuevo: al escribir el concepto, rellena categoría, quién paga y reparto como otras veces. */
+  function suggestFrom(text: string) {
+    if (source) return;
+    const s = suggestForNote(text, { expenses: data.expenses, categories: activeCategories, members: data.members, me });
+    if (!s) return setSuggested(null);
+    const parts: string[] = [];
+    if (s.categoryId && !touched.current.category) {
+      setCategoryId(s.categoryId);
+      parts.push(activeCategories.find((c) => c.id === s.categoryId)?.name ?? '');
+    }
+    if (s.paidBy && !touched.current.paidBy && data.members.length > 1) {
+      setPaidBy(s.paidBy);
+      if (s.paidBy !== me) parts.push(`pagó ${nameOf(data.members, s.paidBy, me)}`);
+    }
+    if (s.split && !touched.current.split && partner) {
+      setSplit(s.split);
+      if (s.split.mode !== 'equal') parts.push(`tu parte ${s.split.myShare} %`);
+      else if (split.mode !== 'equal') parts.push('a medias');
+    }
+    const shown = parts.filter(Boolean);
+    setSuggested(shown.length === 0 ? null : s.from === 'history' ? `Como otras veces: ${shown.join(', ')}.` : `Categoría propuesta: ${shown[0]}.`);
+  }
+
+  function changeNote(text: string) {
+    setNote(text);
+    suggestFrom(text);
+  }
 
   function applyHabitual(h: Habitual) {
     setAmount(centsToInput(h.amountCents));
@@ -69,6 +101,9 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     setFrequency('');
     setError(null);
     setFilledFrom(h.key);
+    setSuggested(null);
+    touched.current.category = true;
+    touched.current.split = true;
   }
 
   function applyScan(g: ReceiptGuess) {
@@ -90,6 +125,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       setCategoryId(category.id);
       filled.push('categoría');
     }
+    // Si esa tienda ya se apuntó otras veces, manda lo de otras veces.
+    if (g.merchant && !note.trim()) suggestFrom(g.merchant);
     setScanned(`He rellenado: ${filled.join(', ')}. Revísalo antes de guardar.`);
   }
 
@@ -306,9 +343,10 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
             maxLength={200}
             enterKeyHint="done"
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={(e) => changeNote(e.target.value)}
             placeholder={frequency ? 'Ej.: alquiler' : 'Ej.: compra semanal'}
           />
+          {suggested && <p className="field-hint suggest-hint"><Icon name="sparkles" size={14} /><span>{suggested} Puedes cambiarlo.</span></p>}
         </div>
 
         <fieldset className="category-picker">
@@ -319,7 +357,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
             <div className="category-grid">
               {activeCategories.map((c) => (
                 <label key={c.id} className={categoryId === c.id ? 'selected' : ''}>
-                  <input type="radio" name={formId + '-cat'} checked={categoryId === c.id} onChange={() => setCategoryId(c.id)} />
+                  <input type="radio" name={formId + '-cat'} checked={categoryId === c.id} onChange={() => { touched.current.category = true; setCategoryId(c.id); }} />
                   <CategoryIcon name={c.name} size="sm" />
                   <span className="cat-name">{c.name}</span>
                 </label>
@@ -336,7 +374,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
               value: id,
               label: <><Avatar members={data.members} userId={id} size="sm" />{nameOf(data.members, id, me)}</>,
             }))}
-            onChange={setPaidBy}
+            onChange={(id) => { touched.current.paidBy = true; setPaidBy(id); }}
           />
         )}
 
@@ -383,7 +421,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
                 myShare={split.myShare}
                 amountCents={parseEuros(amount) ?? 0}
                 partnerName={partner.display_name}
-                onChange={setSplit}
+                onChange={(s) => { touched.current.split = true; setSplit(s); }}
               />
             )}
             {showRepeat && (

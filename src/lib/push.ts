@@ -13,6 +13,8 @@ const FUNCTION = 'avisar';
 export interface PushPrefs {
   expenses: boolean;
   budget: boolean;
+  /** Resumen de la semana (lunes) y del mes (día 1). */
+  summary: boolean;
 }
 
 export type PushSupport = 'ok' | 'install-first' | 'unsupported';
@@ -44,8 +46,8 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
 
 /** Preferencias guardadas de este móvil (o las de por defecto). */
 export async function savedPrefs(endpoint: string): Promise<PushPrefs> {
-  const { data } = await supabase.from('push_subscriptions').select('notify_expenses, notify_budget').eq('endpoint', endpoint).maybeSingle();
-  return { expenses: data?.notify_expenses ?? true, budget: data?.notify_budget ?? true };
+  const { data } = await supabase.from('push_subscriptions').select('notify_expenses, notify_budget, notify_summary').eq('endpoint', endpoint).maybeSingle();
+  return { expenses: data?.notify_expenses ?? true, budget: data?.notify_budget ?? true, summary: data?.notify_summary ?? true };
 }
 
 function base64UrlToBytes(s: string): Uint8Array<ArrayBuffer> {
@@ -95,6 +97,7 @@ export async function savePrefs(sub: PushSubscription, prefs: PushPrefs): Promis
     p_auth: json.keys?.auth ?? '',
     p_notify_expenses: prefs.expenses,
     p_notify_budget: prefs.budget,
+    p_notify_summary: prefs.summary,
   });
   return error ? 'No se han podido guardar los avisos. Inténtalo de nuevo.' : null;
 }

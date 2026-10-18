@@ -10,6 +10,7 @@ import ExpenseForm from './ExpenseForm';
 import { ExpenseRow, paidText } from './ExpenseRow';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
+import FixedSuggestions from './FixedSuggestions';
 import { EventsSheet } from './EventsView';
 
 type Editing = { kind: 'expense'; expense: Expense | null; fixed?: boolean } | { kind: 'template'; template: RecurringExpense };
@@ -167,7 +168,7 @@ function groupBy<T>(items: T[], key: (x: T) => string): [string, T[]][] {
   return [...map.entries()];
 }
 
-function FixedExpenses({ data, me, onEdit, onNew, onClose }: ViewProps & {
+function FixedExpenses({ data, me, reload, onEdit, onNew, onClose }: ViewProps & {
   onEdit: (t: RecurringExpense) => void;
   onNew: () => void;
   onClose: () => void;
@@ -180,10 +181,11 @@ function FixedExpenses({ data, me, onEdit, onNew, onClose }: ViewProps & {
   return (
     <Sheet
       title="Gastos fijos"
-      subtitle="Se apuntan solos en su fecha, al abrir la app."
+      subtitle="Se apuntan solos en su fecha, cada mañana."
       onClose={onClose}
       footer={<button className="primary lg block" onClick={onNew}><Icon name="plus" /> Nuevo gasto fijo</button>}
     >
+      <FixedSuggestions data={data} me={me} reload={reload} />
       {data.recurring.length === 0 ? (
         <EmptyState icon="repeat" title="Todavía no hay gastos fijos" text="Por ejemplo: alquiler, luz, internet o el gimnasio. También puedes crearlos al añadir un gasto, eligiendo cada cuánto se repite." />
       ) : (
