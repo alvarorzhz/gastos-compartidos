@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useRef, useState } from 'react';
 import { errorMessage, supabase } from './supabase';
 import type { ShopCategory, ShoppingItem, ShopUnit } from './shopping';
 
@@ -39,6 +39,13 @@ export type ShoppingLoad =
 export type SyncState = 'live' | 'saving' | 'offline';
 
 export type Result = { ok: true } | { ok: false; reason: 'conflict' | 'error'; message: string };
+
+export interface FinishOptions {
+  /** Gasto apuntado con esta compra. */
+  expenseId?: string | null;
+  /** Lo que costó cada producto (por id) y cómo se llamaba en el ticket. */
+  prices?: Record<string, { cents: number | null; ticketName: string | null }>;
+}
 
 export interface Draft {
   text: string;
@@ -251,27 +258,37 @@ export function useShopping(householdId: string | null) {
     });
   }, [enqueue, refresh, setRow]);
 
-  /** Termina la compra: lo comprado pasa al historial. No se borra nada. */
-  const finishTrip = useCallback(async (): Promise<Result> => {
+  /**
+   * Termina la compra: lo comprado pasa al historial. No se borra nada. Si se apuntó el gasto,
+   * los productos quedan enlazados a él, y cada uno guarda lo que costó y su nombre en el ticket.
+   */
+  const finishTrip = useCallback(async (opts: FinishOptions = {}): Promise<Result> => {
     if (!householdId) return { ok: false, reason: 'error', message: 'Sin espacio' };
     const now = new Date().toISOString();
     const before = itemsRef.current;
     const ids = before.filter((i) => i.status === 'bought' && !i.cleared_at && !i.unsaved).map((i) => i.id);
     if (ids.length === 0) return { ok: true };
-    update((prev) => prev.map((i) => (ids.includes(i.id) ? { ...i, cleared_at: now } : i)));
+    const prices = opts.prices ?? {};
+    const linked = opts.expenseId ? { expense_id: opts.expenseId } : {};
+    update((prev) => prev.map((i) => (ids.includes(i.id)
+      ? { ...i, cleared_at: now, ...linked, ...(prices[i.id] ? { price_cents: prices[i.id].cents, ticket_name: prices[i.id].ticketName } : {}) }
+      : i)));
     setInFlight((n) => n + 1);
     try {
       const { error } = await supabase
         .from('shopping_items')
-        .update({ cleared_at: now })
+        .update({ cleared_at: now, ...linked })
         .eq('household_id', householdId)
         .eq('status', 'bought')
         .is('cleared_at', null)
         .in('id', ids);
       if (error) {
-        update((prev) => prev.map((i) => (ids.includes(i.id) ? { ...i, cleared_at: null } : i)));
+        update((prev) => prev.map((i) => (ids.includes(i.id) ? before.find((b) => b.id === i.id) ?? i : i)));
         return { ok: false, reason: 'error', message: errorMessage(error) };
       }
+      // Precios de cada producto: si alguno no se guarda, la compra ya está terminada igualmente.
+      await Promise.all(ids.filter((id) => prices[id]).map((id) =>
+        supabase.from('shopping_items').update({ price_cents: prices[id].cents, ticket_name: prices[id].ticketName?.slice(0, 80) ?? null }).eq('id', id)));
       await refresh();
       return { ok: true };
     } finally {
@@ -343,3 +360,6 @@ export function useShopping(householdId: string | null) {
 }
 
 export type Shopping = ReturnType<typeof useShopping>;
+
+/** Productos de la compra para las pantallas que no la reciben directamente (el detalle de un gasto). */
+export const ShoppingItemsContext = createContext<ShoppingItem[]>([]);

@@ -24,6 +24,12 @@ export interface ShoppingItem {
   bought_by: string | null;
   /** Cuándo se terminó la compra en la que se compró: ya no sale en "Comprados", solo en el historial. */
   cleared_at: string | null;
+  /** Lo que costó de verdad, si se sabe (del ticket o escrito al terminar la compra). */
+  price_cents?: number | null;
+  /** Cómo se llamaba en el ticket, para reconocerlo solo la próxima vez. */
+  ticket_name?: string | null;
+  /** Gasto en el que se pagó, si al terminar la compra se apuntó. */
+  expense_id?: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

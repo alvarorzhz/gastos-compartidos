@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useContext, useId, useState, type FormEvent } from 'react';
 import { addDays, formatDay, formatShortDay, toIsoDate, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
@@ -16,6 +16,8 @@ import { currentEvent, eventDates, selectableEvents } from '../lib/events';
 import { isOfflineError, isQueued, queueExpense, removeQueued, updateQueued } from '../lib/expenseOutbox';
 import { habituals, type Habitual } from '../lib/favorites';
 import { notifyNewExpenses } from '../lib/push';
+import { formatQuantity } from '../lib/shopping';
+import { ShoppingItemsContext } from '../lib/useShopping';
 
 interface Props extends ViewProps {
   /** Gasto a editar; null = nuevo. */
@@ -53,6 +55,9 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const events = template ? [] : selectableEvents(data.events, eventId);
   const quick = !source && !startAsFixed ? habituals(data.expenses, today()) : [];
   const [filledFrom, setFilledFrom] = useState<string | null>(null);
+  // Si el gasto se apuntó al terminar una compra: lo que se compró.
+  const shoppingItems = useContext(ShoppingItemsContext);
+  const boughtHere = expense ? shoppingItems.filter((i) => i.expense_id === expense.id) : [];
 
   function applyHabitual(h: Habitual) {
     setAmount(centsToInput(h.amountCents));
@@ -250,6 +255,26 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       <form id={formId} onSubmit={save} className="stack" noValidate>
         {expense?.recurring_id && (
           <Notice icon="repeat">Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</Notice>
+        )}
+        {boughtHere.length > 0 && (
+          <details className="card expense-bought">
+            <summary className="row">
+              <Icon name="cart" size={18} />
+              <span className="grow strong">Lo que se compró ({boughtHere.length})</span>
+              <Icon name="chevronDown" size={18} />
+            </summary>
+            <ul className="expense-items">
+              {boughtHere.map((i) => (
+                <li key={i.id}>
+                  <span className="grow">
+                    {i.name}
+                    {formatQuantity(i.quantity, i.unit) && <span className="muted"> · {formatQuantity(i.quantity, i.unit)}</span>}
+                  </span>
+                  {i.price_cents != null && <span className="muted">{formatEuros(i.price_cents)}</span>}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         <AmountField label="Importe" value={amount} onChange={(v) => { setAmount(v); setBadAmount(false); }} invalid={badAmount} autoFocus={!source} />
