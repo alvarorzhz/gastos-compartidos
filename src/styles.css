@@ -1233,3 +1233,10 @@ button.row-main:active:not(:disabled) { transform: none; }
 .expense-bought[open] summary .icon:last-child { transform: rotate(180deg); }
 .expense-bought .expense-items { margin-top: var(--s2); }
 .finish-prices, .finish-loose ul { list-style: none; margin: 0; padding: 0; }
+
+/* Propuesta de gastos fijos (Inicio, gastos fijos e importar extracto) */
+.fixed-suggestions h2 { gap: var(--s2); color: var(--accent); }
+.fixed-suggestions + .stack, .fixed-suggestions + .empty-state { margin-top: var(--s4); }
+.auto-list { margin: 0; padding-left: 1.1em; display: grid; gap: 2px; }
+.suggest-hint { display: flex; gap: var(--s2); align-items: flex-start; }
+.suggest-hint > .icon { flex: none; margin-top: 2px; color: var(--accent); }

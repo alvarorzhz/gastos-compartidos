@@ -9,6 +9,7 @@ import { Icon } from './icons';
 import InstallCard from './InstallCard';
 import PasswordSettings from './PasswordSettings';
 import PushSettings from './PushSettings';
+import AutomationStatus from './AutomationStatus';
 import { VersionCard } from './WhatsNew';
 
 export default function SettingsView(props: ViewProps & { email: string }) {
@@ -72,6 +73,8 @@ export default function SettingsView(props: ViewProps & { email: string }) {
       <InstallCard />
 
       <PushSettings hasPartner={partner != null} />
+
+      <AutomationStatus />
 
       <section className="settings-group" aria-labelledby="set-data">
         <h2 id="set-data">Tus datos</h2>

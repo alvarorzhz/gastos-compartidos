@@ -7,7 +7,7 @@ import { Icon } from './icons';
 export default function PushSettings({ hasPartner }: { hasPartner: boolean }) {
   const support = pushSupport();
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [prefs, setPrefs] = useState<PushPrefs>({ expenses: true, budget: true });
+  const [prefs, setPrefs] = useState<PushPrefs>({ expenses: true, budget: true, summary: true });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +70,7 @@ export default function PushSettings({ hasPartner }: { hasPartner: boolean }) {
           <div className="grow stack-sm">
             <p className="row-title">Que el móvil te avise</p>
             <p className="muted small">
-              {hasPartner ? 'Cuando tu pareja apunte un gasto y ' : ''}cuando un presupuesto llegue a su aviso, aunque la app esté cerrada. Se activa en cada móvil.
+              {hasPartner ? 'Cuando tu pareja apunte un gasto, ' : ''}cuando se apunte solo un gasto fijo, cuando un presupuesto llegue a su aviso y con un resumen cada lunes y cada día 1, aunque la app esté cerrada. Se activa en cada móvil.
             </p>
           </div>
         </div>
@@ -84,15 +84,17 @@ export default function PushSettings({ hasPartner }: { hasPartner: boolean }) {
 
         {support === 'ok' && enabled != null && (
           <>
-            {hasPartner && (
-              <label className="check-line">
-                <input type="checkbox" checked={prefs.expenses} disabled={busy} onChange={(e) => void change({ ...prefs, expenses: e.target.checked })} />
-                Cuando tu pareja apunte un gasto
-              </label>
-            )}
+            <label className="check-line">
+              <input type="checkbox" checked={prefs.expenses} disabled={busy} onChange={(e) => void change({ ...prefs, expenses: e.target.checked })} />
+              {hasPartner ? 'Cuando tu pareja apunte un gasto o se apunte solo un gasto fijo' : 'Cuando se apunte solo un gasto fijo'}
+            </label>
             <label className="check-line">
               <input type="checkbox" checked={prefs.budget} disabled={busy} onChange={(e) => void change({ ...prefs, budget: e.target.checked })} />
               Cuando un presupuesto llegue a su aviso
+            </label>
+            <label className="check-line">
+              <input type="checkbox" checked={prefs.summary} disabled={busy} onChange={(e) => void change({ ...prefs, summary: e.target.checked })} />
+              Resumen de la semana (los lunes) y del mes (el día 1)
             </label>
             <div className="row wrap">
               {enabled ? (

@@ -8,6 +8,7 @@ import { notifyNewExpenses } from '../lib/push';
 import { readXlsx } from '../lib/xlsx';
 import { Notice, Segmented, Sheet, toast, type ViewProps } from './common';
 import { Icon } from './icons';
+import FixedSuggestions from './FixedSuggestions';
 
 type Show = 'expenses' | 'income';
 
@@ -114,6 +115,7 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
       <Sheet title="Importar extracto" subtitle="Apunta de una vez los movimientos del banco." onClose={onClose}>
         <div className="stack">
           {done && <Notice kind="success">{done}</Notice>}
+          {done && <FixedSuggestions data={data} me={me} reload={reload} />}
           <div className="empty-state" style={{ paddingTop: 'var(--s4)', paddingBottom: 'var(--s4)' }}>
             <span className="empty-icon"><Icon name="bank" size={26} /></span>
             <p className="empty-text">

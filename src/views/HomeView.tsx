@@ -12,6 +12,7 @@ import type { Expense } from '../lib/types';
 import { BalanceText } from './BalanceView';
 import { Avatar, CategoryIcon, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, type ViewProps, useMonth } from './common';
 import ExpenseForm from './ExpenseForm';
+import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
 import { Icon } from './icons';
 
@@ -58,6 +59,8 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
               ))}
             </div>
           )}
+
+          {isCurrent && <div className="o-3"><FixedSuggestions {...props} /></div>}
 
           <div className="o-3">
           {!partner ? (

@@ -18,6 +18,17 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.3.0',
+    date: '2026-10-18',
+    changes: [
+      { kind: 'nuevo', text: 'La app rellena sola el gasto: al escribir el concepto (por ejemplo «Mercadona»), pone la categoría, quién suele pagarlo y el reparto como otras veces. Si nunca lo habíais apuntado, reconoce la tienda por su nombre. Lo que elijas a mano no lo vuelve a cambiar.' },
+      { kind: 'nuevo', text: '«Esto parece un gasto fijo»: si apuntáis algo cada mes con un importe parecido (Netflix, la luz, el gimnasio), también al importar el extracto del banco, la app propone hacerlo fijo con un toque.' },
+      { kind: 'nuevo', text: 'Los gastos fijos se apuntan solos cada mañana, aunque nadie abra la app, y os llega un aviso al móvil con lo que se ha apuntado.' },
+      { kind: 'nuevo', text: 'Resúmenes en el móvil: cada lunes, lo que gastasteis la semana anterior; cada día 1, cómo fue el mes frente al presupuesto y cómo queda el saldo entre los dos. Se pueden quitar en Ajustes → Avisos en el móvil.' },
+      { kind: 'mejora', text: 'Ajustes → «Lo que la app hace sola» explica qué hace cada mañana y si está funcionando.' },
+    ],
+  },
+  {
     version: '3.2.0',
     date: '2026-10-17',
     changes: [
