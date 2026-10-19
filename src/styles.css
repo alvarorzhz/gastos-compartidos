@@ -1240,3 +1240,13 @@ button.row-main:active:not(:disabled) { transform: none; }
 .auto-list { margin: 0; padding-left: 1.1em; display: grid; gap: 2px; }
 .suggest-hint { display: flex; gap: var(--s2); align-items: flex-start; }
 .suggest-hint > .icon { flex: none; margin-top: 2px; color: var(--accent); }
+
+/* Repaso de Personal: casillas del simulador */
+.review-list { --sep-inset: 6.4rem; }
+.review-list label.row-item { cursor: pointer; align-items: flex-start; }
+.review-list .row-item > .cat-icon, .review-list .cancel-check { margin-top: 2px; }
+.review-list .row-meta { -webkit-line-clamp: 4; line-clamp: 4; }
+.cancel-check { width: 22px; height: 22px; min-height: 0; accent-color: var(--accent); margin: 0; flex: none; }
+span.cancel-check { display: inline-block; }
+.review-reason { color: var(--warning); }
+.review-list .row-meta strong { font-weight: 600; color: var(--text); }
