@@ -18,6 +18,17 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.4.0',
+    date: '2026-10-19',
+    changes: [
+      { kind: 'nuevo', text: 'Personal → «Lo que se repite»: la app busca en lo que tienes apuntado (también lo importado del banco) las suscripciones y pagos que se repiten, y te dice cuánto cuesta cada uno al mes y al año según sus últimos cobros, y el total.' },
+      { kind: 'nuevo', text: 'Avisos con su fecha e importe: cobros duplicados, cobros anuales que se renuevan solos, pruebas que han pasado a ser de pago y comisiones del banco.' },
+      { kind: 'nuevo', text: 'Gastos hormiga: lo pequeño (hasta 10 €) que se repite mucho, como el café, y cuánto suma al año a este ritmo.' },
+      { kind: 'nuevo', text: 'Simulador: marca las suscripciones o gastos hormiga que dejarías y te dice cuánto ahorras al mes y al año.' },
+      { kind: 'mejora', text: 'La app no da nada por hecho: lo que no está claro (por ejemplo, un pago que solo ha salido dos veces) sale marcado «Revisar» y no se suma al total.' },
+    ],
+  },
+  {
     version: '3.3.0',
     date: '2026-10-18',
     changes: [

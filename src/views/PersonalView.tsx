@@ -9,6 +9,7 @@ import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
 import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
+import PersonalReviewSheet, { PersonalReviewCard, usePersonalReview } from './PersonalReview';
 import { deleteWithUndo } from './undo';
 
 export default function PersonalView(props: ViewProps) {
@@ -18,6 +19,8 @@ export default function PersonalView(props: ViewProps) {
   const [template, setTemplate] = useState<PersonalRecurring | null>(null);
   const [showFixed, setShowFixed] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const review = usePersonalReview(data.personal, data.personalRecurring);
 
   const sum = personalMonth(data.personal, month);
   const common = myCommonShare(me, data.expenses, month);
@@ -65,6 +68,8 @@ export default function PersonalView(props: ViewProps) {
           <Icon name="fileIn" size={16} /> Importar extracto
         </button>
       </div>
+
+      <PersonalReviewCard review={review} onOpen={() => setReviewing(true)} />
 
       {byCategory.length > 0 && (
         <section className="section" aria-labelledby="personal-categories">
@@ -155,6 +160,7 @@ export default function PersonalView(props: ViewProps) {
           onClose={() => setEditing(null)}
         />
       )}
+      {reviewing && <PersonalReviewSheet review={review} onClose={() => setReviewing(false)} />}
       {importing && <ImportStatement {...props} onClose={() => setImporting(false)} />}
     </>
   );
