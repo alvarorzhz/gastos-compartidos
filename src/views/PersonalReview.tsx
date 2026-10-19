@@ -177,7 +177,7 @@ function Alerts({ alerts }: { alerts: PersonalAlert[] }) {
 
 function Habits({ review, chosen, toggle }: { review: Review; chosen: Set<string>; toggle: (k: string) => void }) {
   if (review.habits.length === 0) {
-    return <EmptyState icon="coffee" title="Sin gastos hormiga" text="Aquí salen los gastos pequeños (hasta 10 €) que se repiten al menos dos veces al mes, como el café o el kiosco." />;
+    return <EmptyState icon="coffee" title="Sin gastos hormiga" text="Aquí salen los gastos pequeños (hasta 10 €) que se repiten a menudo, como el café o la máquina de la oficina." />;
   }
   return (
     <>
@@ -186,7 +186,7 @@ function Habits({ review, chosen, toggle }: { review: Review; chosen: Set<string
         <div className="stat-tile"><span className="stat-label">Al mes</span><strong>{formatEuros(Math.round(review.habitsYearlyCents / 12))}</strong></div>
       </div>
       <p className="field-hint">
-        {review.days >= 365 ? 'Con lo apuntado en el último año.' : `Con ${review.days} días de datos, calculado a este ritmo para un año.`}
+        Lo gastado en el último año, llevado a un año entero al ritmo de cada uno desde la primera vez que aparece.
       </p>
       <ul className="list with-icons review-list">
         {review.habits.map((h) => (
@@ -197,7 +197,7 @@ function Habits({ review, chosen, toggle }: { review: Review; chosen: Set<string
               <span className="row-main">
                 <span className="row-title">{h.name}</span>
                 <span className="row-meta">
-                  {h.count} veces, {formatEuros(h.averageCents)} de media · {formatEuros(h.totalCents)} en total
+                  {h.count} veces desde el {formatShortDay(h.sinceOn)}, {formatEuros(h.averageCents)} de media · {formatEuros(h.totalCents)} en total
                 </span>
                 {h.review && <span className="row-meta review-reason">{h.review}</span>}
               </span>

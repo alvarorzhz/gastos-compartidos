@@ -105,8 +105,9 @@ describe('personalReview: gastos hormiga', () => {
     const r = personalReview([e('2026-07-21', 5000, 'Ropa'), ...cafes], [], TODAY);
     expect(r.habits).toHaveLength(1);
     expect(r.habits[0]).toMatchObject({ name: 'Café', count: 12, averageCents: 150, totalCents: 1800 });
-    // 1.800 en 91 días → al año.
-    expect(r.habits[0].yearlyCents).toBe(Math.round((1800 * 365) / 91));
+    // 1.800 € desde el 1 de septiembre (49 días) → al año, y como es poco tiempo, a revisar.
+    expect(r.habits[0]).toMatchObject({ sinceOn: '2026-09-01', yearlyCents: Math.round((1800 * 365) / 49) });
+    expect(r.habits[0].review).toMatch(/49 días/);
   });
 
   it('lo agrupado sin nota queda para revisar', () => {
@@ -118,6 +119,38 @@ describe('personalReview: gastos hormiga', () => {
   it('no cuenta lo grande ni lo que se repite poco', () => {
     const r = personalReview([e('2026-08-01', 5000, 'Cena'), e('2026-08-15', 5000, 'Cena'), e('2026-09-01', 5000, 'Cena'), e('2026-10-01', 5000, 'Cena'), e('2026-10-10', 200, 'Kiosko')], [], TODAY);
     expect(r.habits).toHaveLength(0);
+  });
+});
+
+describe('personalReview: con un extracto real', () => {
+  it('el súper con importes distintos no es un pago que se repite', () => {
+    const r = personalReview([e('2026-05-23', 1459, 'Mercadona'), e('2026-06-24', 3040, 'Mercadona'), e('2026-07-25', 2205, 'Mercadona'), e('2026-08-25', 2580, 'Mercadona'), e('2026-08-31', 3042, 'Mercadona')], [], TODAY);
+    expect(r.payments).toHaveLength(0);
+  });
+
+  it('un Bizum mensual sale para revisar', () => {
+    const r = personalReview(['07', '08', '09', '10'].map((m) => e(`2026-${m}-01`, 600, 'Bizum: alvaro')), [], TODAY);
+    expect(r.payments[0].review).toMatch(/Bizum/);
+    expect(r.monthlyCents).toBe(0);
+  });
+
+  it('una retención del banco sale para revisar', () => {
+    const r = personalReview(['07', '08', '09', '10'].map((m) => e(`2026-${m}-01`, 1013, 'Retención promocion comercial')), [], TODAY);
+    expect(r.payments[0].review).toMatch(/retención/);
+  });
+
+  it('la aportación a un fondo de inversión no es una comisión', () => {
+    const r = personalReview([e('2026-10-05', 30000, 'Fondos de inversion - cargo por suscripcion periodica')], [], TODAY);
+    expect(r.alerts).toHaveLength(0);
+  });
+
+  it('un gasto hormiga que empezó hace poco cuenta desde su primera vez', () => {
+    const old = e('2026-01-10', 4000, 'Ropa');
+    const maquina = ['2026-09-22', '2026-09-24', '2026-09-29', '2026-10-01', '2026-10-05', '2026-10-06'].map((d) => e(d, 120, 'Sanven restauracion autom'));
+    const r = personalReview([old, ...maquina], [], TODAY);
+    expect(r.habits).toHaveLength(1);
+    expect(r.habits[0]).toMatchObject({ count: 6, sinceOn: '2026-09-22' });
+    expect(r.habits[0].review).toMatch(/aproximado/);
   });
 });
 

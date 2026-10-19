@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.4.1',
+    date: '2026-10-19',
+    changes: [
+      { kind: 'correccion', text: '«Lo que se repite» ya no confunde la compra del súper ni los cobros de una sola tienda con una suscripción, y las aportaciones a fondos de inversión ya no salen como comisión del banco.' },
+      { kind: 'mejora', text: 'Gastos hormiga: también salen los que empezaron hace poco (por ejemplo, la máquina de la oficina) y los que se repiten una vez al mes o más. El cálculo del año cuenta desde la primera vez que aparece cada uno.' },
+      { kind: 'mejora', text: 'Los Bizums a una persona y las retenciones del banco salen marcados «Revisar»: no son suscripciones.' },
+    ],
+  },
+  {
     version: '3.4.0',
     date: '2026-10-19',
     changes: [
