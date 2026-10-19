@@ -37,8 +37,10 @@ export interface SmallHabit {
   key: string;
   name: string;
   category: string;
-  /** Veces en el último año (o desde que hay datos). */
+  /** Veces en el último año. */
   count: number;
+  /** Primera vez en el último año: el cálculo del año sale de lo gastado desde entonces. */
+  sinceOn: string;
   averageCents: number;
   /** Lo que ha sumado en esos días. */
   totalCents: number;
@@ -73,8 +75,6 @@ export interface PersonalReview {
   habitsYearlyCents: number;
   /** Comisiones del banco en el último año. */
   feesYearCents: number;
-  /** Días de datos usados para los gastos hormiga. */
-  days: number;
 }
 
 const PERIOD_DAYS: Record<Period, number> = { weekly: 7, monthly: 30.4, quarterly: 91, yearly: 365 };
@@ -94,7 +94,11 @@ const SUBSCRIPTION = /netflix|spotify|hbo|\bmax\b|disney|prime|amazon music|iclo
 const ANNUAL_WORD = /anual|annual|yearly|renovacion|renewal/;
 const TRIAL_WORD = /prueba|trial|free/;
 const FEE = /comision|comisiones/;
-const FEE_MAYBE = /mantenimiento|cuota (anual )?(de )?tarjeta|descubierto|intereses deudores|posicion deudora|gastos de correo|cargo por/;
+const FEE_MAYBE = /mantenimiento|cuota (anual )?(de )?tarjeta|descubierto|intereses deudores|posicion deudora|gastos de correo/;
+// Aportaciones a fondos o traspasos: son ahorro, no comisiones.
+const NOT_FEE = /inversion|fondos?\b|traspaso/;
+const BIZUM = /^bizum\b/;
+const RETENTION = /retencion/;
 
 const days = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 const median = (xs: number[]) => {
@@ -221,16 +225,25 @@ export function personalReview(entries: PersonalEntry[], recurring: PersonalRecu
     const gaps = list.slice(1).map((e, i) => days(list[i].entry_on, e.entry_on));
     const period = periodOf(median(gaps));
     if (!period) continue;
-    const recent = list.slice(-3).map((e) => e.amount_cents);
-    const spread = Math.max(...recent) / Math.min(...recent);
-    // Si el importe cambia mucho, no es una suscripción sino algo que se compra a menudo.
+    // Si empezó casi gratis (una prueba), ese primer cobro no cuenta para el importe.
+    const charged = list[0].amount_cents <= 100 ? list.filter((e) => e.amount_cents > 100) : list;
+    if (charged.length === 0) continue;
+    const recent = charged.slice(-3).map((e) => e.amount_cents);
+    const lastYear = charged.filter((e) => e.entry_on >= yearAgo).map((e) => e.amount_cents);
+    const amounts = lastYear.length >= 2 ? lastYear : recent;
+    const spread = Math.max(...amounts) / Math.min(...amounts);
+    // Si el importe cambia mucho, no es una suscripción sino algo que se compra a menudo (el súper).
     if (spread > 1.5) continue;
+    // Cada tres meses con solo dos cobros puede ser casualidad.
+    if (period === 'quarterly' && list.length < 3) continue;
     // Cada semana y barato es más bien un gasto hormiga.
     if (period === 'weekly' && avg(recent) <= SMALL_MAX_CENTS) continue;
 
     const regular = gaps.filter((g) => inRange(period, g)).length;
     if (regular < gaps.length / 2) continue;
     const reasons: string[] = [];
+    if (BIZUM.test(key)) reasons.push('es un Bizum a una persona, no una suscripción');
+    if (RETENTION.test(key)) reasons.push('por el concepto parece una retención de impuestos del banco, no una suscripción');
     if (regular < gaps.length * 0.75) reasons.push('no siempre pasa el mismo tiempo entre cobros');
     if (list.length === 2 && period !== 'yearly') reasons.push('solo se ha cobrado dos veces');
     if (spread > 1.15) reasons.push('el importe cambia');
@@ -273,29 +286,31 @@ export function personalReview(entries: PersonalEntry[], recurring: PersonalRecu
     }
   }
 
-  // 3. Gastos hormiga: poco cada vez, muchas veces. Se mira el último año.
-  const firstOn = expenses.find((e) => e.entry_on >= yearAgo)?.entry_on;
-  const span = firstOn ? Math.max(30, days(firstOn, todayIso) + 1) : 0;
+  // 3. Gastos hormiga: poco cada vez, muchas veces (al menos 5 veces y una vez al mes desde
+  // que empezó). Se mira el último año.
   const habits: SmallHabit[] = [];
   const habitKeys = new Set<string>();
   for (const [key, all] of groups) {
     if (paymentKeys.has(key) || fixedKeys.has(key)) continue;
     const list = all.filter((e) => e.entry_on >= yearAgo && !e.recurring_id);
-    if (list.length < 4) continue;
+    if (list.length < 5) continue;
     const amounts = list.map((e) => e.amount_cents);
     if (median(amounts) > SMALL_MAX_CENTS) continue;
-    if ((list.length * 30.4) / span < 2) continue; // Menos de dos veces al mes no es “mucho”.
+    const since = Math.max(30, days(list[0].entry_on, todayIso) + 1);
+    if ((list.length * 30.4) / since < 1) continue;
     const total = amounts.reduce((s, x) => s + x, 0);
-    const yearly = Math.round((total * 365) / span);
+    const yearly = Math.round((total * 365) / since);
     const reasons: string[] = [];
     if (key.startsWith('cat:')) reasons.push(`junta gastos sin nota de «${list[0].category}», pueden ser cosas distintas`);
-    if (span < 60) reasons.push(`solo hay ${span} días de datos, el cálculo del año es aproximado`);
+    if (BIZUM.test(key)) reasons.push('son Bizums a una persona, pueden ser cuentas a medias');
+    if (since < 90) reasons.push(`empezó hace ${since} días, el cálculo del año es aproximado`);
     habitKeys.add(key);
     habits.push({
       key: 'h:' + key,
       name: key.startsWith('cat:') ? `${list[0].category} (sin nota)` : nameOf(list),
       category: list[list.length - 1].category,
       count: list.length,
+      sinceOn: list[0].entry_on,
       averageCents: Math.round(total / list.length),
       totalCents: total,
       monthlyCents: Math.round(yearly / 12),
@@ -328,7 +343,7 @@ export function personalReview(entries: PersonalEntry[], recurring: PersonalRecu
     if (e.entry_on < yearAgo) continue;
     const text = normalize(`${e.note ?? ''} ${e.category}`);
     const sure = FEE.test(text);
-    if (!sure && !FEE_MAYBE.test(text)) continue;
+    if ((!sure && !FEE_MAYBE.test(text)) || NOT_FEE.test(text)) continue;
     if (sure) feesYearCents += e.amount_cents;
     alerts.push({
       key: 'fee:' + e.id, kind: 'fee', name: e.note?.trim() || e.category, date: e.entry_on, amountCents: e.amount_cents,
@@ -351,7 +366,6 @@ export function personalReview(entries: PersonalEntry[], recurring: PersonalRecu
     reviewMonthlyCents: payments.filter((p) => p.monthlyCents != null && p.review).reduce((s, p) => s + p.monthlyCents!, 0),
     habitsYearlyCents: habits.reduce((s, h) => s + h.yearlyCents, 0),
     feesYearCents,
-    days: span,
   };
 }
 
