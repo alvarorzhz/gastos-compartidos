@@ -144,8 +144,8 @@ function cleanMerchant(raw: string): string {
 
 // Comercios habituales en extractos (los nombres salen recortados) → categoría común por defecto.
 const RULES: { match: RegExp; category: string }[] = [
-  { match: /carref|leclerc|alcampo|mercadona|\blidl\b|^dia\b|\bdia \d|eroski|ahorramas|hipercor|supercor|gadis|froiz|\bbm\b|consum|caprabo|bonarea/, category: 'Supermercado' },
-  { match: /just ?eat|glovo|uber ?eats|deliveroo|mc ?donalds|burger king|taco bell|telepizza|domino|kfc|\bvips\b|restaurante|restauracion|\bbar\b|cafe|cafeteria|taberna|pizzeria|poke|sushi|kebab|bocadillo|empanader/, category: 'Restaurantes' },
+  { match: /carref|leclerc|alcampo|mercadona|\blidl\b|^dia\b|\bdia \d|eroski|ahorramas|hipercor|supercor|gadis|froiz|\bbm\b|\bconsum\b|caprabo|bonarea/, category: 'Supermercado' },
+  { match: /just ?eat|glovo|uber ?eats|deliveroo|mc ?donald'?s|burger king|taco bell|telepizza|domino|kfc|\bvips\b|restaurante|restauracion|asador|trattoria|terraza|cerveceria|meson|braseria|heladeria|xeado|\bbar\b|cafe|cafeteria|taberna|pizzeria|poke|sushi|kebab|bocadillo|empanader/, category: 'Restaurantes' },
   { match: /waylet|repsol|cepsa|moeve|galp|\bshell\b|petronor|ballenoil|plenoil|gasolinera|telpark|parking|aparcamiento|tunel de lavado|lavado|renfe|\balsa\b|cabify|\buber\b|bolt|autopista|peaje|itv/, category: 'Transporte' },
   { match: /farmacia|parafarmacia|optica|clinica|dentista|fisioterap|hospital/, category: 'Salud' },
   { match: /iberdrola|endesa|naturgy|\btotal ?energies|holaluz|repsol luz|vodafone|movistar|orange|\bdigi\b|yoigo|masmovil|\bpepephone|aguas|\bseguro|mapfre|mutua|\bline(a|a) directa|comunidad de propietarios|alquiler/, category: 'Facturas' },
@@ -161,11 +161,16 @@ export function guessCategory(description: string): string | null {
 
 // Categorías comunes → la más parecida de las personales.
 const TO_PERSONAL: Record<string, string> = {
+  Supermercado: 'Supermercado',
+  Casa: 'Casa',
   Restaurantes: 'Comida fuera',
   Transporte: 'Transporte',
   Ocio: 'Ocio',
   Salud: 'Salud',
 };
+
+const ELECTRONICS = /media ?markt|fnac|pc ?componentes|worten|phone ?house|apple store|\bxiaomi\b|samsung|coolmod|game ?stop|\bgame\b|back ?market|electronica|informatica/;
+const ONLINE = /amazon(?!ia)|aliexpress|\btemu\b|shein|tiktok shop|vinted|\bebay\b|miravia|wallapop/;
 
 /** Categoría personal sugerida. */
 export function guessPersonalCategory(m: BankMovement): string {
@@ -175,7 +180,11 @@ export function guessPersonalCategory(m: BankMovement): string {
     if (/cashback|promocion|interes/.test(n)) return /interes/.test(n) ? 'Intereses' : 'Extra';
     return 'Otros';
   }
-  if (/netflix|spotify|hbo|disney|prime|icloud|google play/.test(n)) return 'Suscripciones';
+  if (/netflix|spotify|hbo|disney|prime|icloud|google play|apple ?\/ ?bill|apple\.com\/bill/.test(n)) return 'Suscripciones';
+  if (ELECTRONICS.test(n)) return 'Electrónica';
+  if (ONLINE.test(n)) return 'Compras online';
+  if (/druni|rituals|primor|sephora|douglas|perfumeria|peluquer/.test(n)) return 'Cuidado personal';
+  if (/bet365|codere|sportium|bwin|apuesta/.test(n)) return 'Ocio';
   return TO_PERSONAL[guessCategory(m.description) ?? ''] ?? 'Otros';
 }
 

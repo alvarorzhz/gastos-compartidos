@@ -3,7 +3,7 @@ import { normalize } from './search';
 /** Nombres de los iconos de categoría (ver src/views/icons.tsx). */
 export type CategoryIconName =
   | 'cart' | 'home' | 'bolt' | 'wifi' | 'car' | 'utensils' | 'coffee' | 'ticket' | 'health' | 'suitcase'
-  | 'shirt' | 'gift' | 'paw' | 'book' | 'dumbbell' | 'sparkles' | 'coins' | 'percent' | 'repeat' | 'users' | 'tag';
+  | 'shirt' | 'gift' | 'paw' | 'book' | 'dumbbell' | 'sparkles' | 'coins' | 'percent' | 'repeat' | 'users' | 'tag' | 'phone';
 
 export interface CategoryStyle {
   icon: CategoryIconName;
@@ -16,8 +16,11 @@ export interface CategoryStyle {
  * Si no reconoce ninguna, usa una etiqueta con un color fijo para ese nombre (siempre el mismo).
  */
 const RULES: { words: string[]; style: CategoryStyle }[] = [
+  // Antes que el súper: «Compras online» no es la compra de comida.
+  { words: ['online', 'amazon', 'paqueter'], style: { icon: 'tag', tone: 6 } },
   { words: ['super', 'compra', 'mercado', 'aliment', 'fruta', 'carnic', 'panader'], style: { icon: 'cart', tone: 9 } },
   { words: ['casa', 'hogar', 'alquiler', 'hipoteca', 'mueble', 'comunidad', 'limpieza'], style: { icon: 'home', tone: 2 } },
+  { words: ['electronica', 'tecnolog', 'informatic', 'ordenador', 'gadget'], style: { icon: 'phone', tone: 8 } },
   { words: ['factura', 'luz', 'agua', 'gas', 'recibo', 'suministro', 'electric'], style: { icon: 'bolt', tone: 6 } },
   { words: ['internet', 'movil', 'telefon', 'wifi', 'fibra', 'suscrip', 'netflix', 'spotify', 'streaming'], style: { icon: 'wifi', tone: 8 } },
   { words: ['transporte', 'coche', 'gasolina', 'parking', 'aparcamiento', 'metro', 'bus', 'tren', 'taxi', 'peaje'], style: { icon: 'car', tone: 1 } },
