@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type Point
 import { formatShortDay, toIsoDate, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { itemEstimate, listEstimate, shoppingBudgetLeft, shoppingCategory } from '../lib/shoppingPrices';
+import { cheaperElsewhere, compareProducts, listSavingsByStore, type CheaperElsewhere } from '../lib/storePrices';
 import FinishTripSheet from './FinishTripSheet';
 import { nameOf } from '../lib/people';
 import {
@@ -54,6 +55,7 @@ export default function ShoppingView({ data, me, reload, shopping }: ViewProps &
   const [duplicate, setDuplicate] = useState<Duplicate | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [comparing, setComparing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // hiddenIds es el mismo Set aunque cambie (lo que se está quitando con Deshacer): se filtra en cada render.
@@ -145,6 +147,7 @@ export default function ShoppingView({ data, me, reload, shopping }: ViewProps &
   const sharedRowProps = {
     mode, onToggle: markBought, onEdit: setEditing, onRetry: (id: string) => void shopping.retry(id), onDiscard: shopping.discard,
     priceOf: (i: ListItem) => itemEstimate(i, items),
+    cheaperOf: (i: ListItem) => cheaperElsewhere(i, items, data.expenses),
   };
 
   return (
@@ -167,6 +170,7 @@ export default function ShoppingView({ data, me, reload, shopping }: ViewProps &
             </div>
           )}
           <ListCost data={data} items={items} />
+          <StoreSavings data={data} items={items} onCompare={() => setComparing(true)} />
           <AddBar shopping={shopping} items={items} inputRef={inputRef} onRequestAdd={requestAdd} />
         </section>
 
@@ -357,6 +361,7 @@ export default function ShoppingView({ data, me, reload, shopping }: ViewProps &
       {finishing && (
         <FinishTripSheet data={data} me={me} reload={reload} shopping={shopping} items={items} onClose={() => setFinishing(false)} />
       )}
+      {comparing && <CompareSheet data={data} items={items} onClose={() => setComparing(false)} />}
       {historyOpen && (
         <HistorySheet
           items={items}
@@ -416,6 +421,69 @@ function ListCost({ data, items }: { data: ViewProps['data']; items: ListItem[] 
         </p>
       )}
     </div>
+  );
+}
+
+/* ───────────── Dónde sale más barato ───────────── */
+
+/** "En Lidl, 4 productos de la lista os salen unos 2,80 € más baratos" y el enlace a comparar precios. */
+function StoreSavings({ data, items, onCompare }: { data: ViewProps['data']; items: ListItem[]; onCompare: () => void }) {
+  const savings = useMemo(() => listSavingsByStore(items, data.expenses), [items, data.expenses]);
+  const canCompare = useMemo(() => savings.length > 0 || compareProducts(items, data.expenses).length > 0, [savings, items, data.expenses]);
+  if (!canCompare) return null;
+  const best = savings[0];
+  return (
+    <div className="shop-cost">
+      {best ? (
+        <p className="shop-cost-main">
+          <Icon name="tag" size={18} />
+          <span>
+            En <strong>{best.store}</strong>, {best.count === 1 ? '1 producto de la lista sale' : `${best.count} productos de la lista salen`} unos{' '}
+            <strong className="positive">{formatEuros(best.savingCents)}</strong> más {best.count === 1 ? 'barato' : 'baratos'} que donde los comprasteis la última vez.
+          </span>
+        </p>
+      ) : null}
+      <button className="link-btn small" onClick={onCompare}>Comparar precios por tienda</button>
+    </div>
+  );
+}
+
+/** Cada producto comprado en varias tiendas, con lo que costó en cada una. */
+function CompareSheet({ data, items, onClose }: { data: ViewProps['data']; items: ListItem[]; onClose: () => void }) {
+  const products = useMemo(() => compareProducts(items, data.expenses), [items, data.expenses]);
+  return (
+    <Sheet
+      title="Dónde sale más barato"
+      subtitle="Con los precios de los tickets de los últimos 6 meses. Es el último precio de cada tienda."
+      onClose={onClose}
+    >
+      {products.length === 0 ? (
+        <EmptyState
+          icon="tag"
+          title="Aún no hay con qué comparar"
+          text="Al terminar una compra, escanead el ticket. Cuando un producto se haya comprado en dos tiendas, aquí veréis dónde salió más barato."
+        />
+      ) : (
+        <ul className="list shop-compare">
+          {products.map((p) => {
+            const unit = p.unit ? SHOP_UNITS.find((u) => u.id === p.unit)!.one : null;
+            return (
+              <li key={p.name + (p.unit ?? '')} className="shop-compare-row">
+                <span className="row-title">{p.name}{unit && <span className="muted"> · por {unit}</span>}</span>
+                <ul className="shop-compare-prices">
+                  {p.prices.map((s, idx) => (
+                    <li key={s.store} className={idx === 0 ? 'positive' : ''}>
+                      <span>{idx === 0 && <Icon name="check" size={14} />} {s.store} <span className="muted xsmall">· {formatShortDay(s.boughtAt.slice(0, 10))}</span></span>
+                      <span className="money">{formatEuros(s.unitCents)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Sheet>
   );
 }
 
@@ -631,9 +699,10 @@ export function ShopCategoryIcon({ category, size = 'sm' }: { category: ShopCate
   );
 }
 
-function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard, priceOf }: {
+function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard, priceOf, cheaperOf }: {
   item: ListItem;
   priceOf: (i: ListItem) => number | null;
+  cheaperOf: (i: ListItem) => CheaperElsewhere | null;
   checked: boolean;
   mode: Mode;
   onToggle: (i: ListItem) => void;
@@ -644,6 +713,7 @@ function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard,
   const qty = formatQuantity(item.quantity, item.unit);
   const cat = shopCategory(item.category);
   const price = item.unsaved ? null : priceOf(item);
+  const cheaper = item.unsaved ? null : cheaperOf(item);
   return (
     <li className={'shop-item' + (checked ? ' leaving' : '') + (item.unsaved === 'failed' ? ' failed' : '')}>
       <button
@@ -667,6 +737,11 @@ function PendingRow({ item, checked, mode, onToggle, onEdit, onRetry, onDiscard,
           ) : price != null ? (
             <span className="row-meta">unos {formatEuros(price)}</span>
           ) : null}
+          {cheaper && (
+            <span className="row-meta shop-cheaper">
+              <Icon name="tag" size={14} /> En {cheaper.store}, {formatEuros(cheaper.cents)} ({formatEuros(cheaper.savingCents)} menos que en {cheaper.usualStore})
+            </span>
+          )}
         </span>
       </button>
       {item.unsaved === 'failed' ? (

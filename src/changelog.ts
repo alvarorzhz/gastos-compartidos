@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.7.0',
+    date: '2026-10-20',
+    changes: [
+      { kind: 'nuevo', text: 'Dónde sale más barato: con los precios de los tickets, cada producto de la lista te dice si en otra tienda os salió más barato que donde lo comprasteis la última vez, y cuánto os ahorraríais.' },
+      { kind: 'nuevo', text: 'Arriba de la lista sale en qué tienda os saldría más barata la compra de hoy, y en «Comparar precios por tienda» ves lo que costó cada producto en cada súper.' },
+      { kind: 'mejora', text: 'Se comparan los últimos precios de cada tienda de los 6 últimos meses, con la misma medida (no mezcla un kilo con un paquete). La tienda es la del gasto de la compra, así que conviene escanear el ticket al terminar.' },
+    ],
+  },
+  {
     version: '3.6.0',
     date: '2026-10-20',
     changes: [
