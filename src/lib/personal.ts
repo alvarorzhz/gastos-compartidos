@@ -2,7 +2,6 @@ import { owedOf } from './balance';
 import { monthOf } from './dates';
 import { normalize } from './search';
 import { guessPersonalCategory } from './statement';
-import type { Slice } from './stats';
 import type { Expense, PersonalEntry } from './types';
 
 export const PERSONAL_CATEGORIES: Record<PersonalEntry['kind'], string[]> = {
@@ -42,18 +41,6 @@ export function myCommonShare(me: string, expenses: Expense[], month: string): n
 export function categoryOptions(entries: PersonalEntry[], kind: PersonalEntry['kind']): string[] {
   const used = entries.filter((e) => e.kind === kind).map((e) => e.category);
   return [...new Set([...PERSONAL_CATEGORIES[kind], ...used])];
-}
-
-/** Gastos personales del mes por categoría, de mayor a menor. */
-export function personalByCategory(entries: PersonalEntry[], month: string): Slice[] {
-  const sums = new Map<string, number>();
-  let total = 0;
-  for (const e of entries) {
-    if (e.kind !== 'expense' || monthOf(e.entry_on) !== month) continue;
-    sums.set(e.category, (sums.get(e.category) ?? 0) + e.amount_cents);
-    total += e.amount_cents;
-  }
-  return [...sums.entries()].map(([id, cents]) => ({ id, cents, share: cents / total })).sort((a, b) => b.cents - a.cents);
 }
 
 /** Gasto apuntado en «Otros» que parece de otra categoría. */

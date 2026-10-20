@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.6.0',
+    date: '2026-10-20',
+    changes: [
+      { kind: 'nuevo', text: 'Presupuesto personal: en Personal → «En qué has gastado» → Límites, pon cuánto quieres gastar al mes en cada categoría (el súper, comer fuera…). La app te propone tu media de los últimos meses. Vale todos los meses hasta que lo cambies, y solo lo ves tú.' },
+      { kind: 'nuevo', text: 'Cada categoría con límite enseña su barra (verde, naranja al acercarte y roja al pasarte) y arriba sale un aviso cuando llegas al 90 % o te pasas.' },
+      { kind: 'nuevo', text: 'Tendencia: gráfica de tus ingresos y gastos de los últimos 6 meses con la previsión de los 3 siguientes, y cuánto te quedaría al mes si sigues así. También por categoría, frente a su límite. Es una previsión con tus meses completos, no un dato seguro.' },
+    ],
+  },
+  {
     version: '3.5.0',
     date: '2026-10-20',
     changes: [

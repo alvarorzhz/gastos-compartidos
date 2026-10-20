@@ -1251,3 +1251,19 @@ span.cancel-check { display: inline-block; }
 .review-reason { color: var(--warning); }
 .review-list .row-meta strong { font-weight: 600; color: var(--text); }
 .recat-input { margin-top: var(--s1); min-height: 36px; padding: 4px var(--s2); font-size: var(--fs-sm); max-width: 16rem; }
+
+/* Presupuesto personal y tendencia */
+.limit-input { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.limit-input input { width: 6.5rem; text-align: right; min-height: 40px; }
+.limit-hint { align-self: flex-start; justify-content: flex-start; text-align: left; padding: 0; min-height: 0; }
+.legend-row { flex-direction: row; flex-wrap: wrap; gap: var(--s2) var(--s4); }
+.fill-income { background: var(--positive-fill); }
+.fill-expense { background: var(--negative-fill); }
+.fill-forecast { background: transparent; border: 1.5px dashed var(--text-2); }
+.dash-mark { width: 14px; border-top: 2px dashed var(--text); opacity: 0.7; flex: none; }
+.trend-bars .t-income { fill: var(--positive-fill); }
+.trend-bars .t-expense { fill: var(--negative-fill); }
+.trend-bars .current rect { opacity: 0.55; }
+.trend-bars .forecast rect { fill: transparent; stroke: var(--text-2); stroke-width: 1.2; stroke-dasharray: 3 2; }
+.trend-bars .now-mark { stroke: var(--separator); stroke-width: 1; stroke-dasharray: 2 3; }
+.trend-bars .grid { stroke: var(--separator); }

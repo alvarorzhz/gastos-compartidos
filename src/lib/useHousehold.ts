@@ -3,7 +3,7 @@ import { today } from './dates';
 import { flushQueued } from './expenseOutbox';
 import { notifyNewExpenses } from './push';
 import { errorMessage, supabase } from './supabase';
-import type { Budget, Category, TripEvent, Expense, Household, Invitation, Member, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
+import type { Budget, Category, TripEvent, Expense, Household, Invitation, Member, PersonalBudget, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
 
 export interface HouseholdData {
   household: Household;
@@ -17,6 +17,8 @@ export interface HouseholdData {
   /** Solo los movimientos personales de quien usa la app. */
   personal: PersonalEntry[];
   personalRecurring: PersonalRecurring[];
+  /** Límites del presupuesto personal (vacío hasta ejecutar la migración 0011). */
+  personalBudgets: PersonalBudget[];
   goals: SavingsGoal[];
   contributions: SavingsContribution[];
   events: TripEvent[];
@@ -105,7 +107,7 @@ async function load(userId: string): Promise<LoadState> {
   ]);
   if (generated.error) throw generated.error;
   if (generatedPersonal.error) throw generatedPersonal.error;
-  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions, events] = await Promise.all([
+  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions, events, personalBudgets] = await Promise.all([
     supabase.from('households').select('*').eq('id', h).single(),
     supabase.from('members').select('*').eq('household_id', h).order('joined_at'),
     supabase.from('invitations').select('*').eq('household_id', h).maybeSingle(),
@@ -119,6 +121,7 @@ async function load(userId: string): Promise<LoadState> {
     supabase.from('savings_goals').select('*').eq('household_id', h).order('created_at'),
     fetchAll<SavingsContribution>((a, b) => supabase.from('savings_contributions').select('*').eq('household_id', h).order('contributed_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(a, b)),
     supabase.from('events').select('*').eq('household_id', h).order('created_at', { ascending: false }),
+    supabase.from('personal_budgets').select('*').eq('user_id', userId).order('category'),
   ]);
   for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions]) {
     if (r.error) throw r.error;
@@ -140,6 +143,8 @@ async function load(userId: string): Promise<LoadState> {
       contributions: contributions.data ?? [],
       // Si aún no se ha ejecutado la migración de viajes, la app sigue funcionando sin ellos.
       events: events.error ? [] : events.data ?? [],
+      // Igual con el presupuesto personal: sin la migración 0011 no hay límites.
+      personalBudgets: personalBudgets.error ? [] : personalBudgets.data ?? [],
     },
   };
 }
@@ -196,11 +201,11 @@ export function useHousehold(userId: string) {
     }
     // Los borrados no se pueden filtrar por hogar (solo traen el id de la fila), así que se
     // escuchan aparte; como mucho provocan una recarga de más.
-    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses', 'personal_entries', 'savings_goals', 'savings_contributions', 'personal_recurring', 'events']) {
+    for (const table of ['expenses', 'settlements', 'budgets', 'categories', 'members', 'recurring_expenses', 'personal_entries', 'savings_goals', 'savings_contributions', 'personal_recurring', 'events', 'personal_budgets']) {
       channel.on('postgres_changes', { event: 'DELETE', schema: 'public', table }, schedule);
     }
     // Lo personal solo llega a la propia cuenta (RLS), por si se usa en dos dispositivos.
-    for (const table of ['personal_entries', 'personal_recurring']) {
+    for (const table of ['personal_entries', 'personal_recurring', 'personal_budgets']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` }, schedule);
     }
     channel.subscribe();

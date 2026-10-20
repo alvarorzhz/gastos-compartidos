@@ -114,6 +114,14 @@ export interface PersonalEntry {
   created_at: string;
 }
 
+/** Límite al mes de una categoría personal. Vale para todos los meses hasta que se cambie. */
+export interface PersonalBudget {
+  user_id: string;
+  category: string;
+  amount_cents: number;
+  updated_at: string;
+}
+
 /** Hucha: objetivo de ahorro común. */
 export interface SavingsGoal {
   id: string;

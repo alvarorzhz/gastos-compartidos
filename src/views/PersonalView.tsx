@@ -1,14 +1,14 @@
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { categoryStyle } from '../lib/categoryStyle';
 import { formatDay, formatDayHeading, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
-import { categoryOptions, categoryProposals, dismissedProposals, myCommonShare, personalByCategory, personalMonth } from '../lib/personal';
+import { categoryOptions, categoryProposals, dismissedProposals, myCommonShare, personalMonth } from '../lib/personal';
 import { errorMessage, supabase } from '../lib/supabase';
 import { FREQUENCIES, frequencyText, monthlyEquivalent, nextDate, recurringDate } from '../lib/recurring';
 import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
-import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
+import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
+import { PersonalBudgetSection, PersonalTrends } from './PersonalBudget';
 import PersonalReviewSheet, { PersonalReviewCard, usePersonalReview } from './PersonalReview';
 import Recategorize from './Recategorize';
 import { deleteWithUndo } from './undo';
@@ -28,7 +28,6 @@ export default function PersonalView(props: ViewProps) {
   const sum = personalMonth(data.personal, month);
   const common = myCommonShare(me, data.expenses, month);
   const entries = data.personal.filter((e) => monthOf(e.entry_on) === month);
-  const byCategory = personalByCategory(data.personal, month);
   const days = [...new Set(entries.map((e) => e.entry_on))];
 
   return (
@@ -80,29 +79,8 @@ export default function PersonalView(props: ViewProps) {
 
       <PersonalReviewCard review={review} onOpen={() => setReviewing(true)} />
 
-      {byCategory.length > 0 && (
-        <section className="section" aria-labelledby="personal-categories">
-          <SectionHeader id="personal-categories" title="En qué has gastado" />
-          <div className="card">
-            <ul className="hbars">
-              {byCategory.map((s) => (
-                <li key={s.id} className="hbar-row">
-                  <CategoryIcon name={s.id} size="sm" />
-                  <div className="hbar-body">
-                    <div className="hbar-top">
-                      <span className="name">{s.id}</span>
-                      <span className="value">{formatEuros(s.cents)} <span className="muted">· {Math.round(s.share * 100)} %</span></span>
-                    </div>
-                    <div className="hbar" aria-hidden>
-                      <div className={`fill-tone tone-${categoryStyle(s.id).tone}`} style={{ width: `${(s.cents / byCategory[0].cents) * 100}%` }} />
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
+      <PersonalBudgetSection {...props} month={month} />
+      <PersonalTrends {...props} />
 
       {entries.length === 0 ? (
         <div className="card">
