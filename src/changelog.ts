@@ -18,6 +18,16 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.5.0',
+    date: '2026-10-20',
+    changes: [
+      { kind: 'nuevo', text: 'Categorías personales nuevas: Supermercado, Electrónica, Compras online y Casa.' },
+      { kind: 'nuevo', text: 'Ordenar «Otros»: en Personal, la app avisa de los gastos en «Otros» que parecen de otra categoría (Mercadona → Supermercado, Media Markt → Electrónica, Amazon → Compras online…). Los revisas, desmarcas o cambias lo que quieras y se pasan con un toque. Si ya elegiste una categoría para el mismo concepto, propone esa.' },
+      { kind: 'mejora', text: 'Al importar el extracto, los gastos personales ya llegan con estas categorías, y se reconocen más tiendas y restaurantes (asadores, terrazas, perfumerías, apuestas).' },
+      { kind: 'correccion', text: 'Al importar, «Consumiciones…» ya no se toma por el supermercado Consum.' },
+    ],
+  },
+  {
     version: '3.4.1',
     date: '2026-10-19',
     changes: [

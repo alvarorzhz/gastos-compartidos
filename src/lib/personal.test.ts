@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categoryOptions, myCommonShare, personalMonth } from './personal';
+import { categoryOptions, categoryProposals, myCommonShare, personalMonth } from './personal';
 import type { Expense, PersonalEntry } from './types';
 
 const entry = (kind: PersonalEntry['kind'], amount_cents: number, entry_on: string, category = 'Otros'): PersonalEntry => ({
@@ -31,5 +31,30 @@ describe('categoryOptions', () => {
     expect(opts.filter((o) => o === 'Ropa')).toHaveLength(1);
     expect(opts).toContain('Gimnasio');
     expect(categoryOptions([], 'income')[0]).toBe('Nómina');
+  });
+});
+
+describe('categoryProposals', () => {
+  const g = (note: string | null, category = 'Otros', entry_on = '2026-10-01'): PersonalEntry => ({ ...entry('expense', 1000, entry_on, category), note });
+
+  it('propone la categoría de la tienda para lo que está en «Otros»', () => {
+    const p = categoryProposals([g('Mercadona c.c. el tormes'), g('Media markt online'), g('Amazon'), g('Amazonia acai salamanca'), g('Revolut')]);
+    expect(p.map((x) => [x.entry.note, x.category])).toEqual([
+      ['Amazon', 'Compras online'],
+      ['Media markt online', 'Electrónica'],
+      ['Mercadona c.c. el tormes', 'Supermercado'],
+    ]);
+  });
+
+  it('lo que ya elegiste para el mismo concepto manda', () => {
+    const p = categoryProposals([g('Dolaka international', 'Ropa', '2026-09-01'), g('Dolaka international')]);
+    expect(p).toHaveLength(1);
+    expect(p[0]).toMatchObject({ category: 'Ropa', reason: 'learned' });
+  });
+
+  it('no toca lo que ya tiene categoría ni lo descartado', () => {
+    const done = g('Mercadona', 'Comida fuera');
+    const skip = g('Lidl');
+    expect(categoryProposals([done, skip], new Set([skip.id]))).toHaveLength(0);
   });
 });

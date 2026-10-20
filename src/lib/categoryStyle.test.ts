@@ -10,6 +10,8 @@ describe('categoryStyle', () => {
     expect(categoryStyle('Restaurantes').icon).toBe('utensils');
     expect(categoryStyle('Ocio').icon).toBe('ticket');
     expect(categoryStyle('Salud').icon).toBe('health');
+    expect(categoryStyle('Electrónica').icon).toBe('phone');
+    expect(categoryStyle('Compras online')).toEqual({ icon: 'tag', tone: 6 });
     expect(categoryStyle('Otros')).toEqual({ icon: 'tag', tone: 10 });
   });
 

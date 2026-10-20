@@ -1,8 +1,8 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 import { categoryStyle } from '../lib/categoryStyle';
 import { formatDay, formatDayHeading, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
-import { categoryOptions, myCommonShare, personalByCategory, personalMonth } from '../lib/personal';
+import { categoryOptions, categoryProposals, dismissedProposals, myCommonShare, personalByCategory, personalMonth } from '../lib/personal';
 import { errorMessage, supabase } from '../lib/supabase';
 import { FREQUENCIES, frequencyText, monthlyEquivalent, nextDate, recurringDate } from '../lib/recurring';
 import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
@@ -10,6 +10,7 @@ import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, Month
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
 import PersonalReviewSheet, { PersonalReviewCard, usePersonalReview } from './PersonalReview';
+import Recategorize from './Recategorize';
 import { deleteWithUndo } from './undo';
 
 export default function PersonalView(props: ViewProps) {
@@ -21,6 +22,8 @@ export default function PersonalView(props: ViewProps) {
   const [importing, setImporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const review = usePersonalReview(data.personal, data.personalRecurring);
+  const [sorting, setSorting] = useState(false);
+  const proposals = useMemo(() => categoryProposals(data.personal, dismissedProposals()), [data.personal]);
 
   const sum = personalMonth(data.personal, month);
   const common = myCommonShare(me, data.expenses, month);
@@ -68,6 +71,12 @@ export default function PersonalView(props: ViewProps) {
           <Icon name="fileIn" size={16} /> Importar extracto
         </button>
       </div>
+
+      {proposals.length > 0 && (
+        <Notice icon="tag" action={<button className="sm tinted" onClick={() => setSorting(true)}>Ordenar</button>}>
+          {proposals.length === 1 ? 'Un gasto en «Otros» parece' : `${proposals.length} gastos en «Otros» parecen`} de otra categoría, como Supermercado o Electrónica.
+        </Notice>
+      )}
 
       <PersonalReviewCard review={review} onOpen={() => setReviewing(true)} />
 
@@ -160,6 +169,7 @@ export default function PersonalView(props: ViewProps) {
           onClose={() => setEditing(null)}
         />
       )}
+      {sorting && <Recategorize {...props} proposals={proposals} onClose={() => setSorting(false)} />}
       {reviewing && <PersonalReviewSheet review={review} onClose={() => setReviewing(false)} />}
       {importing && <ImportStatement {...props} onClose={() => setImporting(false)} />}
     </>

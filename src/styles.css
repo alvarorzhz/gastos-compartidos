@@ -1250,3 +1250,4 @@ button.row-main:active:not(:disabled) { transform: none; }
 span.cancel-check { display: inline-block; }
 .review-reason { color: var(--warning); }
 .review-list .row-meta strong { font-weight: 600; color: var(--text); }
+.recat-input { margin-top: var(--s1); min-height: 36px; padding: 4px var(--s2); font-size: var(--fs-sm); max-width: 16rem; }
