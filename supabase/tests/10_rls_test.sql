@@ -189,6 +189,21 @@ select pg_temp.check((select count(*) from personal_recurring) = 0, 'la pareja n
 select pg_temp.check(public.generate_personal_recurring(current_date) = 0, 'la pareja no genera los fijos de otro');
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
+-- Presupuesto personal: solo lo ve y lo cambia su dueño.
+insert into personal_budgets (category, amount_cents) values ('Supermercado', 20000);
+select pg_temp.check((select count(*) from personal_budgets where user_id = auth.uid()) = 1, 'A guarda su límite personal');
+select pg_temp.expect_error($$ insert into personal_budgets (category, amount_cents) values ('Supermercado', 100) $$);
+select pg_temp.expect_error($$ insert into personal_budgets (category, amount_cents) values ('Ocio', 0) $$);
+select pg_temp.expect_error($$ insert into personal_budgets (user_id, category, amount_cents) values ('00000000-0000-0000-0000-00000000000b', 'Ocio', 100) $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from personal_budgets) = 0, 'la pareja no ve el presupuesto personal');
+update personal_budgets set amount_cents = 1;
+delete from personal_budgets;
+reset role;
+select pg_temp.check((select amount_cents from personal_budgets) = 20000, 'la pareja no puede tocar el presupuesto personal');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
 -- Reparto por defecto: lo guarda cualquiera de los dos y debe ser un porcentaje válido.
 update households set default_split_user = '00000000-0000-0000-0000-00000000000a', default_split_percent = 60;
 select pg_temp.check((select default_split_percent from households) = 60, 'reparto por defecto guardado');
@@ -330,3 +345,4 @@ select public.delete_my_account();
 reset role;
 select pg_temp.check((select count(*) from personal_entries) = 0, 'movimientos personales borrados con la cuenta');
 select pg_temp.check((select count(*) from personal_recurring) = 0, 'fijos personales borrados con la cuenta');
+select pg_temp.check((select count(*) from personal_budgets) = 0, 'presupuesto personal borrado con la cuenta');
