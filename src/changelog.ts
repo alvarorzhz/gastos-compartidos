@@ -18,6 +18,14 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.7.1',
+    date: '2026-10-21',
+    changes: [
+      { kind: 'mejora', text: 'Pantalla de carga nueva: al abrir la app sale el logo con una animación (los dos aros se juntan y aparece el €), el nombre y una barra de progreso, en modo claro y oscuro.' },
+      { kind: 'mejora', text: 'Se ve al instante, sin el pantallazo en blanco de antes, y pasa a la app con un fundido suave. Si la conexión va lenta, avisa de que está tardando más de lo normal.' },
+    ],
+  },
+  {
     version: '3.7.0',
     date: '2026-10-20',
     changes: [

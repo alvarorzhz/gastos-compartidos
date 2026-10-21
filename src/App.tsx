@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { isOfflineError, useQueuedVersion, withQueued } from './lib/expenseOutbox';
+import { useHideSplash, useKeepSplash } from './lib/splash';
 import { isConfigured, storedSession, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
 import { ShoppingItemsContext, useShopping } from './lib/useShopping';
@@ -20,7 +21,7 @@ import { WhatsNewBanner } from './views/WhatsNew';
 import { AlertsOnEntry } from './views/AlertsDialog';
 import { markCloseSeen, MonthCloseSheet, pendingClose } from './views/MonthClose';
 import { flushPendingDeletes, useHiddenIds, withoutHidden } from './views/undo';
-import { DialogHost, Notice, Segmented, Spinner, Toaster } from './views/common';
+import { DialogHost, Notice, Segmented, Toaster } from './views/common';
 
 type View = 'inicio' | 'gastos' | 'saldo' | 'compra' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
@@ -48,6 +49,7 @@ function readView(): View {
 
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useHideSplash();
 
   useEffect(() => {
     if (!isConfigured) return;
@@ -73,10 +75,31 @@ export default function App() {
   return <Home key={session.user.id} userId={session.user.id} email={session.user.email ?? ''} />;
 }
 
+/** Pantalla de carga: la misma que la de index.html (allí están sus estilos), para que no se note el cambio. */
 function Loading() {
+  useKeepSplash();
   return (
-    <main className="screen-center">
-      <Spinner label="Cargando…" />
+    <main className="splash" role="status" aria-label="Cargando Gastos compartidos">
+      <div className="splash-logo" aria-hidden>
+        <svg viewBox="0 0 120 120">
+          <defs>
+            <linearGradient id="splash-tile-app" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#14998b" />
+              <stop offset="1" stopColor="#0b6159" />
+            </linearGradient>
+          </defs>
+          <rect width="120" height="120" rx="30" fill="url(#splash-tile-app)" />
+          <g fill="none" stroke="#fff" strokeWidth="6.6" strokeLinecap="round">
+            <circle className="splash-ring-a" cx="47.5" cy="60" r="22.5" />
+            <circle className="splash-ring-b" cx="72.5" cy="60" r="22.5" />
+          </g>
+          <text className="splash-euro" x="60" y="67.6" fontFamily="Arial, Helvetica, sans-serif" fontSize="22" fontWeight="700" fill="#fff" textAnchor="middle">€</text>
+        </svg>
+      </div>
+      <div className="splash-name">Gastos compartidos</div>
+      <div className="splash-tagline">Vuestras cuentas, claras</div>
+      <div className="splash-bar" aria-hidden />
+      <div className="splash-slow">Está tardando más de lo normal. Revisa la conexión.</div>
     </main>
   );
 }
