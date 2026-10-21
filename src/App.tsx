@@ -19,7 +19,8 @@ import SettingsView from './views/SettingsView';
 import ShoppingView from './views/ShoppingView';
 import { WhatsNewBanner } from './views/WhatsNew';
 import { AlertsOnEntry } from './views/AlertsDialog';
-import { markCloseSeen, MonthCloseSheet, pendingClose } from './views/MonthClose';
+import { markCloseSeen, pendingClose } from './views/MonthClose';
+import { MonthRecap } from './views/MonthStory';
 import { flushPendingDeletes, useHiddenIds, withoutHidden } from './views/undo';
 import { DialogHost, Notice, Segmented, Toaster } from './views/common';
 
@@ -224,7 +225,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
 
       {adding && <ExpenseForm {...props} expense={null} onClose={() => setAdding(false)} />}
       {closeMonth && (
-        <MonthCloseSheet {...props} month={closeMonth} onClose={() => { markCloseSeen(closeMonth); setCloseDismissed(true); }} />
+        <MonthRecap {...props} month={closeMonth} onClose={() => { markCloseSeen(closeMonth); setCloseDismissed(true); }} />
       )}
       <AlertsOnEntry data={data} waiting={closeMonth != null} />
       <Toaster />
