@@ -8,6 +8,9 @@
 // - POST { daily: true, secret }: la llama el servidor cada mañana (ver 0010_automatico.sql).
 //   Avisa de los gastos fijos que se han apuntado solos, el lunes manda el resumen de la
 //   semana y el día 1 el del mes (con el saldo entre los dos).
+// - POST ?pago=CLAVE { importe, tienda, tarjeta }: la llama el atajo del iPhone al pagar con
+//   Apple Pay (ver 0012_pagos_apple_pay.sql). Guarda el pago por confirmar y avisa a quien pagó
+//   («Toca para apuntarlo»); al tocar el aviso se abre la app con el gasto relleno.
 //
 // Las claves para firmar los avisos se crean solas la primera vez y se guardan en push_keys.
 // No hace falta configurar nada: usa las variables que Supabase ya pone a cada función.
@@ -106,7 +109,15 @@ Deno.serve(async (req) => {
     }
     if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405);
 
-    const body = await req.json().catch(() => ({}));
+    // JSON normalmente; el atajo del iPhone también puede mandar un formulario.
+    const raw = await req.text().catch(() => '');
+    // deno-lint-ignore no-explicit-any
+    let body: any = {};
+    try {
+      body = (raw ? JSON.parse(raw) : null) ?? {};
+    } catch {
+      body = Object.fromEntries(new URLSearchParams(raw));
+    }
 
     // El trabajo de cada mañana: se presenta con la clave de la tabla automation.
     if (body?.daily) {
@@ -116,6 +127,10 @@ Deno.serve(async (req) => {
       await admin.from('automation').update({ last_notified_at: new Date().toISOString() }).eq('id', 1);
       return json({ sent });
     }
+
+    // Un pago con Apple Pay desde el atajo del iPhone: se presenta con la clave de quien paga.
+    const payKey = new URL(req.url).searchParams.get('pago') ?? (typeof body?.clave === 'string' ? body.clave : null);
+    if (payKey) return await receivePayment(admin, payKey, body);
 
     // Quién llama: solo una cuenta con sesión, y solo sobre su espacio.
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
@@ -198,6 +213,33 @@ Deno.serve(async (req) => {
     return json({ error: 'No se han podido enviar los avisos' }, 500);
   }
 });
+
+/** Texto de un campo del atajo (el iPhone puede mandar número, texto o nada). */
+const field = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+
+/** Guarda el pago que manda el atajo y avisa a quien pagó para que lo confirme. */
+async function receivePayment(admin: SupabaseClient, key: string, body: Record<string, unknown>) {
+  const { data, error } = await admin.rpc('receive_payment', {
+    p_key: key,
+    p_amount: field(body.importe ?? body.amount),
+    p_merchant: field(body.tienda ?? body.merchant),
+    p_card: field(body.tarjeta ?? body.card),
+  });
+  if (error) throw error;
+  const result = data as { status: string; id?: string; user_id?: string; amount_cents?: number | null; merchant?: string | null };
+  if (result.status === 'bad-key') return json({ error: 'Clave no válida. Copia de nuevo la dirección desde Ajustes de la app.' }, 401);
+  if (result.status !== 'ok') return json({ ok: true, mensaje: 'Este pago ya había llegado' });
+
+  const { data: subs } = await admin.from('push_subscriptions').select('*').eq('user_id', result.user_id);
+  const what = result.amount_cents != null ? fmt(result.amount_cents) : 'un pago';
+  await send(admin, (subs ?? []) as Sub[], {
+    title: result.merchant ? `Pago de ${what} en ${result.merchant}` : `Pago de ${what} con Apple Pay`,
+    body: 'Toca para apuntarlo como gasto común o personal.',
+    tag: 'pago-' + result.id,
+    url: `/?pago=${result.id}#inicio`,
+  });
+  return json({ ok: true, mensaje: 'Pago recibido: confírmalo en la app' });
+}
 
 /** "2026-10-01" → "2026-11-01" */
 function addMonth(month: string): string {

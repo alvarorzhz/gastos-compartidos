@@ -1236,6 +1236,12 @@ button.row-main:active:not(:disabled) { transform: none; }
 
 /* Propuesta de gastos fijos (Inicio, gastos fijos e importar extracto) */
 .fixed-suggestions h2 { gap: var(--s2); color: var(--accent); }
+.pending-payments { margin-bottom: var(--s5); }
+.pending-payments h2 { gap: var(--s2); color: var(--accent); }
+.applepay-guide { border-top: 1px solid var(--border); padding-top: var(--s4); }
+.applepay-url { display: block; padding: var(--s3); border-radius: 10px; background: var(--surface-3); font-size: var(--fs-xs); word-break: break-all; user-select: all; -webkit-user-select: all; }
+.applepay-steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: var(--s2); line-height: 1.45; }
+.applepay-steps code { padding: 1px 5px; border-radius: 6px; background: var(--surface-3); font-weight: 600; }
 .fixed-suggestions + .stack, .fixed-suggestions + .empty-state { margin-top: var(--s4); }
 .auto-list { margin: 0; padding-left: 1.1em; display: grid; gap: 2px; }
 .suggest-hint { display: flex; gap: var(--s2); align-items: flex-start; }

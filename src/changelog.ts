@@ -18,6 +18,16 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.8.0',
+    date: '2026-10-21',
+    changes: [
+      { kind: 'nuevo', text: 'Apuntar al pagar con Apple Pay: con un atajo del iPhone, cada vez que pagas con el móvil el importe y la tienda llegan solos a la app. Te llega un aviso, lo tocas, eliges si es común o personal y lo guardas.' },
+      { kind: 'nuevo', text: 'Si no tocas el aviso, el pago te espera en Inicio, en «Pagos por confirmar». No cuenta en ningún sitio hasta que lo apuntes, y lo puedes descartar.' },
+      { kind: 'mejora', text: 'El gasto llega con la fecha del pago y con la categoría, quién paga y el reparto de otras veces en esa tienda. En los personales, la categoría de la última vez.' },
+      { kind: 'nuevo', text: 'En Ajustes → «Apuntar al pagar con Apple Pay» está la guía paso a paso para crear el atajo, tu dirección para copiarla y si ya está funcionando. Cada uno lo configura en su iPhone.' },
+    ],
+  },
+  {
     version: '3.7.1',
     date: '2026-10-21',
     changes: [

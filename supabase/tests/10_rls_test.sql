@@ -321,6 +321,37 @@ select pg_temp.login('00000000-0000-0000-0000-00000000000d', 'd@example.com');
 select pg_temp.check((select count(*) from automation_status()) = 0, 'quien no tiene espacio no ve nada');
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
+-- Pagos con Apple Pay: cada uno tiene su clave y solo ve sus pagos por confirmar.
+select pg_temp.check(public.parse_payment_amount('12,50 €') = 1250, 'importe con coma y €');
+select pg_temp.check(public.parse_payment_amount('€12.5') = 1250, 'importe con punto y un decimal');
+select pg_temp.check(public.parse_payment_amount('1.234,56 €') = 123456, 'importe con miles');
+select pg_temp.check(public.parse_payment_amount('1,200') = 120000, 'miles con coma');
+select pg_temp.check(public.parse_payment_amount('7') = 700, 'importe sin decimales');
+select pg_temp.check(public.parse_payment_amount('gratis') is null and public.parse_payment_amount('0,00') is null, 'importe que no se entiende');
+select pg_temp.check((select count(*) from pay_keys) = 0, 'las claves no se leen');
+select pg_temp.check(length((select key from public.my_pay_key())) = 64, 'A tiene su clave');
+select pg_temp.check((select key from public.my_pay_key()) = (select key from public.my_pay_key()), 'la clave se mantiene');
+select pg_temp.expect_error($$ select public.receive_payment('x', '1', 'x', null) $$);
+create temp table pay_test as select key as old_key, (select key from public.my_pay_key(true)) as new_key from public.my_pay_key();
+select pg_temp.check((select old_key <> new_key from pay_test), 'la clave se puede cambiar');
+reset role;
+select pg_temp.check(public.receive_payment((select old_key from pay_test), '9,99', 'X', null)->>'status' = 'bad-key', 'la clave antigua ya no vale');
+select pg_temp.check(public.receive_payment((select new_key from pay_test), '23,40 €', ' Mercadona ', 'Visa')->>'status' = 'ok', 'llega un pago');
+select pg_temp.check(public.receive_payment((select new_key from pay_test), '23,40 €', 'Mercadona', 'Visa')->>'status' = 'duplicate', 'el mismo pago no se apunta dos veces');
+select pg_temp.check(public.receive_payment((select new_key from pay_test), 'raro', '', null)->>'status' = 'ok', 'un importe raro también llega');
+select pg_temp.check((select merchant from pending_payments where amount_cents = 2340) = 'Mercadona', 'tienda sin espacios');
+set role authenticated;
+select pg_temp.check((select count(*) from pending_payments) = 2, 'A ve sus pagos por confirmar');
+select pg_temp.check((select last_used_at from public.my_pay_key()) is not null, 'Ajustes ve que el atajo funciona');
+select pg_temp.expect_error($$ insert into pending_payments (user_id, amount_cents) values (auth.uid(), 100) $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from pending_payments) = 0, 'B no ve los pagos de A');
+delete from pending_payments;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select count(*) from pending_payments) = 2, 'B no puede borrar los pagos de A');
+delete from pending_payments where amount_cents is null;
+select pg_temp.check((select count(*) from pending_payments) = 1, 'A descarta un pago');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;
@@ -346,3 +377,4 @@ reset role;
 select pg_temp.check((select count(*) from personal_entries) = 0, 'movimientos personales borrados con la cuenta');
 select pg_temp.check((select count(*) from personal_recurring) = 0, 'fijos personales borrados con la cuenta');
 select pg_temp.check((select count(*) from personal_budgets) = 0, 'presupuesto personal borrado con la cuenta');
+select pg_temp.check((select count(*) from pending_payments) = 0 and (select count(*) from pay_keys) = 0, 'pagos y clave borrados con la cuenta');
