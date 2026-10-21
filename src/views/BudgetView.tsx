@@ -8,12 +8,14 @@ import type { AlertPercent } from '../lib/types';
 import { AmountField, CategoryIcon, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import { MonthCloseSheet } from './MonthClose';
+import { hasStory, MonthRecap } from './MonthStory';
 import Savings from './Savings';
 
 export default function BudgetView(props: ViewProps) {
   const { data } = props;
   const [month, setMonth] = useMonth();
   const [showClose, setShowClose] = useState(false);
+  const [showStory, setShowStory] = useState(false);
   const [editing, setEditing] = useState<BudgetRow | null>(null);
   const rows = monthlySummary(month, data.categories, data.expenses, data.budgets);
   const sum = totals(rows);
@@ -69,6 +71,9 @@ export default function BudgetView(props: ViewProps) {
           </Notice>
         )}
         <div className="row wrap">
+          {hasStory(props, month) && (
+            <button className="pill" onClick={() => setShowStory(true)}><Icon name="sparkles" size={16} /> Historia del mes</button>
+          )}
           <button className="pill" onClick={() => setShowClose(true)}><Icon name="list" size={16} /> Resumen del mes</button>
           <button className="pill" onClick={() => (location.hash = '#graficos')}><Icon name="chart" size={16} /> Ver evolución</button>
         </div>
@@ -98,6 +103,7 @@ export default function BudgetView(props: ViewProps) {
 
       {editing && <BudgetSheet {...props} month={month} row={editing} onClose={() => setEditing(null)} />}
       {showClose && <MonthCloseSheet {...props} month={month} onClose={() => setShowClose(false)} />}
+      {showStory && <MonthRecap {...props} month={month} onClose={() => setShowStory(false)} />}
     </>
   );
 }

@@ -18,13 +18,22 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
-    version: '3.8.0',
+    version: '3.9.0',
     date: '2026-10-21',
     changes: [
       { kind: 'nuevo', text: 'Apuntar al pagar con Apple Pay: con un atajo del iPhone, cada vez que pagas con el móvil el importe y la tienda llegan solos a la app. Te llega un aviso, lo tocas, eliges si es común o personal y lo guardas.' },
       { kind: 'nuevo', text: 'Si no tocas el aviso, el pago te espera en Inicio, en «Pagos por confirmar». No cuenta en ningún sitio hasta que lo apuntes, y lo puedes descartar.' },
       { kind: 'mejora', text: 'El gasto llega con la fecha del pago y con la categoría, quién paga y el reparto de otras veces en esa tienda. En los personales, la categoría de la última vez.' },
       { kind: 'nuevo', text: 'En Ajustes → «Apuntar al pagar con Apple Pay» está la guía paso a paso para crear el atajo, tu dirección para copiarla y si ya está funcionando. Cada uno lo configura en su iPhone.' },
+    ],
+  },
+  {
+    version: '3.8.0',
+    date: '2026-10-21',
+    changes: [
+      { kind: 'nuevo', text: 'Historia del mes: vuestro mes contado en pantallas a pantalla completa, como los resúmenes de fin de año de la música. Cuánto gastasteis y cómo va frente a los meses anteriores, la categoría estrella, el sitio al que más fuisteis («9 veces en Mercadona»), vuestro día de gastar, el gasto más gordo, el presupuesto, quién puso el dinero, las huchas, la lista de la compra, los viajes y los días sin gastar.' },
+      { kind: 'nuevo', text: 'Se pasa sola; toca a la derecha para avanzar o a la izquierda para volver, mantén el dedo para pararla y desliza hacia abajo para cerrarla. Cada pantalla sale solo si hay algo que contar, y lo de Personal no aparece (es privado de cada uno).' },
+      { kind: 'mejora', text: 'El día 1 de cada mes, la historia del mes anterior sustituye al resumen que salía al entrar; al final tenéis «Ver en cifras» con el resumen de siempre. También se puede abrir desde Inicio los 10 primeros días del mes (o al mirar un mes pasado) y desde Presupuesto → Historia del mes, también la del mes en curso hasta hoy.' },
     ],
   },
   {

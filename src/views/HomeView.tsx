@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { alertText, budgetAlerts } from '../lib/alerts';
 import { balanceFor } from '../lib/balance';
 import { monthlySummary, totals } from '../lib/budget';
-import { monthOf, today } from '../lib/dates';
+import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { formatEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { categoryStyle } from '../lib/categoryStyle';
@@ -15,6 +15,7 @@ import ExpenseForm from './ExpenseForm';
 import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
 import { Icon } from './icons';
+import { hasStory, MonthRecap } from './MonthStory';
 
 const go = (view: string) => () => {
   location.hash = '#' + view;
@@ -25,7 +26,11 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
   const { data, me, onAdd } = props;
   const [month, setMonth] = useMonth();
   const [editing, setEditing] = useState<Expense | null>(null);
+  const [story, setStory] = useState<string | null>(null);
   const isCurrent = month === monthOf(today());
+  // Los primeros días del mes se ofrece la historia del anterior; en meses pasados, la de ese mes.
+  const storyMonth = isCurrent ? (Number(today().slice(8)) <= 10 ? addMonths(month, -1) : null) : month;
+  const offerStory = storyMonth != null && hasStory(props, storyMonth);
 
   const monthExpenses = data.expenses.filter((e) => monthOf(e.spent_on) === month);
   const rows = monthlySummary(month, data.categories, data.expenses, data.budgets);
@@ -58,6 +63,17 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
                 <Notice key={a.category.id} kind={a.spentCents > a.budgetCents ? 'over' : 'warn'}>{alertText(a)}</Notice>
               ))}
             </div>
+          )}
+
+          {offerStory && (
+            <button className="story-card o-2" onClick={() => setStory(storyMonth)}>
+              <span className="story-card-icon"><Icon name="sparkles" /></span>
+              <span className="grow">
+                <strong>Vuestro {formatMonth(storyMonth).split(' ')[0].toLowerCase()}, en historia</strong>
+                <span>El mes contado en pantallas, con sus datos curiosos.</span>
+              </span>
+              <Icon name="play" />
+            </button>
           )}
 
           {isCurrent && <div className="o-3"><FixedSuggestions {...props} /></div>}
@@ -163,6 +179,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
       </div>
 
       {editing && <ExpenseForm {...props} expense={editing} onClose={() => setEditing(null)} />}
+      {story && <MonthRecap {...props} month={story} onClose={() => setStory(null)} />}
     </>
   );
 }
