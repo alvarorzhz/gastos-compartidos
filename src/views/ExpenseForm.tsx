@@ -1,4 +1,4 @@
-import { useContext, useId, useRef, useState, type FormEvent } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { addDays, formatDay, formatShortDay, toIsoDate, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
@@ -19,6 +19,7 @@ import { notifyNewExpenses } from '../lib/push';
 import { formatQuantity } from '../lib/shopping';
 import { ShoppingItemsContext } from '../lib/useShopping';
 import { suggestForNote } from '../lib/suggest';
+import type { PaymentPrefill } from '../lib/payments';
 
 interface Props extends ViewProps {
   /** Gasto a editar; null = nuevo. */
@@ -27,19 +28,23 @@ interface Props extends ViewProps {
   template?: RecurringExpense;
   /** Gasto nuevo que empieza marcado como mensual. */
   startAsFixed?: boolean;
+  /** Gasto nuevo con los datos de un pago con Apple Pay. */
+  prefill?: PaymentPrefill;
+  /** Se llama cuando el gasto nuevo se ha guardado (antes de cerrar). */
+  onSaved?: () => void;
   onClose: () => void;
 }
 
-export default function ExpenseForm({ data, me, reload, expense, template, startAsFixed, onClose }: Props) {
+export default function ExpenseForm({ data, me, reload, expense, template, startAsFixed, prefill, onSaved, onClose }: Props) {
   const formId = useId();
   const source = template ?? expense;
   const activeCategories = data.categories.filter((c) => !c.archived || c.id === source?.category_id);
-  const initialDate = template ? nextDate(template) : expense?.spent_on ?? today();
-  const [amount, setAmount] = useState(source ? centsToInput(source.amount_cents) : '');
+  const initialDate = template ? nextDate(template) : expense?.spent_on ?? prefill?.date ?? today();
+  const [amount, setAmount] = useState(source ? centsToInput(source.amount_cents) : prefill?.amountCents != null ? centsToInput(prefill.amountCents) : '');
   const [date, setDate] = useState(initialDate);
   const [categoryId, setCategoryId] = useState(source?.category_id ?? activeCategories[0]?.id ?? '');
   const [paidBy, setPaidBy] = useState(source?.paid_by ?? me);
-  const [note, setNote] = useState(source?.note ?? '');
+  const [note, setNote] = useState(source?.note ?? prefill?.note ?? '');
   const [split, setSplit] = useState(() => (source ? splitFromExpense(source, me) : defaultSplit(data.household, me, data.members)));
   // Solo los gastos nuevos y los fijos tienen frecuencia; '' = no se repite.
   const [frequency, setFrequency] = useState<Frequency | ''>(template?.frequency ?? (startAsFixed ? 'monthly' : ''));
@@ -54,7 +59,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   // Viaje o evento: los gastos nuevos van solos al que esté en curso.
   const [eventId, setEventId] = useState(() => (template ? '' : expense ? expense.event_id ?? '' : currentEvent(data.events, today())?.id ?? ''));
   const events = template ? [] : selectableEvents(data.events, eventId);
-  const quick = !source && !startAsFixed ? habituals(data.expenses, today()) : [];
+  const quick = !source && !startAsFixed && !prefill ? habituals(data.expenses, today()) : [];
   const [filledFrom, setFilledFrom] = useState<string | null>(null);
   // Si el gasto se apuntó al terminar una compra: lo que se compró.
   const shoppingItems = useContext(ShoppingItemsContext);
@@ -85,6 +90,11 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     const shown = parts.filter(Boolean);
     setSuggested(shown.length === 0 ? null : s.from === 'history' ? `Como otras veces: ${shown.join(', ')}.` : `Categoría propuesta: ${shown[0]}.`);
   }
+
+  // Pago con Apple Pay: la tienda rellena lo de otras veces, como si se hubiera escrito.
+  useEffect(() => {
+    if (prefill?.note) suggestFrom(prefill.note);
+  }, []);
 
   function changeNote(text: string) {
     setNote(text);
@@ -173,6 +183,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       });
       setBusy(false);
       if (error) return setError(errorMessage(error));
+      onSaved?.();
       await reload(); // al recargar se apuntan los que ya tocan
       toast('Gasto fijo creado');
       return onClose();
@@ -205,11 +216,13 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     setBusy(false);
     if (error && isOfflineError(error)) {
       queueExpense(me, row);
+      onSaved?.();
       toast('Sin conexión: guardado en el móvil. Se subirá solo al volver la conexión.', 'info', { ms: 5000 });
       return onClose();
     }
     if (error) return setError(errorMessage(error));
     notifyNewExpenses([row.id]);
+    onSaved?.();
     await reload();
     toast('Gasto guardado');
     onClose();
@@ -314,7 +327,11 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
           </details>
         )}
 
-        <AmountField label="Importe" value={amount} onChange={(v) => { setAmount(v); setBadAmount(false); }} invalid={badAmount} autoFocus={!source} />
+        {prefill && (
+          <Notice icon="card">Pago con Apple Pay{prefill.amountCents == null ? '. No se ha entendido el importe: escríbelo tú.' : '. Revisa los datos y guárdalo.'}</Notice>
+        )}
+
+        <AmountField label="Importe" value={amount} onChange={(v) => { setAmount(v); setBadAmount(false); }} invalid={badAmount} autoFocus={!source && (!prefill || prefill.amountCents == null)} />
 
         {quick.length > 0 && (
           <div className="stack-sm">

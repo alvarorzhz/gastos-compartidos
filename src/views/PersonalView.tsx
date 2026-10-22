@@ -4,6 +4,7 @@ import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { categoryOptions, categoryProposals, dismissedProposals, myCommonShare, personalMonth } from '../lib/personal';
 import { errorMessage, supabase } from '../lib/supabase';
 import { FREQUENCIES, frequencyText, monthlyEquivalent, nextDate, recurringDate } from '../lib/recurring';
+import type { PaymentPrefill } from '../lib/payments';
 import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
 import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
@@ -188,20 +189,24 @@ function FixedList({ items, onEdit }: { items: PersonalRecurring[]; onEdit: (r: 
   );
 }
 
-function PersonalForm({ data, reload, entry, template, kind: initialKind, onClose }: ViewProps & {
+export function PersonalForm({ data, reload, entry, template, kind: initialKind, prefill, onSaved, onClose }: ViewProps & {
   entry: PersonalEntry | null;
+  /** Gasto nuevo con los datos de un pago con Apple Pay. */
+  prefill?: PaymentPrefill & { category: string | null };
+  /** Se llama cuando el movimiento nuevo se ha guardado (antes de cerrar). */
+  onSaved?: () => void;
   /** Si se pasa, se edita este fijo en vez de un movimiento. */
   template?: PersonalRecurring;
   kind: PersonalEntry['kind'];
   onClose: () => void;
 }) {
   const source = template ?? entry;
-  const initialDate = template ? nextDate(template) : entry?.entry_on ?? today();
+  const initialDate = template ? nextDate(template) : entry?.entry_on ?? prefill?.date ?? today();
   const [kind, setKind] = useState(initialKind);
-  const [amount, setAmount] = useState(source ? centsToInput(source.amount_cents) : '');
-  const [category, setCategory] = useState(source?.category ?? '');
+  const [amount, setAmount] = useState(source ? centsToInput(source.amount_cents) : prefill?.amountCents != null ? centsToInput(prefill.amountCents) : '');
+  const [category, setCategory] = useState(source?.category ?? prefill?.category ?? '');
   const [date, setDate] = useState(initialDate);
-  const [note, setNote] = useState(source?.note ?? '');
+  const [note, setNote] = useState(source?.note ?? prefill?.note ?? '');
   // '' = no se repite. Solo para movimientos nuevos y fijos.
   const [frequency, setFrequency] = useState<Frequency | ''>(template?.frequency ?? '');
   const [busy, setBusy] = useState(false);
@@ -239,6 +244,7 @@ function PersonalForm({ data, reload, entry, template, kind: initialKind, onClos
     const { error } = result;
     setBusy(false);
     if (error) return setError(errorMessage(error));
+    if (!entry && !template) onSaved?.();
     await reload();
     toast(template ? 'Fijo actualizado' : !entry && frequency ? 'Fijo creado' : entry ? 'Movimiento actualizado' : 'Movimiento guardado');
     onClose();
@@ -310,7 +316,10 @@ function PersonalForm({ data, reload, entry, template, kind: initialKind, onClos
           options={[{ value: 'income', label: 'Ingreso' }, { value: 'expense', label: 'Gasto' }]}
           onChange={(k) => { setKind(k); setCategory(''); }}
         />
-        <AmountField label="Importe" value={amount} onChange={setAmount} autoFocus={!entry && !template} tone={kind === 'income' ? 'positive' : undefined} />
+        {prefill && (
+          <Notice icon="card">Pago con Apple Pay{prefill.amountCents == null ? '. No se ha entendido el importe: escríbelo tú.' : '. Revisa los datos y guárdalo.'}</Notice>
+        )}
+        <AmountField label="Importe" value={amount} onChange={setAmount} autoFocus={!entry && !template && (!prefill || prefill.amountCents == null)} tone={kind === 'income' ? 'positive' : undefined} />
         <div className="field">
           <label className="field-label" htmlFor={formId + '-cat'}>Categoría</label>
           <input id={formId + '-cat'} list={formId + '-cats'} maxLength={40} value={category} onChange={(e) => setCategory(e.target.value)} placeholder={options[0]} />

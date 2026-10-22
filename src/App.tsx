@@ -15,6 +15,7 @@ import { Icon, type IconName } from './views/icons';
 import Login from './views/Login';
 import Onboarding from './views/Onboarding';
 import PersonalView from './views/PersonalView';
+import PendingPayments from './views/PendingPayments';
 import SettingsView from './views/SettingsView';
 import ShoppingView from './views/ShoppingView';
 import { WhatsNewBanner } from './views/WhatsNew';
@@ -187,6 +188,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       </header>
 
       <main className="content">
+        <PendingPayments {...props} showList={view === 'inicio'} />
         <div className="view" key={view}>
           {state.stale && (
             <Notice kind="warn" icon="alert" action={<button className="sm tinted" onClick={reload}>Reintentar</button>}>
