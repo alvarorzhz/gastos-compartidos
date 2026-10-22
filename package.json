@@ -1,7 +1,7 @@
 {
   "name": "gastos-compartidos",
   "private": true,
-  "version": "3.9.0",
+  "version": "3.9.1",
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-ocr.mjs",

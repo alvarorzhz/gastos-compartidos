@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bestReading, parseReceipt, type ReceiptGuess } from './receipt';
+import { LECLERC_OCR, LECLERC_TEXT } from './receipt.leclerc.fixture';
 
 const TODAY = '2026-10-13';
 
@@ -138,6 +139,35 @@ BEBIDA TE VERDE 1,32 A
     const r = parseReceipt(text, TODAY);
     expect(r.lines.map((l) => l.cents)).toEqual([109, 12, 218, 132]);
     expect(r).toMatchObject({ amountCents: 471, merchant: 'Alcampo', linesMatchTotal: true });
+  });
+
+  it('E.Leclerc: secciones ">>", cantidades "12 X 0.30€" y la columna del IVA', () => {
+    const r = parseReceipt(LECLERC_TEXT, '2026-10-22');
+    expect(r).toMatchObject({ amountCents: 5463, totalCertainty: 3, date: '2026-10-22', merchant: 'E.Leclerc', categoryName: 'Supermercado', linesMatchTotal: true });
+    expect(r.lines).toHaveLength(15);
+    expect(r.lines[0]).toEqual({ name: 'GALLO MAT 100% HELICE LEN 250G', cents: 221, quantity: 1 });
+    expect(r.lines[2]).toEqual({ name: 'AGUA MINERAL 2L IFA', cents: 360, quantity: 12 });
+    expect(r.lines[10]).toEqual({ name: 'KIWI', cents: 156, quantity: 1 });
+    expect(r.lines.slice(-2)).toEqual([
+      { name: 'LECHE ENTERA ASTURIA BOTEL 1.5L', cents: 1182, quantity: 6 },
+      { name: 'LECHE SEMIDES ASTURIA BOTEL 1.5', cents: 1074, quantity: 6 },
+    ]);
+  });
+
+  it('E.Leclerc leído por el móvil: total, tienda y fecha bien, y nada del pago, el IVA ni el bono', () => {
+    const r = parseReceipt(LECLERC_OCR, '2026-10-22');
+    expect(r).toMatchObject({ amountCents: 5463, date: '2026-10-22', merchant: 'E.Leclerc', categoryName: 'Supermercado' });
+    const names = r.lines.map((l) => l.name);
+    expect(names).toContain('KIWI');
+    expect(r.lines.find((l) => l.name.startsWith('AGUA MINERAL'))).toMatchObject({ cents: 360, quantity: 12 });
+    expect(r.lines.find((l) => l.name.startsWith('LECHE ENTERA'))).toMatchObject({ cents: 1182, quantity: 6 });
+    // Ni secciones, ni la tabla del IVA, ni el pago con tarjeta, ni el bono de regalo.
+    expect(names.join(' ')).not.toMatch(/>>|LIQUIDOS|FRUTER|TARJETA|IMPORTE|GRACIAS|BONO|VALE|TOTAL/i);
+    expect(r.lines.every((l) => l.cents > 0 && l.cents < 2000)).toBe(true);
+  });
+
+  it('una fecha aaaa-mm-dd no se lee al revés', () => {
+    expect(parseReceipt('TIENDA PEPE\nCaja 005-0160 2026-10-22 18:43\nTOTAL 3,00', '2026-10-22').date).toBe('2026-10-22');
   });
 
   it('se queda con la lectura que cuadra y, si ninguna cuadra, con el total más fiable', () => {
