@@ -19,6 +19,7 @@ import ScanReceipt from './ScanReceipt';
  * fecha, y empareja cada producto comprado con su línea del ticket para guardar lo que costó.
  * Con eso se apunta el gasto común (con el reparto de siempre) y la compra pasa al historial.
  * También se puede escribir el total a mano o terminar sin apuntar gasto.
+ * No hace falta haberlo marcado todo: lo que no se marque se queda en la lista para la próxima.
  */
 
 export default function FinishTripSheet({ data, me, reload, shopping, items, onClose }: ViewProps & {
@@ -27,8 +28,12 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
   onClose: () => void;
 }) {
   const formId = useId();
-  const bought = useMemo(() => currentBought(items.filter((i) => !i.unsaved)), [items]);
-  const pendingCount = items.filter((i) => i.status === 'pending').length;
+  const marked = useMemo(() => currentBought(items.filter((i) => !i.unsaved)), [items]);
+  const pending = useMemo(() => items.filter((i) => i.status === 'pending' && !i.unsaved), [items]);
+  /** Pendientes de la lista que también se han comprado (marcados aquí o encontrados en el ticket). */
+  const [extra, setExtra] = useState<string[]>([]);
+  const bought = useMemo(() => [...marked, ...pending.filter((i) => extra.includes(i.id))], [marked, pending, extra]);
+  const pendingCount = pending.length - pending.filter((i) => extra.includes(i.id)).length;
   const activeCategories = data.categories.filter((c) => !c.archived);
   const [guess, setGuess] = useState<ReceiptGuess | null>(null);
   const [total, setTotal] = useState('');
@@ -64,7 +69,10 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
     if (g.merchant) setNote(`Compra en ${g.merchant}`);
     const cat = g.categoryName && activeCategories.find((c) => c.name.toLowerCase() === g.categoryName!.toLowerCase());
     if (cat) setCategoryId(cat.id);
-    const matches = matchTicket(bought, g.lines, items);
+    // También se buscan en el ticket los que siguen pendientes: si aparecen, se compraron aunque no se marcaran.
+    const matches = matchTicket([...marked, ...pending], g.lines, items);
+    const found = matches.map((m) => m.itemId).filter((id) => pending.some((i) => i.id === id));
+    if (found.length) setExtra((prev) => [...new Set([...prev, ...found])]);
     const nextLine: Record<string, number> = {};
     const nextPrices: Record<string, string> = { ...prices };
     for (const m of matches) {
@@ -73,7 +81,11 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
     }
     setLineOf(nextLine);
     setPrices(nextPrices);
-    if (matches.length < bought.length) setPricesOpen(true);
+    if (matches.length < marked.length) setPricesOpen(true);
+  }
+
+  function toggleExtra(id: string) {
+    setExtra((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   function chooseLine(itemId: string, idx: number) {
@@ -102,6 +114,17 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
       setPricesOpen(true);
       return setError('Algún precio de los productos no es válido. Escríbelo así: 2,35');
     }
+    // Lo que se ha comprado sin marcar se marca ahora, antes de apuntar nada.
+    const toMark = pending.filter((i) => extra.includes(i.id));
+    setBusy(true);
+    for (const i of toMark) {
+      const r = await shopping.setBought(i, true, me);
+      if (!r.ok) {
+        setBusy(false);
+        return setError(`No se ha podido marcar «${i.name}» como comprado: ${r.message}`);
+      }
+    }
+    setBusy(false);
     let expenseId = savedExpense;
     if (withExpense && !expenseId) {
       const cents = parseEuros(total);
@@ -127,7 +150,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
       notifyNewExpenses([id]);
     }
     setBusy(true);
-    const r = await shopping.finishTrip({ expenseId, prices: priceMap });
+    const r = await shopping.finishTrip({ expenseId, prices: priceMap, alsoBought: extra });
     setBusy(false);
     if (!r.ok) {
       return setError(expenseId
@@ -169,7 +192,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
         <>
           {error && <p className="error" role="alert">{error}</p>}
           <div className="row">
-            {!savedExpense && (
+            {!savedExpense && bought.length > 0 && (
               <button type="button" className="secondary" onClick={() => void finish(false)} disabled={busy}>Sin gasto</button>
             )}
             <button type="submit" form={formId} className="primary lg" disabled={busy}>
@@ -214,6 +237,20 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
           <label className="field-label" htmlFor={formId + '-note'}>Concepto</label>
           <input id={formId + '-note'} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
+
+        {pending.length > 0 && (
+          <div className="field">
+            <span className="field-label" id={formId + '-extra'}>¿Habéis cogido algo más de la lista?</span>
+            <div className="chips" role="group" aria-labelledby={formId + '-extra'}>
+              {pending.map((i) => (
+                <button key={i.id} type="button" className={'chip' + (extra.includes(i.id) ? ' selected' : '')} aria-pressed={extra.includes(i.id)} onClick={() => toggleExtra(i.id)}>
+                  {extra.includes(i.id) && <Icon name="check" size={14} />} {i.name}
+                </button>
+              ))}
+            </div>
+            <p className="field-hint">Toca lo que también hayáis comprado. Lo demás se queda en la lista para la próxima.</p>
+          </div>
+        )}
 
         <button type="button" className="disclosure" aria-expanded={pricesOpen} onClick={() => setPricesOpen((v) => !v)}>
           <span>Precio de cada producto</span>

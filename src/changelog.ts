@@ -18,6 +18,14 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.10.0',
+    date: '2026-10-22',
+    changes: [
+      { kind: 'mejora', text: '«Terminar compra» ya no espera a que esté todo marcado: el botón está siempre arriba, en la lista, aunque queden productos. Escanea el ticket y lo que no hayáis comprado se queda en la lista para la próxima.' },
+      { kind: 'nuevo', text: 'Al terminar la compra puedes tocar lo que también cogisteis sin marcarlo, y lo que aparece en el ticket se marca solo como comprado.' },
+    ],
+  },
+  {
     version: '3.9.2',
     date: '2026-10-22',
     changes: [

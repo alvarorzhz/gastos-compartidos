@@ -45,6 +45,8 @@ export interface FinishOptions {
   expenseId?: string | null;
   /** Lo que costó cada producto (por id) y cómo se llamaba en el ticket. */
   prices?: Record<string, { cents: number | null; ticketName: string | null }>;
+  /** Productos que se acaban de marcar como comprados al terminar (aún no están en itemsRef). */
+  alsoBought?: string[];
 }
 
 export interface Draft {
@@ -266,7 +268,10 @@ export function useShopping(householdId: string | null) {
     if (!householdId) return { ok: false, reason: 'error', message: 'Sin espacio' };
     const now = new Date().toISOString();
     const before = itemsRef.current;
-    const ids = before.filter((i) => i.status === 'bought' && !i.cleared_at && !i.unsaved).map((i) => i.id);
+    const ids = [...new Set([
+      ...before.filter((i) => i.status === 'bought' && !i.cleared_at && !i.unsaved).map((i) => i.id),
+      ...(opts.alsoBought ?? []),
+    ])];
     if (ids.length === 0) return { ok: true };
     const prices = opts.prices ?? {};
     const linked = opts.expenseId ? { expense_id: opts.expenseId } : {};
