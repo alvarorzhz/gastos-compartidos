@@ -104,16 +104,15 @@ function Guide({ url, onCopy }: { url: string; onCopy: () => void }) {
       </div>
       <ol className="applepay-steps small">
         <li>Abre la app <strong>Atajos</strong> del iPhone (ya viene instalada).</li>
-        <li>Abajo, toca <strong>Automatización</strong>. Luego toca el <strong>+</strong> de arriba a la derecha (o <strong>Nueva automatización</strong>).</li>
-        <li>En la lista, busca y toca <strong>Cartera</strong>.</li>
-        <li>Elige tus tarjetas. Deja <strong>Cualquier comercio</strong> y <strong>Cualquier categoría</strong>. Marca <strong>Ejecutar inmediatamente</strong> y toca <strong>Siguiente</strong>.</li>
-        <li>Toca <strong>Nueva automatización en blanco</strong> y después <strong>Añadir acción</strong>.</li>
-        <li>En el buscador escribe <strong>URL</strong> y toca <strong>Obtener contenido de URL</strong>.</li>
-        <li>Toca la palabra azul <strong>URL</strong> y pega tu dirección (el botón de arriba la copia).</li>
-        <li>Toca la flechita <strong>›</strong> de la acción. En <strong>Método</strong> elige <strong>POST</strong>. En <strong>Cuerpo de la solicitud</strong> deja <strong>JSON</strong>.</li>
-        <li>Toca <strong>Añadir campo nuevo</strong> → <strong>Texto</strong>. En <strong>Clave</strong> escribe <code>importe</code>. Toca <strong>Texto</strong>, elige <strong>Entrada del atajo</strong> encima del teclado; vuelve a tocarla y elige <strong>Importe</strong>.</li>
-        <li>Otra vez <strong>Añadir campo nuevo</strong> → <strong>Texto</strong>: clave <code>tienda</code> y, como antes, <strong>Entrada del atajo</strong> → <strong>Comercio</strong>.</li>
-        <li>Toca <strong>OK</strong> arriba a la derecha. ¡Listo!</li>
+        <li>Abajo, toca <strong>Automatización</strong>. Luego toca el <strong>+</strong> de arriba a la derecha.</li>
+        <li>En la lista, busca y toca <strong>Cartera</strong>. Deja <strong>Cualquier tarjeta</strong>, <strong>Cualquier categoría</strong> y <strong>Cualquier comercio</strong>, con <strong>Automatización</strong> encendido (o <strong>Ejecutar inmediatamente</strong>) y <strong>Notificaciones</strong> apagado. Si sale el botón <strong>Siguiente</strong>, tócalo.</li>
+        <li>Toca la barra <strong>Buscar</strong> de abajo (o <strong>Nueva automatización en blanco</strong> si te sale). Escribe <strong>URL</strong> y toca <strong>Obtener contenido de URL</strong> (no «Abrir URL»).</li>
+        <li>Mantén el dedo sobre la palabra gris <strong>URL</strong> de la acción y elige <strong>Pegar</strong>: debe salir tu dirección, que empieza por https://.</li>
+        <li>Toca la flechita de la acción para ver más opciones. En <strong>Método</strong> elige <strong>POST</strong>. En <strong>Cuerpo de la solicitud</strong> deja <strong>JSON</strong>.</li>
+        <li>Toca <strong>Añadir nuevo campo</strong> → <strong>Texto</strong>. A la izquierda, donde pone <strong>Clave</strong>, escribe <code>importe</code>. Toca el hueco de la derecha y, encima del teclado, <strong>Entrada del atajo</strong>.</li>
+        <li>Toca la burbuja azul <strong>Entrada del atajo</strong>. En <strong>Tipo</strong> elige <strong>Transacción</strong> y, debajo, marca <strong>Importe</strong>.</li>
+        <li>Otra vez <strong>Añadir nuevo campo</strong> → <strong>Texto</strong>: clave <code>tienda</code> y, igual, <strong>Entrada del atajo</strong> → Tipo <strong>Transacción</strong> → <strong>Comercio</strong>.</li>
+        <li>Sal con la flecha de arriba a la izquierda (o toca <strong>OK</strong>). ¡Listo!</li>
       </ol>
       <p className="muted small">
         Para comprobarlo, paga algo con el móvil. En unos segundos te llegará el aviso y aquí pondrá «Funcionando». Solo funciona en iPhone, con pagos de Apple Pay.

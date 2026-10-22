@@ -18,6 +18,13 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.9.2',
+    date: '2026-10-22',
+    changes: [
+      { kind: 'mejora', text: 'Guía del atajo de Apple Pay (Ajustes) puesta al día con el iPhone actual: ya no hay «automatización en blanco», y hay que elegir el tipo «Transacción» en «Entrada del atajo» para poder marcar Importe y Comercio.' },
+    ],
+  },
+  {
     version: '3.9.1',
     date: '2026-10-22',
     changes: [
