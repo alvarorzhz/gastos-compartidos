@@ -166,7 +166,10 @@ export default function ShoppingView({ data, me, reload, shopping }: ViewProps &
           {progress.total > 0 && (
             <div className="stack-sm">
               <Progress value={progress.bought} max={progress.total} label="Progreso de la compra" tone="saving" />
-              <p className="muted small">{progress.bought} de {progress.total} comprados</p>
+              <div className="row">
+                <p className="muted small grow">{progress.bought} de {progress.total} comprados</p>
+                {progress.pending > 0 && <button className="sm tinted" onClick={finish}>Terminar compra</button>}
+              </div>
             </div>
           )}
           <ListCost data={data} items={items} />
