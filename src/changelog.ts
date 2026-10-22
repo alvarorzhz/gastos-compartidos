@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.9.1',
+    date: '2026-10-22',
+    changes: [
+      { kind: 'correccion', text: 'Escanear tickets: antes de leer, la app recorta el ticket de la foto. La mesa o la encimera de alrededor se leía como letras y estropeaba todo el ticket.' },
+      { kind: 'correccion', text: 'Los tickets de E.Leclerc se leen bien: la tienda (categoría Supermercado), la fecha, el total, las secciones «>>», las cantidades como «12 X 0.30€» y la columna del IVA, que ya no se confunde con el precio.' },
+      { kind: 'correccion', text: 'Ya no se cuelan como productos el pago con tarjeta, la tabla del IVA ni el bono de regalo del final del ticket, y una fecha escrita como 2026-10-22 ya no se lee al revés.' },
+    ],
+  },
+  {
     version: '3.9.0',
     date: '2026-10-21',
     changes: [

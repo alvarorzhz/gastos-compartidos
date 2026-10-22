@@ -1,0 +1,184 @@
+// Ticket de E.Leclerc del 22/10/2026 (54,63 €), para las pruebas de receipt.test.ts.
+
+/** El texto del ticket tal cual, sin fallos de lectura. */
+export const LECLERC_TEXT = `E.Leclerc
+Hipermercado
+E.Leclerc
+Avd/E.Leclerc Nº1
+CARBADIS SL
+C.I.F:B37333093
+Tfno:923120600
+Caja 005-0160 2026-10-22 18:43
+22/10/26 0 05YU 01U00
+TOTAL IVA
+>> ALIMENTACION SECA
+GALLO MAT 100% HELICE LEN 250G 2.21 1
+>> LIQUIDOS
+FRIZZ FIZZY VERD 5.5 LATA 33CL 1.14 2
+AGUA MINERAL 2L IFA
+12 X 0.30€ 3.60 1
+>> DROGUERIA
+BREF DUPLO PODER ACTIVE FLORAL 3.79 2
+>> PERFUMERIA
+IFA PA UEL.POCK.SUAVE 10*9 4CP 0.95 2
+>> BOLLERIA Y PANADERIA INDU
+DONETTES RAYADOS 8 + 1 2.99 1
+>> CHARCUTERIA LS
+MOUSSE DE OCA 2X75 MARTIKO 4.10 1
+>> FRUTERIA
+ACEITUNA S. ANCHOA 2.00 1
+GILDA CECINA 4.53 1
+VARIANTES ACEITUNAS 1.70 1
+KIWI 1.56 4
+>> CREMERIA L.S.
+YOGUR NATURAL DANONE 8X120G 1.75 4
+POSTRE LA LECHERA TURRON 2X125G 1.75 1
+>> LECHE Y HUEVOS
+LECHE ENTERA ASTURIA BOTEL 1.5L
+6 X 1.97€ 11.82 4
+LECHE SEMIDES ASTURIA BOTEL 1.5
+6 X 1.79€ 10.74 4
+Total 36 Articulos
+----------
+54.63
+************9320 Tarjeta 54.63
+SEPA-FAST
+PUC-CECA
+VENTA
+ELECLERC
+CONTACTLESS
+SPAIN
+A0000000032010
+VISA
+475588XXXXXX9320 00
+22/10/2026 18:44:47
+115406 3100605
+543214
+EN LINEA
+CONTACTLESS
+IMPORTE: 54,63 EUR
+VERIFICADO POR
+DISPOSITIVO
+VENTA ACEPTADA
+RECIBO PARA EL CLIENTE
+Gracias por tu visita
+Codigo BI IVA TOTAL
+1 10%00 20.80 2.08 22.88
+2 21%00 4.86 1.02 5.88
+4 4%00 24.88 0.99 25.87
+GRACIAS POR SU VISITA-
+IMPRESCINDIBLE PRESENTAR EL TICKET
+COMO GARANTIA.
+--------------------------
+BONO DE REGALO
+--------------------------
+Vale por 30 minutos para jugar
+en el parque de ocio Froggyland
+valido 1 ticket por niño y dia
+vales no acumulables
+--------------------------
+Valido para 30 dias
+Generado por :
+Ticket 22/10/26 0 05YU 01U00 (00002)
+Factura Simplificada 0051 26937/0045094
+VISITE NUESTRA
+PAGINA WEB
+www.e.leclerc.es`;
+
+/**
+ * Lo que leyó el lector del móvil (primera pasada, en grises) de la foto del ticket arrugado
+ * sobre una encimera, ya recortado el papel. Con sus fallos, tal cual.
+ */
+export const LECLERC_OCR = `s e CL a NL oo A
+- VERA
+Eds
+y en
+"e E.Lecierc (B) SER
+2 Hipermercado Te
+0 E .Leciterc e
+ñ ava/E .Leclero NE! CT
+3 CARBADIS S! K N.
+- C.1.F :897393093 Le
+- r 923120000 e
+y caja ves IAN 19-22 10:43 DY
+. 22/10/26 6 09YU 01000 ' , ÍA
+Y | | NN 3
+y | | | Ne,
+AENAIONO peas
+roTAL — IA »
+>> MLTMENTACIÓN SECA : le
+GALLO NAT 100% MELTOE LEN 2506 22 | AS
+E
+>» LIQUIDOS y a
+FRIZZ FIZZY VEND 5.9 LATA 3301 1.14 E
+AGUA MINERAL 21 1FA a
+t 12 40.30€ 3.60 ta
+A >> DNOGUERTA A, Re
+es BREF DUPLO PODER ACTIVE FLORAL 3.7 Ead
+Y > PERFUMERIA Y e
+, IFA PA VEL POCK.SUAVE 1049 40P 0-2 E,
+-. >> BOLLERÍA Y PANADERTA TNDU A -
+> DONETIES RAYADOS 8 + | 2.99 a
+E >> EMARCUTERÍA 1s van
+a MOUSSE DE OCA 275 MARTIKO a.101 EL
+e >> FRUTENÍA a
+ACEITUNA $. ANCHOA 2.00 1 S
+: GILOA CECINA 4.881 he
+VARIANTES ACEITUNAS 1:01 2
+KIWI 1.067 E
+>> CAEMERTA L.S. 7
+YOGUR NATURAL DANONE 8X120G 1.75 4 y
+POSTRE LA LECHERA TURRON 2X1256 1.75 1 L
+>> LECHE Y MUEVOS :
+LECHE ENTERA ASTURIA BOTEL 1.51 -
+6 X 1.97€ 11.82 4 ,
+LECHE SEMIDES ASTURIA BOTEL 1.5 |
+8 X 1.798€ 10:14
+Total 36 Articulos TAO
+54.64
+oo 9320 Tarjeta 54.63
+SEPA-FAST
+PUC-CECA
+VENTA
+ELECLERC |
+CONTACTLESS |
+SPAIN |
+A0000000032010 |
+VISA í
+475588XXXNKX9320 00 y
+22/10/2026 18:44:47 É
+115406 3100605 í
+543214 E
+EN LINEA E
+CONTACTLESS 5
+IMPORTE : 54,63 EUR ES
+VERIFICADO POR E
+DISPOSITIVO , N
+VENTA ACEPTADA u
+RECIBO PARA EL CLIENTE -
+Gracias por tu visita E:
+E
+' Codi Es
+Ne BI IA TOTAL a
+200 20.80 2.08 22.88 _
+2 21200 4.86 1.02 15:09/0 > -
+4 4100 24.88 < 0.99 PA oe €
+' GRACIAS POR SU VISITA- Ro
+MPRESCINDIBLE PRESENTAR EL TICKET ;
+COMO GARANTIA. Er
+BONO DE REGALO
+; Yale por 30 minutos para Jugar ñ
+4 en el parque de ocio Froggyland
+valido 1 ticket por niño y día
+vales no acumulables
+A PL E h
+Valido para 30 dias |
+Generado por :
+foket 22/10/26 0 05YU OluD0 (00002) p
+N
+Factura Simplificada 0051 26937/0045094 r
+VISITE NUESTRA :
+PAGINA WEB
+www.e.leclerc.es |
+y
+—]] .|; [| OIEA`;

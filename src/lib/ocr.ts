@@ -6,7 +6,8 @@ import { bestReading, parseReceipt, type ReceiptGuess } from './receipt';
  * guarda: se lee y se descarta. Todo se sirve desde la propia web (public/ocr).
  *
  * Una foto de un ticket arrugado, torcido o con lo de detrás transparentándose se lee
- * distinto según cómo se prepare. Primero se lee en grises; si la suma de los productos no
+ * distinto según cómo se prepare. Antes de nada se recorta el papel: la mesa o la encimera de
+ * alrededor, si tiene dibujo, se lee como letras y estropea cada línea. Primero se lee en grises; si la suma de los productos no
  * cuadra con el total, se vuelve a leer en blanco y negro puro y se queda la mejor lectura.
  */
 
@@ -34,9 +35,10 @@ export async function readReceipt(file: File, onStatus: Status): Promise<Receipt
       return parseReceipt(data.text, today());
     }
     const readings: ReceiptGuess[] = [];
+    const box = paperBox(bitmap);
     for (const mode of ['grey', 'blackWhite'] as const) {
       if (mode === 'blackWhite') pass = 'Repasando el ticket';
-      const { data } = await worker.recognize(prepare(bitmap, mode));
+      const { data } = await worker.recognize(prepare(bitmap, box, mode));
       const guess = parseReceipt(data.text, today());
       readings.push(guess);
       if (guess.linesMatchTotal) break;
@@ -48,15 +50,76 @@ export async function readReceipt(file: File, onStatus: Status): Promise<Receipt
   }
 }
 
-/** Escala de grises con más contraste, a buen tamaño (las fotos pequeñas se amplían). */
-function prepare(bitmap: ImageBitmap, mode: 'grey' | 'blackWhite'): HTMLCanvasElement {
-  const scale = Math.min(2, 3000 / Math.max(bitmap.width, bitmap.height));
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Dónde está el ticket en la foto: el papel es claro y sin color, la mesa no. Se busca la franja
+ * de columnas con más papel y, dentro, de la primera a la última fila con papel. Si no se ve
+ * claro (fondo blanco, poca luz), se usa la foto entera.
+ */
+function paperBox(bitmap: ImageBitmap): Box {
+  const whole = { x: 0, y: 0, w: bitmap.width, h: bitmap.height };
+  const step = Math.max(1, Math.round(Math.max(bitmap.width, bitmap.height) / 320));
+  const w = Math.max(1, Math.round(bitmap.width / step));
+  const h = Math.max(1, Math.round(bitmap.height / step));
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  const p = ctx.getImageData(0, 0, w, h).data;
+  const paper = new Uint8Array(w * h);
+  const cols = new Float64Array(w);
+  for (let i = 0; i < w * h; i++) {
+    const max = Math.max(p[i * 4], p[i * 4 + 1], p[i * 4 + 2]);
+    const min = Math.min(p[i * 4], p[i * 4 + 1], p[i * 4 + 2]);
+    if (max > 140 && (max - min) / max < 0.12) {
+      paper[i] = 1;
+      cols[i % w] += 1 / h;
+    }
+  }
+  let best = 0;
+  for (let x = 1; x < w; x++) if (cols[x] > cols[best]) best = x;
+  if (cols[best] < 0.3) return whole;
+  let left = best;
+  let right = best;
+  while (left > 0 && cols[left - 1] > cols[best] * 0.25) left--;
+  while (right < w - 1 && cols[right + 1] > cols[best] * 0.25) right++;
+  const rows = new Float64Array(h);
+  for (let y = 0; y < h; y++) for (let x = left; x <= right; x++) rows[y] += paper[y * w + x] / (right - left + 1);
+  const top = Math.max(...rows) * 0.25;
+  let first = 0;
+  let last = h - 1;
+  while (first < h - 1 && rows[first] <= top) first++;
+  while (last > first && rows[last] <= top) last--;
+  const pad = 2;
+  const box = {
+    x: Math.max(0, left - pad) * step,
+    y: Math.max(0, first - pad) * step,
+    w: (Math.min(w, right + 1 + pad) - Math.max(0, left - pad)) * step,
+    h: (Math.min(h, last + 1 + pad) - Math.max(0, first - pad)) * step,
+  };
+  box.w = Math.min(box.w, bitmap.width - box.x);
+  box.h = Math.min(box.h, bitmap.height - box.y);
+  // Recortar solo merece la pena si se quita bastante fondo; un trozo minúsculo es un error.
+  const share = (box.w * box.h) / (bitmap.width * bitmap.height);
+  return share > 0.85 || share < 0.03 ? whole : box;
+}
+
+/** El ticket recortado, en escala de grises con más contraste y a buen tamaño (lo pequeño se amplía). */
+function prepare(bitmap: ImageBitmap, box: Box, mode: 'grey' | 'blackWhite'): HTMLCanvasElement {
+  const scale = Math.min(2, 3000 / Math.max(box.w, box.h));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(box.w * scale);
+  canvas.height = Math.round(box.h * scale);
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.filter = mode === 'grey' ? 'grayscale(1) contrast(1.4)' : 'grayscale(1)';
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, box.x, box.y, box.w, box.h, 0, 0, canvas.width, canvas.height);
   if (mode === 'blackWhite') threshold(ctx, canvas.width, canvas.height);
   return canvas;
 }
