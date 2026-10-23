@@ -1,4 +1,5 @@
 import { today } from './dates';
+import { isPdf, readPdf } from './pdfText';
 import { bestReading, parseReceipt, type ReceiptGuess } from './receipt';
 
 /*
@@ -13,7 +14,13 @@ import { bestReading, parseReceipt, type ReceiptGuess } from './receipt';
 
 type Status = (text: string) => void;
 
-export async function readReceipt(file: File, onStatus: Status): Promise<ReceiptGuess | null> {
+export async function readReceipt(file: File | Blob, onStatus: Status): Promise<ReceiptGuess | null> {
+  if (file instanceof File && isPdf(file)) {
+    onStatus('Abriendo el PDF…');
+    const pdf = await readPdf(file);
+    if ('text' in pdf) return parseReceipt(pdf.text, today());
+    file = pdf.image;
+  }
   onStatus('Preparando el lector…');
   const { createWorker } = await import('tesseract.js');
   const base = new URL(import.meta.env.BASE_URL + 'ocr/', location.href).href;
