@@ -18,6 +18,14 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.11.0',
+    date: '2026-10-23',
+    changes: [
+      { kind: 'nuevo', text: 'Tickets en PDF: debajo de «Escanear ticket» está «o elegir una foto o el ticket en PDF». El PDF que te da la tienda (por ejemplo, el de la app de E.Leclerc) se lee perfecto: todos los productos con su precio, el total y la fecha, al momento.' },
+      { kind: 'mejora', text: 'También puedes elegir una foto que ya tengas en el carrete en vez de hacerla en ese momento.' },
+    ],
+  },
+  {
     version: '3.10.0',
     date: '2026-10-22',
     changes: [
