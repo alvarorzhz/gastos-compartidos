@@ -21,6 +21,25 @@ jobs:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder
 
+  screens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Navegador para las pruebas de pantallas
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:screens
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: pruebas-de-pantallas
+          path: test-results
+          retention-days: 7
+
   database:
     runs-on: ubuntu-latest
     services:

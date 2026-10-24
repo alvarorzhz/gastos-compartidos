@@ -18,6 +18,16 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.13.0',
+    date: '2026-10-24',
+    changes: [
+      { kind: 'nuevo', text: 'Copias de seguridad (Ajustes → Copias de seguridad): cada lunes se guarda una copia de todo y se quedan las 8 últimas. Puedes descargarlas cuando quieras; lo personal solo lo ve su dueño.' },
+      { kind: 'nuevo', text: 'Historial de cambios (Ajustes → Historial de cambios): quién apuntó, cambió o borró cada gasto y cuándo, con lo que cambió. Un gasto borrado se recupera con «Recuperar».' },
+      { kind: 'mejora', text: 'Base de datos más segura y más rápida: los permisos se comprueban una vez por consulta y no por cada gasto, y hay índices nuevos.' },
+      { kind: 'mejora', text: 'Antes de publicar cada cambio, un robot abre la app en un móvil simulado y comprueba que todas las secciones funcionan, que se puede apuntar un gasto y añadir a la compra.' },
+    ],
+  },
+  {
     version: '3.12.0',
     date: '2026-10-24',
     changes: [
