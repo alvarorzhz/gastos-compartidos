@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { AVATAR_EMOJIS, PERSON_COLORS, personColor } from '../lib/couple';
 import { exportJson, exportXlsx } from '../lib/exportData';
 import { partnerOf } from '../lib/people';
 import { defaultMyPercent } from '../lib/split';
@@ -44,6 +45,8 @@ export default function SettingsView(props: ViewProps & { email: string }) {
         </ul>
         <p className="note">Has entrado como {email}.</p>
       </section>
+
+      <Profile {...props} />
 
       <section className="settings-group" aria-labelledby="set-partner">
         <h2 id="set-partner">Tu pareja</h2>
@@ -165,6 +168,74 @@ function InlineText({ label, value, maxLength, onSave, reload }: {
 }
 
 /** Reparto con el que empiezan los gastos nuevos (por ejemplo 60/40 según los sueldos). */
+/** Tu color y tu emoji: salen en tus gastos, en el saldo y en todo lo que haces. */
+function Profile({ data, me, reload }: ViewProps) {
+  const partner = partnerOf(data.members, me);
+  const mine = personColor(data.members, me);
+  const theirs = partner ? personColor(data.members, partner.user_id) : null;
+  const myMember = data.members.find((m) => m.user_id === me)!;
+  const [busy, setBusy] = useState(false);
+
+  async function save(patch: { color?: string; emoji?: string | null }) {
+    setBusy(true);
+    const { error } = await supabase.from('members').update(patch).eq('user_id', me);
+    setBusy(false);
+    if (error) return toast(errorMessage(error), 'error');
+    toast('Perfil guardado');
+    await reload();
+  }
+
+  return (
+    <section className="settings-group" aria-labelledby="set-profile">
+      <h2 id="set-profile">Tu perfil</h2>
+      <div className="card stack profile-card">
+        <div className="profile-preview">
+          <Avatar members={data.members} userId={me} size="lg" />
+          <span>
+            <strong>{myMember.display_name}</strong>
+            <span className="muted small">Así te ve {partner?.display_name ?? 'tu pareja'} en tus gastos y en el saldo.</span>
+          </span>
+        </div>
+        <fieldset className="field">
+          <legend className="field-label">Tu color</legend>
+          <div className="swatches">
+            {PERSON_COLORS.map((c) => {
+              const taken = c.value === theirs;
+              return (
+                <button
+                  key={c.value}
+                  type="button"
+                  className={`swatch person-${c.value}` + (mine === c.value ? ' selected' : '')}
+                  aria-pressed={mine === c.value}
+                  aria-label={c.label + (taken ? ` (es el de ${partner?.display_name})` : '')}
+                  title={taken ? `Es el de ${partner?.display_name}` : c.label}
+                  disabled={busy || taken}
+                  onClick={() => save({ color: c.value })}
+                >
+                  {mine === c.value && <Icon name="check" size={16} />}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        <fieldset className="field">
+          <legend className="field-label">En vez de tu inicial</legend>
+          <div className="emoji-grid">
+            <button type="button" className={'emoji-option' + (!myMember.emoji ? ' selected' : '')} aria-pressed={!myMember.emoji} disabled={busy} onClick={() => save({ emoji: null })}>
+              {myMember.display_name.trim().charAt(0).toUpperCase()}
+            </button>
+            {AVATAR_EMOJIS.map((e) => (
+              <button key={e} type="button" className={'emoji-option' + (myMember.emoji === e ? ' selected' : '')} aria-pressed={myMember.emoji === e} disabled={busy} onClick={() => save({ emoji: e })}>
+                {e}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      </div>
+    </section>
+  );
+}
+
 function DefaultSplit({ data, me, reload, partnerName }: ViewProps & { partnerName: string }) {
   const id = useId();
   const saved = defaultMyPercent(data.household, me, data.members);

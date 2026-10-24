@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { alertText, budgetAlerts } from '../lib/alerts';
 import { balanceFor } from '../lib/balance';
 import { monthlySummary, totals } from '../lib/budget';
@@ -7,10 +7,13 @@ import { formatEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { categoryStyle } from '../lib/categoryStyle';
 import { breakdown } from '../lib/stats';
+import { budgetStreak, partnerActivity, timeAgo } from '../lib/couple';
+import { saveReaction } from '../lib/reactions';
+import { goalProgress } from '../lib/savings';
 import { monthForecast, type Forecast } from '../lib/forecast';
 import type { Expense } from '../lib/types';
 import { BalanceText } from './BalanceView';
-import { Avatar, CategoryIcon, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, type ViewProps, useMonth } from './common';
+import { Avatar, CategoryIcon, celebrate, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, toast, type ViewProps, useMonth } from './common';
 import ExpenseForm from './ExpenseForm';
 import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
@@ -22,8 +25,8 @@ const go = (view: string) => () => {
 };
 
 /** Pantalla de inicio: cuánto lleváis gastado, cuánto queda, en qué y los últimos gastos. */
-export default function HomeView(props: ViewProps & { onAdd: () => void }) {
-  const { data, me, onAdd } = props;
+export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?: boolean }) {
+  const { data, me, onAdd, quiet = false } = props;
   const [month, setMonth] = useMonth();
   const [editing, setEditing] = useState<Expense | null>(null);
   const [story, setStory] = useState<string | null>(null);
@@ -41,9 +44,12 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
   const topCategories = rows.filter((r) => r.spentCents > 0).slice(0, 4);
   const byPayer = breakdown(data.expenses, month, (e) => e.paid_by);
   const recent = monthExpenses.slice(0, 5);
+  const streak = budgetStreak(today(), data.categories, data.expenses, data.budgets);
 
   return (
     <>
+      {partner && <PartnerActivity {...props} partnerId={partner.user_id} onOpen={setEditing} />}
+
       <MonthNav month={month} onChange={setMonth} />
 
       <div className="home-grid">
@@ -55,7 +61,10 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
             count={monthExpenses.length}
             isCurrent={isCurrent}
             forecast={isCurrent ? monthForecast(today(), data.expenses, data.recurring) : null}
+            streak={isCurrent ? streak : 0}
           />
+
+          {isCurrent && <GoodMonth month={addMonths(month, -1)} streak={streak} quiet={quiet} />}
 
           {alerts.length > 0 && (
             <div className="stack-sm o-2" aria-label="Avisos de presupuesto">
@@ -101,6 +110,8 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
             </button>
           )}
           </div>
+
+          <SharedGoal {...props} />
 
           {partner && sum.spentCents > 0 && (
             <section className="card o-6" aria-labelledby="home-payers">
@@ -185,7 +196,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void }) {
 }
 
 /** Tarjeta principal: gasto del mes frente al presupuesto común. */
-export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurrent, forecast = null }: {
+export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurrent, forecast = null, streak = 0 }: {
   spent: number;
   /** Lo gastado en categorías con presupuesto: es lo único que se compara con él. */
   budgetedSpent?: number;
@@ -193,6 +204,8 @@ export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurre
   count: number;
   isCurrent: boolean;
   forecast?: Forecast | null;
+  /** Meses seguidos dentro del presupuesto hasta el pasado. */
+  streak?: number;
 }) {
   const left = budget - budgetedSpent;
   const ratio = budget > 0 ? budgetedSpent / budget : 0;
@@ -202,11 +215,11 @@ export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurre
     <section className="card hero o-1" aria-label="Gasto del mes">
       <div className="hero-top">
         <div className="hero-label">
-          <p className="stat-label">{isCurrent ? 'Gasto del mes' : 'Gasto de ese mes'}</p>
+          <p className="stat-label">{isCurrent ? 'Lo que lleváis este mes' : 'Lo que gastasteis ese mes'}</p>
           {status && (
           <span className={'status-pill status-' + status}>
             <Icon name={status === 'ok' ? 'check' : 'alert'} size={15} />
-            {status === 'ok' ? 'Dentro del presupuesto' : status === 'warn' ? 'Cerca del límite' : 'Por encima'}
+            {status === 'ok' ? (isCurrent ? 'Vais bien' : 'Bien hecho') : status === 'warn' ? (isCurrent ? 'Vais justos' : 'Muy justos') : 'Os habéis pasado'}
           </span>
           )}
         </div>
@@ -229,6 +242,12 @@ export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurre
         </div>
       )}
       {forecast && <ForecastLine forecast={forecast} budget={budget} budgetedShare={spent > 0 ? budgetedSpent / spent : 1} />}
+      {streak > 0 && (
+        <p className="streak">
+          <span aria-hidden>🔥</span>
+          <span>{streak === 1 ? 'El mes pasado cumplisteis el presupuesto.' : `Lleváis ${streak} meses seguidos dentro del presupuesto.`} {status === 'over' ? '¡A recuperar la racha!' : '¡Seguid así!'}</span>
+        </p>
+      )}
     </section>
   );
 }
@@ -251,4 +270,121 @@ function ForecastLine({ forecast, budget, budgetedShare }: { forecast: Forecast;
       </span>
     </p>
   );
+}
+
+/** Lo último que ha hecho tu pareja ("Marta apuntó Mercadona · hace 2 h"), con un ❤️ rápido. */
+function PartnerActivity({ data, me, reload, partnerId, onOpen }: ViewProps & { partnerId: string; onOpen: (e: Expense) => void }) {
+  const [busy, setBusy] = useState(false);
+  const activity = partnerActivity(data, partnerId, new Date());
+  if (!activity) return null;
+  const expense = activity.expenseId ? data.expenses.find((e) => e.id === activity.expenseId) : undefined;
+  const mine = expense ? data.reactions.find((r) => r.expense_id === expense.id && r.user_id === me) : undefined;
+  const loved = mine?.emoji === '❤️';
+
+  async function love() {
+    if (!expense) return;
+    setBusy(true);
+    const error = await saveReaction({ householdId: data.household.id, expenseId: expense.id, me, current: mine }, { emoji: loved ? null : '❤️' });
+    setBusy(false);
+    if (error) return toast(error, 'error');
+    await reload();
+  }
+
+  return (
+    <div className="activity-card">
+      <button className="activity-main" onClick={() => (expense ? onOpen(expense) : (location.hash = '#saldo'))}>
+        <Avatar members={data.members} userId={partnerId} />
+        <span className="grow">
+          <strong>{nameOf(data.members, partnerId)}</strong> {activity.text}
+          <span className="activity-when">{timeAgo(activity.at, new Date())}</span>
+        </span>
+      </button>
+      {expense && (
+        <button className={'activity-love' + (loved ? ' loved' : '')} onClick={love} disabled={busy} aria-pressed={loved} aria-label={loved ? 'Quitar el corazón' : 'Mandar un corazón'}>
+          {loved ? '❤️' : '🤍'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** La hucha común en la que más recientemente se ha puesto dinero, con lo que lleva cada uno. */
+function SharedGoal({ data, me }: ViewProps) {
+  const active = data.goals.filter((g) => !g.archived);
+  if (active.length === 0) return null;
+  const lastMove = (id: string) => data.contributions.find((c) => c.goal_id === id)?.created_at ?? '';
+  const goal = [...active].sort((a, b) => (lastMove(b.id) || b.created_at).localeCompare(lastMove(a.id) || a.created_at))[0];
+  const p = goalProgress(goal, data.contributions);
+  const left = goal.target_cents - p.savedCents;
+  const people = data.members.map((m) => ({ id: m.user_id, cents: Math.max(0, p.byUser.get(m.user_id) ?? 0) }));
+
+  return (
+    <button className="card card-link shared-goal o-3" onClick={go('presupuesto')} aria-label={`Hucha ${goal.name}: ${Math.round(p.ratio * 100)} %`}>
+      <span className="shared-goal-top">
+        <span className="stat-label">Vuestro objetivo</span>
+        <strong>{Math.min(100, Math.round(p.ratio * 100))} %</strong>
+      </span>
+      <span className="shared-goal-name">{goal.name}</span>
+      <span className="split-track shared-goal-track" aria-hidden>
+        {people.map((x) => (
+          <span key={x.id} className={'fill-person-' + personTone(data.members, x.id)} style={{ width: `${Math.min(1, x.cents / goal.target_cents) * 100}%` }} />
+        ))}
+      </span>
+      <span className="legend">
+        {people.map((x) => (
+          <span key={x.id} className="legend-item">
+            <span className={'dot fill-person-' + personTone(data.members, x.id)} />
+            {nameOf(data.members, x.id, me)}
+            <span className="money">{formatEuros(x.cents)}</span>
+          </span>
+        ))}
+      </span>
+      <span className="muted small">
+        {left > 0 ? `Juntos lleváis ${formatEuros(p.savedCents)} de ${formatEuros(goal.target_cents)}. Faltan ${formatEuros(left)}.` : `¡Lo habéis conseguido! ${formatEuros(p.savedCents)} ahorrados juntos.`}
+      </span>
+    </button>
+  );
+}
+
+const PARTY_KEY = 'gastos.fiestaMes';
+
+/** Los primeros días del mes, si el anterior acabó dentro del presupuesto, se celebra (una vez). */
+function GoodMonth({ month, streak, quiet }: { month: string; streak: number; quiet: boolean }) {
+  const early = Number(today().slice(8)) <= 10;
+  const [seen, setSeen] = useState(() => readPartySeen() === month);
+  const show = early && streak > 0 && !seen;
+
+  useEffect(() => {
+    if (!show || quiet) return;
+    const t = setTimeout(() => celebrate(`¡${formatMonth(month).split(' ')[0]} dentro del presupuesto!`), 500);
+    return () => clearTimeout(t);
+  }, [show, quiet, month]);
+
+  if (!show) return null;
+  const close = () => {
+    try {
+      localStorage.setItem(PARTY_KEY, month);
+    } catch {
+      // Sin almacenamiento: se vuelve a enseñar la próxima vez.
+    }
+    setSeen(true);
+  };
+  return (
+    <div className="good-month o-2">
+      <span className="good-month-emoji" aria-hidden>🎉</span>
+      <span className="grow">
+        <strong>¡{formatMonth(month).split(' ')[0]} dentro del presupuesto!</strong>
+        <span>{streak === 1 ? 'Buen trabajo en equipo.' : `Ya van ${streak} meses seguidos. Buen trabajo en equipo.`}</span>
+      </span>
+      <button className="icon-btn" onClick={close} aria-label="Cerrar"><Icon name="close" size={18} /></button>
+    </div>
+  );
+}
+
+function readPartySeen(): string | null {
+  try {
+    return localStorage.getItem(PARTY_KEY);
+  } catch {
+    return null;
+  }
 }

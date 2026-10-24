@@ -3,7 +3,7 @@ import { today } from './dates';
 import { flushQueued } from './expenseOutbox';
 import { notifyNewExpenses } from './push';
 import { errorMessage, supabase } from './supabase';
-import type { Budget, Category, TripEvent, Expense, Household, Invitation, Member, PersonalBudget, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
+import type { Budget, Category, TripEvent, Expense, ExpenseReaction, Household, Invitation, Member, PersonalBudget, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
 
 export interface HouseholdData {
   household: Household;
@@ -22,6 +22,8 @@ export interface HouseholdData {
   goals: SavingsGoal[];
   contributions: SavingsContribution[];
   events: TripEvent[];
+  /** Reacciones a los gastos (vacío hasta ejecutar la migración 0013). */
+  reactions: ExpenseReaction[];
 }
 
 export type LoadState =
@@ -31,7 +33,7 @@ export type LoadState =
   /** stale: la última actualización falló (sin conexión); se siguen mostrando los datos que había. */
   | { status: 'ready'; data: HouseholdData; stale?: boolean };
 
-const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses', 'savings_goals', 'savings_contributions', 'events'];
+const REALTIME_TABLES = ['households', 'members', 'invitations', 'categories', 'expenses', 'settlements', 'budgets', 'recurring_expenses', 'savings_goals', 'savings_contributions', 'events', 'expense_reactions'];
 
 /** Filas por petición: Supabase no devuelve más de 1000 de una vez. */
 const PAGE = 1000;
@@ -70,7 +72,7 @@ function readSnapshot(userId: string): HouseholdData | null {
   try {
     const saved = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) ?? 'null') as { userId: string; data: HouseholdData } | null;
     if (saved?.userId !== userId || !saved.data?.household) return null;
-    return { ...saved.data, events: saved.data.events ?? [] };
+    return { ...saved.data, events: saved.data.events ?? [], reactions: saved.data.reactions ?? [] };
   } catch {
     return null;
   }
@@ -107,7 +109,7 @@ async function load(userId: string): Promise<LoadState> {
   ]);
   if (generated.error) throw generated.error;
   if (generatedPersonal.error) throw generatedPersonal.error;
-  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions, events, personalBudgets] = await Promise.all([
+  const [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions, events, personalBudgets, reactions] = await Promise.all([
     supabase.from('households').select('*').eq('id', h).single(),
     supabase.from('members').select('*').eq('household_id', h).order('joined_at'),
     supabase.from('invitations').select('*').eq('household_id', h).maybeSingle(),
@@ -122,6 +124,7 @@ async function load(userId: string): Promise<LoadState> {
     fetchAll<SavingsContribution>((a, b) => supabase.from('savings_contributions').select('*').eq('household_id', h).order('contributed_on', { ascending: false }).order('created_at', { ascending: false }).order('id').range(a, b)),
     supabase.from('events').select('*').eq('household_id', h).order('created_at', { ascending: false }),
     supabase.from('personal_budgets').select('*').eq('user_id', userId).order('category'),
+    fetchAll<ExpenseReaction>((a, b) => supabase.from('expense_reactions').select('*').eq('household_id', h).order('created_at').order('expense_id').order('user_id').range(a, b)),
   ]);
   for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions]) {
     if (r.error) throw r.error;
@@ -145,6 +148,8 @@ async function load(userId: string): Promise<LoadState> {
       events: events.error ? [] : events.data ?? [],
       // Igual con el presupuesto personal: sin la migración 0011 no hay límites.
       personalBudgets: personalBudgets.error ? [] : personalBudgets.data ?? [],
+      // Y con las reacciones: sin la migración 0013 los gastos salen sin ellas.
+      reactions: reactions.error ? [] : reactions.data,
     },
   };
 }

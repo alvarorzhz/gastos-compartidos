@@ -414,10 +414,10 @@ function Slide({ slide: s, data, me, month, partial }: { slide: StorySlide; data
           {partner && (
             <p className="story-text s-in d5">
               {s.balanceCents === 0
-                ? 'Y hoy estáis en paz: nadie debe nada.'
+                ? 'Y hoy estáis en paz 🤍'
                 : s.balanceCents > 0
-                  ? `Hoy ${partner.display_name} te debe ${formatEuros(s.balanceCents)}.`
-                  : `Hoy debes ${formatEuros(-s.balanceCents)} a ${partner.display_name}.`}
+                  ? `Para quedar en paz, hoy ${partner.display_name} te pasa ${formatEuros(s.balanceCents)}.`
+                  : `Para quedar en paz, hoy le pasas ${formatEuros(-s.balanceCents)} a ${partner.display_name}.`}
             </p>
           )}
         </div>

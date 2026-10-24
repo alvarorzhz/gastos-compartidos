@@ -39,7 +39,7 @@ export default function BudgetView(props: ViewProps) {
             {status && (
               <span className={'status-pill status-' + status}>
                 <Icon name={status === 'ok' ? 'check' : 'alert'} size={15} />
-                {status === 'ok' ? 'Dentro del presupuesto' : status === 'warn' ? 'Cerca del límite' : 'Por encima'}
+                {status === 'ok' ? 'Vais bien' : status === 'warn' ? 'Vais justos' : 'Os habéis pasado'}
               </span>
             )}
           </div>

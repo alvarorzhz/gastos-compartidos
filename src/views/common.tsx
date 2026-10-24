@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { categoryStyle } from '../lib/categoryStyle';
+import { personColor } from '../lib/couple';
 import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import type { Member } from '../lib/types';
 import type { HouseholdData } from '../lib/useHousehold';
@@ -163,17 +164,18 @@ export function CategoryIcon({ name, size = 'md' }: { name: string; size?: 'sm' 
   );
 }
 
-/** Color de cada persona: el de quien creó el espacio y el de quien se unió. */
-export function personTone(members: Member[], userId: string): number {
-  const i = members.findIndex((m) => m.user_id === userId);
-  return i < 0 ? 0 : (i % 2) + 1;
+/** Color de cada persona: el que eligió en Ajustes o, si no, el de quien creó el espacio y el de quien se unió. */
+export function personTone(members: Member[], userId: string): string {
+  return personColor(members, userId);
 }
 
-export function Avatar({ members, userId, size = 'md' }: { members: Member[]; userId: string; size?: 'sm' | 'md' | 'lg' }) {
-  const name = members.find((m) => m.user_id === userId)?.display_name ?? '?';
+/** Inicial de la persona sobre su color, o su emoji si lo ha elegido. */
+export function Avatar({ members, userId, size = 'md', className = '' }: { members: Member[]; userId: string; size?: 'sm' | 'md' | 'lg'; className?: string }) {
+  const member = members.find((m) => m.user_id === userId);
+  const name = member?.display_name ?? '?';
   return (
-    <span className={`avatar avatar-${size} person-${personTone(members, userId)}`} aria-hidden>
-      {name.trim().charAt(0).toUpperCase() || '?'}
+    <span className={`avatar avatar-${size} person-${personTone(members, userId)}${member?.emoji ? ' avatar-emoji' : ''} ${className}`.trim()} aria-hidden>
+      {member?.emoji || name.trim().charAt(0).toUpperCase() || '?'}
     </span>
   );
 }
@@ -262,6 +264,28 @@ let toastSeq = 0;
 export function toast(text: string, kind: ToastKind = 'success', options: { action?: ToastAction; ms?: number } = {}) {
   const item = { id: ++toastSeq, text, kind, action: options.action, ms: options.ms ?? (kind === 'error' ? 6000 : 2800) };
   toastListeners.forEach((l) => l(item));
+}
+
+/** Pequeña fiesta en pantalla (corazones y confeti) con un mensaje: al quedar en paz o al cerrar un buen mes. */
+export function celebrate(text: string) {
+  toast(text);
+  if (typeof document === 'undefined' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  const layer = document.createElement('div');
+  layer.className = 'celebration';
+  layer.setAttribute('aria-hidden', 'true');
+  const pieces = ['🤍', '💚', '✨', '🎉', '💜', '🥳'];
+  for (let i = 0; i < 36; i++) {
+    const piece = document.createElement('span');
+    piece.textContent = pieces[i % pieces.length];
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.animationDelay = `${Math.random() * 0.6}s`;
+    piece.style.animationDuration = `${1.8 + Math.random() * 1.2}s`;
+    piece.style.setProperty('--drift', `${(Math.random() - 0.5) * 120}px`);
+    piece.style.setProperty('--spin', `${(Math.random() - 0.5) * 540}deg`);
+    layer.appendChild(piece);
+  }
+  document.body.appendChild(layer);
+  setTimeout(() => layer.remove(), 3400);
 }
 
 export function Toaster() {

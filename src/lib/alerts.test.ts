@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { budgetAlerts } from './alerts';
+import { alertText, budgetAlerts } from './alerts';
 import type { AlertPercent, Budget, Category, Expense } from './types';
 
 const cat = (id: string, alert_percent: AlertPercent | null): Category => ({ id, household_id: 'h', name: id, archived: false, alert_percent });
@@ -23,5 +23,15 @@ describe('budgetAlerts', () => {
   it('respeta "no avisar", las categorías sin presupuesto y el mes', () => {
     const expenses = [exp('ocio', 50000), exp('sinpresupuesto', 50000), exp('super', 50000, '2026-09-30'), exp('casa', 9999)];
     expect(budgetAlerts('2026-10-01', categories, expenses, budgets)).toEqual([]);
+  });
+});
+
+describe('alertText', () => {
+  const category = { id: 'c', household_id: 'h', name: 'Casa', archived: false, alert_percent: 90 as const };
+  const plain = (s: string) => s.replace(/ /g, ' ');
+  it('habla en euros y en cercano', () => {
+    expect(plain(alertText({ category, spentCents: 9200, budgetCents: 10000, percent: 92 }))).toBe('Ojo con Casa: os quedan 8,00 € este mes');
+    expect(plain(alertText({ category, spentCents: 10000, budgetCents: 10000, percent: 100 }))).toBe('Casa: habéis llegado justo a lo previsto');
+    expect(plain(alertText({ category, spentCents: 12000, budgetCents: 10000, percent: 120 }))).toBe('Casa: os habéis pasado 20,00 € este mes');
   });
 });

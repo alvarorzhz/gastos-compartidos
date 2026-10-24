@@ -1,5 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
+import { greeting } from './lib/couple';
+import type { Member } from './lib/types';
 import { isOfflineError, useQueuedVersion, withQueued } from './lib/expenseOutbox';
 import { useHideSplash, useKeepSplash } from './lib/splash';
 import { isConfigured, storedSession, supabase } from './lib/supabase';
@@ -23,7 +25,7 @@ import { AlertsOnEntry } from './views/AlertsDialog';
 import { markCloseSeen, pendingClose } from './views/MonthClose';
 import { MonthRecap } from './views/MonthStory';
 import { flushPendingDeletes, useHiddenIds, withoutHidden } from './views/undo';
-import { DialogHost, Notice, Segmented, Toaster } from './views/common';
+import { Avatar, DialogHost, Notice, Segmented, Toaster } from './views/common';
 
 type View = 'inicio' | 'gastos' | 'saldo' | 'compra' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
@@ -169,9 +171,14 @@ function Home({ userId, email }: { userId: string; email: string }) {
     <div className="app">
       <header className="appbar">
         <div className="appbar-inner">
-          <div className="appbar-title">
+          {view === 'inicio' && (
+            <span className="avatar-pair appbar-pair">
+              {state.data.members.map((m) => <Avatar key={m.user_id} members={state.data.members} userId={m.user_id} />)}
+            </span>
+          )}
+          <div className={'appbar-title' + (view === 'inicio' ? ' appbar-hello' : '')}>
             {view === 'inicio' && <p className="appbar-kicker">{state.data.household.name}</p>}
-            <h1>{section.views.length > 1 ? section.label : current.label}</h1>
+            <h1>{view === 'inicio' ? [greeting(new Date()), firstName(state.data.members, userId)].filter(Boolean).join(', ') : section.views.length > 1 ? section.label : current.label}</h1>
           </div>
         </div>
         {section.views.length > 1 && (
@@ -196,7 +203,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
             </Notice>
           )}
           <WhatsNewBanner />
-          {view === 'inicio' && <HomeView {...props} onAdd={() => setAdding(true)} />}
+          {view === 'inicio' && <HomeView {...props} onAdd={() => setAdding(true)} quiet={closeMonth != null} />}
           {view === 'gastos' && <ExpensesView {...props} onAdd={() => setAdding(true)} />}
           {view === 'saldo' && <BalanceView {...props} />}
           {view === 'compra' && <ShoppingView {...props} shopping={shopping} />}
@@ -235,6 +242,11 @@ function Home({ userId, email }: { userId: string; email: string }) {
     </div>
     </ShoppingItemsContext.Provider>
   );
+}
+
+/** Primer nombre de quien usa la app, para saludar ("Buenos días, Álvaro"). */
+function firstName(members: Member[], userId: string): string {
+  return members.find((m) => m.user_id === userId)?.display_name.trim().split(/\s+/)[0] ?? '';
 }
 
 function TabButton({ section, active, onClick }: { section: (typeof SECTIONS)[number]; active: boolean; onClick: () => void }) {

@@ -135,11 +135,11 @@ function EventDetail(props: ViewProps & { event: TripEvent; onClose: () => void 
           {partner && (
             <div className="stat-tile">
               <span className="stat-label">Saldo del viaje</span>
-              <strong className={balance > 0 ? 'positive' : balance < 0 ? 'negative' : ''}>
+              <strong>
                 {balance === 0 ? 'En paz' : formatEuros(Math.abs(balance))}
               </strong>
               {balance !== 0 && (
-                <span className="xsmall muted">{balance > 0 ? `${partner.display_name} te debe` : `Debes a ${partner.display_name}`}</span>
+                <span className="xsmall muted">{balance > 0 ? `${partner.display_name} te pasa` : `Le pasas a ${partner.display_name}`}</span>
               )}
             </div>
           )}

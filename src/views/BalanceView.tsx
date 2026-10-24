@@ -4,17 +4,18 @@ import { formatDayHeading, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
-import { AmountField, Avatar, EmptyState, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { AmountField, Avatar, celebrate, EmptyState, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
 import { Icon } from './icons';
 import { deleteWithUndo } from './undo';
 
+/** Saldo sin tono de deuda: "Para quedar en paz, Marta te pasa 24,00 €". */
 export function BalanceText({ balance, partnerName }: { balance: number; partnerName: string }) {
   const rounded = roundBalance(balance);
-  if (rounded === 0) return <span>Estáis en paz</span>;
+  if (rounded === 0) return <span>Estáis en paz 🤍</span>;
   if (rounded > 0) {
-    return <span>{partnerName} te debe <strong className="positive">{formatEuros(rounded)}</strong></span>;
+    return <span>Para quedar en paz, {partnerName} te pasa <strong>{formatEuros(rounded)}</strong></span>;
   }
-  return <span>Debes a {partnerName} <strong className="negative">{formatEuros(-rounded)}</strong></span>;
+  return <span>Para quedar en paz, le pasas a {partnerName} <strong>{formatEuros(-rounded)}</strong></span>;
 }
 
 export default function BalanceView(props: ViewProps) {
@@ -28,7 +29,7 @@ export default function BalanceView(props: ViewProps) {
         <EmptyState
           icon="users"
           title="El saldo aparecerá cuando seáis dos"
-          text="Invita a tu pareja desde Ajustes. Aquí veréis quién debe a quién y podréis anotar los reembolsos."
+          text="Invita a tu pareja desde Ajustes. Aquí veréis cuánto le pasa uno al otro para quedar en paz."
           action={<button className="primary" onClick={() => (location.hash = '#ajustes')}>Ir a Ajustes</button>}
         />
       </div>
@@ -40,43 +41,53 @@ export default function BalanceView(props: ViewProps) {
   const total = data.expenses.reduce((t, e) => t + e.amount_cents, 0);
 
   function removeSettlement(id: string) {
-    deleteWithUndo({ table: 'settlements', id, done: 'Reembolso borrado', reload });
+    deleteWithUndo({ table: 'settlements', id, done: 'Pago borrado', reload });
   }
 
   return (
     <>
-      <section className="card balance-hero" aria-label="Saldo entre los dos">
+      <section className={'card balance-hero' + (rounded === 0 ? ' balance-even' : '')} aria-label="Saldo entre los dos">
         <div className="balance-people" aria-hidden>
           <Avatar members={data.members} userId={rounded < 0 ? me : partner.user_id} size="lg" />
-          <Icon name={rounded === 0 ? 'heart' : 'arrowRight'} size={22} />
+          {rounded === 0 ? (
+            <span className="balance-flow"><span className="balance-heart">🤍</span></span>
+          ) : (
+            <span className="balance-flow"><Icon name="arrowRight" size={22} />le pasa</span>
+          )}
           <Avatar members={data.members} userId={rounded < 0 ? partner.user_id : me} size="lg" />
         </div>
         <p className="balance-text">
           {rounded === 0 ? (
             <>Estáis en paz<strong>0,00 €</strong></>
-          ) : rounded > 0 ? (
-            <>{partner.display_name} te debe<strong className="positive">{formatEuros(rounded)}</strong></>
           ) : (
-            <>Debes a {partner.display_name}<strong className="negative">{formatEuros(-rounded)}</strong></>
+            <>
+              <span className="balance-kicker">Para quedar en paz</span>
+              {rounded > 0 ? <>{partner.display_name} te pasa</> : <>Le pasas a {partner.display_name}</>}
+              <strong>{formatEuros(Math.abs(rounded))}</strong>
+            </>
           )}
         </p>
         {rounded !== 0 && (
           <button className="primary" onClick={() => setSettling(true)}>
-            <Icon name="check" size={18} /> Anotar reembolso
+            <span aria-hidden>🤝</span> Ya nos lo hemos pasado
           </button>
         )}
-        <p className="muted small">La app solo lleva la cuenta: los reembolsos los hacéis vosotros (Bizum, transferencia, efectivo…) y aquí se anotan.</p>
+        <p className="muted small">
+          {rounded === 0
+            ? 'Ninguno le debe nada al otro. Seguid apuntando y aquí veréis cuándo toca volver a equilibrar.'
+            : 'Cuando os paséis el dinero (Bizum, transferencia, efectivo…), anotadlo con el botón y la cuenta vuelve a cero.'}
+        </p>
       </section>
 
       <section className="section" aria-labelledby="balance-history">
         <SectionHeader id="balance-history" title="Desde el principio" />
         <div className="card">
           <dl className="kv">
-            <dt>Gasto compartido total</dt>
+            <dt>Lo que habéis compartido</dt>
             <dd>{formatEuros(total)}</dd>
-            <dt>Has pagado tú</dt>
+            <dt>Has puesto tú</dt>
             <dd>{formatEuros(totalPaidBy(me, data.expenses))}</dd>
-            <dt>Ha pagado {partner.display_name}</dt>
+            <dt>Ha puesto {partner.display_name}</dt>
             <dd>{formatEuros(totalPaidBy(partner.user_id, data.expenses))}</dd>
             <dt>Te toca a ti</dt>
             <dd>{formatEuros(shareOf(me, data.expenses))}</dd>
@@ -87,10 +98,10 @@ export default function BalanceView(props: ViewProps) {
       </section>
 
       <section className="section" aria-labelledby="balance-settlements">
-        <SectionHeader id="balance-settlements" title="Reembolsos" />
+        <SectionHeader id="balance-settlements" title="Lo que os habéis pasado" />
         {data.settlements.length === 0 ? (
           <div className="card">
-            <EmptyState icon="swap" title="Sin reembolsos todavía" text="Cuando uno le devuelva dinero al otro, anotadlo aquí para dejar el saldo a cero." />
+            <EmptyState icon="swap" title="Todavía nada" text="Cuando uno le pase dinero al otro para quedar en paz, anotadlo aquí y el saldo vuelve a cero." />
           </div>
         ) : (
           <ul className="list with-icons">
@@ -104,7 +115,7 @@ export default function BalanceView(props: ViewProps) {
                   <span className="row-meta">{formatDayHeading(s.paid_on)}{s.note ? ` · ${s.note}` : ''}</span>
                 </span>
                 <span className="row-amount">{formatEuros(s.amount_cents)}</span>
-                <button className="icon-btn danger-icon" onClick={() => removeSettlement(s.id)} aria-label={`Borrar reembolso de ${formatEuros(s.amount_cents)}`}>
+                <button className="icon-btn danger-icon" onClick={() => removeSettlement(s.id)} aria-label={`Borrar pago de ${formatEuros(s.amount_cents)}`}>
                   <Icon name="trash" size={18} />
                 </button>
               </li>
@@ -141,25 +152,27 @@ function SettlementForm({ data, me, reload, balance, partnerId, onClose }: ViewP
     setBusy(false);
     if (error) return setError(errorMessage(error));
     await reload();
-    toast('Reembolso anotado');
+    const after = roundBalance(balance + (from === me ? cents : -cents));
+    if (after === 0) celebrate('¡Estáis en paz!');
+    else toast('Pago anotado');
     onClose();
   }
 
   return (
     <Sheet
-      title="Anotar reembolso"
+      title="Anotar lo que os habéis pasado"
       onClose={onClose}
       footer={
         <>
           {error && <p className="error" role="alert">{error}</p>}
-          <button type="submit" form={formId} className="primary lg block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar reembolso'}</button>
+          <button type="submit" form={formId} className="primary lg block" disabled={busy}>{busy ? 'Guardando…' : 'Guardar'}</button>
         </>
       }
     >
       <form id={formId} onSubmit={save} className="stack" noValidate>
         <AmountField label="Importe" value={amount} onChange={setAmount} />
         <Segmented
-          legend="¿Quién devuelve el dinero?"
+          legend="¿Quién le pasa el dinero al otro?"
           value={from}
           options={[me, partnerId].map((id) => ({ value: id, label: <><Avatar members={data.members} userId={id} size="sm" />{nameOf(data.members, id, me)}</> }))}
           onChange={setFrom}

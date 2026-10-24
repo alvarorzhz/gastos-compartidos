@@ -7,10 +7,27 @@ export interface Household {
   default_split_percent: number | null;
 }
 
+export type PersonColor = 'teal' | 'violet' | 'coral' | 'blue' | 'amber' | 'pink' | 'green' | 'slate';
+
 export interface Member {
   household_id: string;
   user_id: string;
   display_name: string;
+  /** Color elegido en Ajustes; null = el de siempre. Sin la migración 0013 no llega. */
+  color?: PersonColor | null;
+  /** Emoji que sale en vez de la inicial, si se ha elegido. */
+  emoji?: string | null;
+}
+
+/** Reacción (emoji y/o comentario corto) de una persona a un gasto común. */
+export interface ExpenseReaction {
+  expense_id: string;
+  user_id: string;
+  household_id: string;
+  emoji: string | null;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Invitation {
