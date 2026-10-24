@@ -6,6 +6,7 @@ import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recu
 import { defaultSplit, formatPercent, owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, Frequency, RecurringExpense } from '../lib/types';
+import { ReactionPicker } from './Reactions';
 import { AmountField, Avatar, CategoryIcon, confirmAction, Notice, Segmented, Sheet, toast, type ViewProps  } from './common';
 import { addedText } from './ExpenseRow';
 import { Icon } from './icons';
@@ -303,6 +304,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       }
     >
       <form id={formId} onSubmit={save} className="stack" noValidate>
+        {expense && <ReactionPicker data={data} me={me} reload={reload} expense={expense} />}
         {expense?.recurring_id && (
           <Notice icon="repeat">Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</Notice>
         )}
@@ -384,15 +386,17 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
         </fieldset>
 
         {payers.length > 1 && (
-          <Segmented
-            legend="¿Quién pagó?"
-            value={paidBy}
-            options={payers.map((id) => ({
-              value: id,
-              label: <><Avatar members={data.members} userId={id} size="sm" />{nameOf(data.members, id, me)}</>,
-            }))}
-            onChange={(id) => { touched.current.paidBy = true; setPaidBy(id); }}
-          />
+          <div className="payer-picker">
+            <Segmented
+              legend="¿Quién pagó?"
+              value={paidBy}
+              options={payers.map((id) => ({
+                value: id,
+                label: <><Avatar members={data.members} userId={id} />{id === me ? 'Yo' : nameOf(data.members, id, me)}</>,
+              }))}
+              onChange={(id) => { touched.current.paidBy = true; setPaidBy(id); }}
+            />
+          </div>
         )}
 
         <div className="field">

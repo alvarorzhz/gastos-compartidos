@@ -18,6 +18,20 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.12.0',
+    date: '2026-10-24',
+    changes: [
+      { kind: 'nuevo', text: 'Tu perfil (Ajustes → Tu perfil): elige tu color y, si quieres, un emoji en vez de tu inicial. Se ve en tus gastos, en el saldo, en las huchas y en los gráficos.' },
+      { kind: 'nuevo', text: 'Reacciones: abre un gasto y mándale a tu pareja un ❤️ 😋 😂 🙈 😱 👏 o un comentario corto. Le llega un aviso y se ve en la lista de gastos.' },
+      { kind: 'nuevo', text: 'Inicio os saluda («Buenas tardes, Álvaro», con vuestras caras) y enseña lo último que ha hecho tu pareja, con un 🤍 para mandarle un corazón al momento.' },
+      { kind: 'nuevo', text: 'Vuestra hucha en Inicio: cuánto lleva y lo que ha puesto cada uno, con una barra de dos colores.' },
+      { kind: 'nuevo', text: 'Celebraciones: confeti al quedar en paz y al empezar un mes después de cumplir el presupuesto, y la racha de meses seguidos cumpliéndolo.' },
+      { kind: 'mejora', text: 'En cada gasto se ve la cara de quien lo pagó sobre su icono, y al apuntar uno eliges «Yo» o tu pareja con vuestras caras.' },
+      { kind: 'mejora', text: 'El saldo ya no habla de deudas: «Para quedar en paz, Marta te pasa 24,00 €», sin rojos ni verdes, y en cada gasto «Tu parte» o «Parte de Marta».' },
+      { kind: 'mejora', text: 'Textos más cercanos: «Vais bien», «Vais justos» y avisos en euros («Ojo con Casa: os quedan 78,00 €») en vez de porcentajes.' },
+    ],
+  },
+  {
     version: '3.11.0',
     date: '2026-10-23',
     changes: [

@@ -1,5 +1,6 @@
 import { effectiveBudgets } from './budget';
 import { monthOf } from './dates';
+import { formatEuros } from './money';
 import type { AlertPercent, Budget, Category, Expense } from './types';
 
 export const ALERT_OPTIONS: { value: AlertPercent | null; label: string }[] = [
@@ -36,8 +37,9 @@ export function budgetAlerts(month: string, categories: Category[], expenses: Ex
   return alerts.sort((a, b) => b.percent - a.percent);
 }
 
+/** "Ojo con Casa: os quedan 78,00 €", en cristiano y en euros en vez de porcentajes. */
 export function alertText(a: BudgetAlert): string {
-  if (a.spentCents > a.budgetCents) return `${a.category.name}: os habéis pasado del presupuesto (${a.percent} %)`;
-  if (a.percent >= 100) return `${a.category.name}: habéis gastado todo el presupuesto`;
-  return `${a.category.name}: lleváis el ${a.percent} % del presupuesto`;
+  if (a.spentCents > a.budgetCents) return `${a.category.name}: os habéis pasado ${formatEuros(a.spentCents - a.budgetCents)} este mes`;
+  if (a.spentCents === a.budgetCents) return `${a.category.name}: habéis llegado justo a lo previsto`;
+  return `Ojo con ${a.category.name}: os quedan ${formatEuros(a.budgetCents - a.spentCents)} este mes`;
 }

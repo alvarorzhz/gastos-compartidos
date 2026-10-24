@@ -122,10 +122,10 @@ export function MonthCloseSheet({ data, me, month, onClose }: ViewProps & { mont
         )}
 
         {partner && c.balanceCents !== 0 && (
-          <Notice icon="swap" action={<button className="sm tinted" onClick={settle}>Anotar reembolso</button>}>
+          <Notice icon="swap" action={<button className="sm tinted" onClick={settle}>Anotarlo</button>}>
             {c.balanceCents > 0
-              ? `Hoy ${partner.display_name} te debe ${formatEuros(c.balanceCents)}.`
-              : `Hoy debes ${formatEuros(-c.balanceCents)} a ${partner.display_name}.`}
+              ? `Para quedar en paz, hoy ${partner.display_name} te pasa ${formatEuros(c.balanceCents)}.`
+              : `Para quedar en paz, hoy le pasas ${formatEuros(-c.balanceCents)} a ${partner.display_name}.`}
           </Notice>
         )}
       </div>

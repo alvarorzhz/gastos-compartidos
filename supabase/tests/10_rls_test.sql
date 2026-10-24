@@ -352,6 +352,33 @@ select pg_temp.check((select count(*) from pending_payments) = 2, 'B no puede bo
 delete from pending_payments where amount_cents is null;
 select pg_temp.check((select count(*) from pending_payments) = 1, 'A descarta un pago');
 
+-- Perfil y reacciones (0013): cada uno cambia su color y reacciona a los gastos del espacio.
+update members set color = 'coral', emoji = '🦊' where user_id = auth.uid();
+select pg_temp.check((select color from members where user_id = auth.uid()) = 'coral', 'A elige su color');
+select pg_temp.expect_error($$ update members set color = 'morado' where user_id = auth.uid() $$);
+update members set color = 'green' where user_id <> auth.uid();
+select pg_temp.check((select count(*) from members where color = 'green') = 0, 'A no cambia el color de B');
+insert into expenses (household_id, amount_cents, category_id, paid_by, created_by)
+select h.id, 4242, c.id, auth.uid(), auth.uid() from households h join categories c on c.household_id = h.id and c.name = 'Casa';
+select id as reid, household_id as rhid from expenses where amount_cents = 4242 \gset
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+insert into expense_reactions (expense_id, household_id, emoji, comment) values (:'reid', :'rhid', '❤️', '¡Repetimos!');
+select pg_temp.expect_error(format($$ insert into expense_reactions (expense_id, household_id) values (%L, %L) $$, :'reid', :'rhid'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select count(*) from expense_reactions) = 1, 'A ve la reacción de B');
+update expense_reactions set emoji = '😂';
+delete from expense_reactions;
+select pg_temp.check((select emoji from expense_reactions) = '❤️', 'A no cambia ni borra la reacción de B');
+select pg_temp.expect_error(format($$ insert into expense_reactions (expense_id, household_id, user_id, emoji) values (%L, %L, '00000000-0000-0000-0000-00000000000b', '👏') $$, :'reid', :'rhid'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+select pg_temp.check((select count(*) from expense_reactions) = 0, 'C no ve reacciones ajenas');
+select pg_temp.expect_error(format($$ insert into expense_reactions (expense_id, household_id, emoji) values (%L, %L, '👏') $$, :'reid', :'rhid'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+delete from expenses where amount_cents = 4242;
+reset role;
+select pg_temp.check((select count(*) from expense_reactions) = 0, 'la reacción se borra con el gasto');
+set role authenticated;
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;

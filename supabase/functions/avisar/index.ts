@@ -5,6 +5,8 @@
 //   ("Ana apuntó 23,40 € · Supermercado") y, si con esos gastos una categoría llega a su aviso
 //   de presupuesto, avisa a los dos.
 // - POST { test: true }: manda un aviso de prueba a los móviles de quien llama.
+// - POST { reaction_expense_id }: la app la llama al reaccionar a un gasto. Avisa a la pareja
+//   ("Ana: ❤️ a Cena japonés").
 // - POST { daily: true, secret }: la llama el servidor cada mañana (ver 0010_automatico.sql).
 //   Avisa de los gastos fijos que se han apuntado solos, el lunes manda el resumen de la
 //   semana y el día 1 el del mes (con el saldo entre los dos).
@@ -149,6 +151,8 @@ Deno.serve(async (req) => {
       return json({ sent: subs?.length ?? 0 });
     }
 
+    if (typeof body?.reaction_expense_id === 'string') return json({ sent: await reactionNotice(admin, user.id, body.reaction_expense_id) });
+
     const ids: string[] = Array.isArray(body?.expense_ids) ? body.expense_ids.filter((x: unknown) => typeof x === 'string').slice(0, 500) : [];
     if (ids.length === 0) return json({ sent: 0 });
 
@@ -213,6 +217,35 @@ Deno.serve(async (req) => {
     return json({ error: 'No se han podido enviar los avisos' }, 500);
   }
 });
+
+/** Avisa a la pareja de tu reacción a un gasto: "Ana: ❤️ «¡Repetimos!»" sobre "Cena japonés · 38,50 €". */
+async function reactionNotice(admin: SupabaseClient, userId: string, expenseId: string): Promise<number> {
+  const { data: r } = await admin.from('expense_reactions').select('emoji, comment, household_id, updated_at').eq('expense_id', expenseId).eq('user_id', userId).maybeSingle();
+  // Solo reacciones recién guardadas (la app llama justo después).
+  if (!r || Date.now() - new Date(r.updated_at as string).getTime() > FRESH_MS) return 0;
+  const h = r.household_id as string;
+  const [{ data: members }, { data: expense }] = await Promise.all([
+    admin.from('members').select('user_id, display_name').eq('household_id', h),
+    admin.from('expenses').select('amount_cents, note, category_id').eq('id', expenseId).eq('household_id', h).maybeSingle(),
+  ]);
+  const me = (members ?? []).find((m) => m.user_id === userId);
+  const partner = (members ?? []).find((m) => m.user_id !== userId);
+  if (!me || !partner || !expense) return 0;
+  const { data: subs } = await admin.from('push_subscriptions').select('*').eq('user_id', partner.user_id).eq('notify_expenses', true);
+  if (!subs?.length) return 0;
+  let title = expense.note as string | null;
+  if (!title) {
+    const { data: c } = await admin.from('categories').select('name').eq('id', expense.category_id).maybeSingle();
+    title = (c?.name as string) ?? 'un gasto';
+  }
+  await send(admin, subs as Sub[], {
+    title: `${me.display_name}: ${[r.emoji, r.comment ? `«${r.comment}»` : null].filter(Boolean).join(' ')}`,
+    body: `En ${title} · ${fmt(expense.amount_cents as number)}`,
+    tag: 'reaccion-' + expenseId,
+    url: '/#gastos',
+  });
+  return subs.length;
+}
 
 /** Texto de un campo del atajo (el iPhone puede mandar número, texto o nada). */
 const field = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
@@ -454,7 +487,7 @@ async function dailyFor(admin: SupabaseClient, h: string, today: string) {
   return sent;
 }
 
-/** "Ana le debe 34,20 € a Alvaro" o "Estáis en paz", igual que el saldo de la app. */
+/** "Para quedar en paz, Ana le pasa 34,20 € a Alvaro" o "Estáis en paz", igual que el saldo de la app. */
 async function balanceText(admin: SupabaseClient, h: string, members: { user_id: string; display_name: string }[]) {
   const [a, b] = members;
   const expenses = await allRows<{ amount_cents: number; owed_cents: number | null; paid_by: string }>((from, to) =>
@@ -472,5 +505,7 @@ async function balanceText(admin: SupabaseClient, h: string, members: { user_id:
   }
   const cents = Math.round(Math.abs(owedToA));
   if (cents === 0) return 'Estáis en paz.';
-  return owedToA > 0 ? `${b.display_name} le debe ${fmt(cents)} a ${a.display_name}.` : `${a.display_name} le debe ${fmt(cents)} a ${b.display_name}.`;
+  return owedToA > 0
+    ? `Para quedar en paz, ${b.display_name} le pasa ${fmt(cents)} a ${a.display_name}.`
+    : `Para quedar en paz, ${a.display_name} le pasa ${fmt(cents)} a ${b.display_name}.`;
 }
