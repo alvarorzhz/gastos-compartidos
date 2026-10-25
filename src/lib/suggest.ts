@@ -1,5 +1,5 @@
 import { normalize } from './search';
-import type { SplitState } from './split';
+import { simpleSplit, type SplitState } from './split';
 import { guessCategory } from './statement';
 import type { Category, Expense, Member } from './types';
 
@@ -70,10 +70,10 @@ function mostCommon<T>(values: T[]): { value: T; count: number } | null {
   return best;
 }
 
-/** Mi parte del gasto, en %, para copiarla aunque el importe sea otro. */
+/** A medias, todo mío o todo suyo, como la última vez (un reparto antiguo raro pasa a medias). */
 function shareOf(e: Expense, me: string): SplitState {
   if (e.owed_cents == null || e.amount_cents <= 0) return { mode: 'equal', myShare: '50' };
   const mine = e.paid_by === me ? e.amount_cents - e.owed_cents : e.owed_cents;
   const percent = Math.round((mine * 100) / e.amount_cents);
-  return percent === 50 ? { mode: 'equal', myShare: '50' } : { mode: 'percent', myShare: String(percent) };
+  return simpleSplit({ mode: 'percent', myShare: String(percent) });
 }

@@ -3,7 +3,7 @@ import { addDays, formatDay, formatShortDay, toIsoDate, today } from '../lib/dat
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { FREQUENCIES, frequencyText, nextDate, recurringDate } from '../lib/recurring';
-import { defaultSplit, formatPercent, owedFromSplit, splitFromExpense, type SplitMode } from '../lib/split';
+import { choiceOf, formatPercent, HALF, owedFromSplit, simpleSplit, splitForChoice, splitFromExpense, type SplitChoice, type SplitState } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, Frequency, RecurringExpense } from '../lib/types';
 import { ReactionPicker } from './Reactions';
@@ -46,14 +46,17 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const [categoryId, setCategoryId] = useState(source?.category_id ?? activeCategories[0]?.id ?? '');
   const [paidBy, setPaidBy] = useState(source?.paid_by ?? me);
   const [note, setNote] = useState(source?.note ?? prefill?.note ?? '');
-  const [split, setSplit] = useState(() => (source ? splitFromExpense(source, me) : defaultSplit(data.household, me, data.members)));
+  const [split, setSplit] = useState(() => (source ? splitFromExpense(source, me) : HALF));
+  // Un gasto antiguo con un reparto que no es ninguna de las tres opciones se queda como estaba.
+  const [oldSplit] = useState(split);
   // Solo los gastos nuevos y los fijos tienen frecuencia; '' = no se repite.
   const [frequency, setFrequency] = useState<Frequency | ''>(template?.frequency ?? (startAsFixed ? 'monthly' : ''));
   const partner = partnerOf(data.members, me);
+  const myName = data.members.find((m) => m.user_id === me)?.display_name ?? 'Tú';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [badAmount, setBadAmount] = useState(false);
-  // Un gasto nuevo con el reparto por defecto no abre esta parte: el resumen ya lo dice.
+  // Un gasto nuevo a medias no abre esta parte: el resumen ya lo dice.
   const [moreOpen, setMoreOpen] = useState((source != null && split.mode !== 'equal') || frequency !== '');
 
   const [scanned, setScanned] = useState<string | null>(null);
@@ -85,8 +88,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     }
     if (s.split && !touched.current.split && partner) {
       setSplit(s.split);
-      if (s.split.mode !== 'equal') parts.push(`tu parte ${s.split.myShare} %`);
-      else if (split.mode !== 'equal') parts.push('a medias');
+      const choice = choiceOf(s.split);
+      if (choice !== choiceOf(split)) parts.push(choice === 'equal' ? 'a medias' : `todo de ${choice === 'mine' ? myName : partner.display_name}`);
     }
     const shown = parts.filter(Boolean);
     setSuggested(shown.length === 0 ? null : s.from === 'history' ? `Como otras veces: ${shown.join(', ')}.` : `Categoría propuesta: ${shown[0]}.`);
@@ -107,7 +110,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     setBadAmount(false);
     setNote(h.note ?? '');
     if (activeCategories.some((c) => c.id === h.categoryId)) setCategoryId(h.categoryId);
-    setSplit(splitFromExpense({ ...h.last, paid_by: paidBy }, me));
+    setSplit(simpleSplit(splitFromExpense({ ...h.last, paid_by: paidBy }, me)));
     setDate(today());
     setFrequency('');
     setError(null);
@@ -274,7 +277,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const subtitle = expense?.created_by
     ? `${addedText(data.members, expense.created_by, me).replace(/^lo/, 'Lo')} el ${formatShortDay(toIsoDate(new Date(expense.created_at)))}`
     : undefined;
-  const splitSummary = split.mode === 'equal' ? 'A medias' : split.mode === 'percent' ? `Tú ${split.myShare || '?'} %` : `Tu parte ${split.myShare || '?'} €`;
+  const splitSummary = partner ? splitLabel(choiceOf(split), myName, partner.display_name) : '';
   const repeatSummary = frequency ? capitalizeFirst(frequencyText(frequency)) : 'No se repite';
 
   return (
@@ -438,10 +441,12 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
           <div className="stack">
             {partner && (
               <SplitPicker
-                mode={split.mode}
-                myShare={split.myShare}
+                split={split}
+                oldSplit={oldSplit}
                 amountCents={parseEuros(amount) ?? 0}
+                myName={myName}
                 partnerName={partner.display_name}
+                payerIsMe={paidBy === me}
                 onChange={(s) => { touched.current.split = true; setSplit(s); }}
               />
             )}
@@ -475,49 +480,56 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
 
 const capitalizeFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const MODES: { value: SplitMode; label: string }[] = [
-  { value: 'equal', label: 'A medias' },
-  { value: 'percent', label: 'Por %' },
-  { value: 'amount', label: 'Por importe' },
-];
+function splitLabel(choice: SplitChoice, myName: string, partnerName: string): string {
+  if (choice === 'equal') return 'A medias';
+  if (choice === 'mine') return `Todo de ${myName}`;
+  if (choice === 'theirs') return `Todo de ${partnerName}`;
+  return 'Reparto especial';
+}
 
-function SplitPicker({ mode, myShare, amountCents, partnerName, onChange }: {
-  mode: SplitMode;
-  myShare: string;
+/** A medias, todo de uno o todo del otro. «Todo de X» = el gasto le corresponde entero a X. */
+function SplitPicker({ split, oldSplit, amountCents, myName, partnerName, payerIsMe, onChange }: {
+  split: SplitState;
+  oldSplit: SplitState;
   amountCents: number;
+  myName: string;
   partnerName: string;
-  onChange: (s: { mode: SplitMode; myShare: string }) => void;
+  payerIsMe: boolean;
+  onChange: (s: SplitState) => void;
 }) {
-  const inputId = useId();
-  function setMode(next: SplitMode) {
-    // Al cambiar de modo, parte de un reparto a medias equivalente.
-    const half = next === 'amount' ? centsToInput(Math.round(amountCents / 2)) : '50';
-    onChange({ mode: next, myShare: next === mode ? myShare : half });
-  }
+  const choice = choiceOf(split);
+  const hadCustom = choiceOf(oldSplit) === 'custom';
 
-  let summary = 'Cada uno asume la mitad.';
-  if (mode === 'percent') {
-    const p = Number(myShare.replace(',', '.'));
-    summary = Number.isFinite(p) && p >= 0 && p <= 100 ? `A ${partnerName} le toca el ${formatPercent(100 - p)} %.` : 'Escribe un porcentaje entre 0 y 100.';
-  } else if (mode === 'amount') {
-    const mine = parseEuros(myShare, { allowZero: true });
-    summary = mine != null && mine <= amountCents ? `A ${partnerName} le tocan ${formatEuros(amountCents - mine)}.` : 'Tu parte no puede superar el importe.';
-  }
+  let hint: string;
+  if (choice === 'equal') hint = 'Cada uno asume la mitad.';
+  else if (choice === 'mine') hint = payerIsMe ? 'Es solo tuyo y lo pagas tú: entre vosotros no cambia nada.' : `Es solo tuyo y lo paga ${partnerName}: cuenta entero para quedar en paz.`;
+  else if (choice === 'theirs') hint = payerIsMe ? `Es solo de ${partnerName} y lo pagas tú: cuenta entero para quedar en paz.` : `Es solo de ${partnerName} y lo paga ${partnerName}: entre vosotros no cambia nada.`;
+  else hint = `Este gasto tiene un reparto especial de antes (tu parte: ${customShare(split, amountCents)}). Se queda así salvo que elijas otra opción.`;
 
   return (
     <div className="stack-sm">
-      <Segmented legend="Reparto" value={mode} options={MODES} onChange={setMode} />
-      {mode !== 'equal' && (
-        <div className="field">
-          <label className="field-label" htmlFor={inputId}>{mode === 'percent' ? 'Tu parte (%)' : 'Tu parte (€)'}</label>
-          <input id={inputId} inputMode="decimal" value={myShare} onChange={(e) => onChange({ mode, myShare: e.target.value })} />
-          <div className="chips">
-            <button type="button" className="chip" onClick={() => onChange({ mode: 'percent', myShare: '100' })}>Todo mío</button>
-            <button type="button" className="chip" onClick={() => onChange({ mode: 'percent', myShare: '0' })}>Todo de {partnerName}</button>
-          </div>
+      <Segmented
+        legend="¿De quién es el gasto?"
+        value={choice}
+        options={[
+          { value: 'equal', label: 'A medias' },
+          { value: 'mine', label: `Todo de ${myName}` },
+          { value: 'theirs', label: `Todo de ${partnerName}` },
+        ]}
+        onChange={(c) => c !== 'custom' && onChange(splitForChoice(c))}
+      />
+      <p className="field-hint">{hint}</p>
+      {hadCustom && choice !== 'custom' && (
+        <div className="chips">
+          <button type="button" className="chip" onClick={() => onChange(oldSplit)}>Dejar el reparto de antes</button>
         </div>
       )}
-      <p className="field-hint">{summary}</p>
     </div>
   );
+}
+
+function customShare(split: SplitState, amountCents: number): string {
+  if (split.mode === 'percent') return `${formatPercent(Number(split.myShare.replace(',', '.')))} %`;
+  const mine = parseEuros(split.myShare, { allowZero: true });
+  return mine != null && mine <= amountCents ? formatEuros(mine) : `${split.myShare} €`;
 }

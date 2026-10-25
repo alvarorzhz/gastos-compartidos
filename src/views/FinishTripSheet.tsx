@@ -7,7 +7,6 @@ import { notifyNewExpenses } from '../lib/push';
 import type { ReceiptGuess } from '../lib/receipt';
 import { currentBought, formatQuantity } from '../lib/shopping';
 import { lastPrice, matchTicket, prettyTicketName, shoppingCategory } from '../lib/shoppingPrices';
-import { defaultSplit, owedFromSplit } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { ListItem, Shopping } from '../lib/useShopping';
 import { AmountField, Avatar, Notice, Segmented, Sheet, toast, type ViewProps } from './common';
@@ -131,14 +130,12 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
       setBadTotal(cents == null);
       if (cents == null) return setError(total.trim() ? 'Ese total no es válido. Escríbelo así: 29,42' : 'Escribe cuánto ha costado la compra o escanea el ticket.');
       if (!categoryId) return setError('Elige una categoría para el gasto.');
-      const owed = owedFromSplit(defaultSplit(data.household, me, data.members), cents, paidBy === me);
-      if (owed === 'invalid') return setError('El reparto por defecto no es válido. Revísalo en Ajustes.');
       const event = currentEvent(data.events, date);
       setBusy(true);
       const id = crypto.randomUUID();
       const { error } = await supabase.from('expenses').insert({
         id, household_id: data.household.id, amount_cents: cents, spent_on: date, category_id: categoryId,
-        paid_by: paidBy, owed_cents: owed, note: note.trim().slice(0, 200) || null, created_by: me,
+        paid_by: paidBy, owed_cents: null, note: note.trim().slice(0, 200) || null, created_by: me,
         ...(event ? { event_id: event.id } : {}),
       });
       if (error) {

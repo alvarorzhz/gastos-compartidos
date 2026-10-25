@@ -2,7 +2,6 @@ import { useEffect, useId, useState, type FormEvent } from 'react';
 import { AVATAR_EMOJIS, PERSON_COLORS, personColor } from '../lib/couple';
 import { exportJson, exportXlsx } from '../lib/exportData';
 import { partnerOf } from '../lib/people';
-import { defaultMyPercent } from '../lib/split';
 import { errorMessage, supabase } from '../lib/supabase';
 import { signOut } from '../lib/session';
 import { askText, Avatar, CategoryIcon, confirmAction, Notice, toast, type ViewProps } from './common';
@@ -68,8 +67,6 @@ export default function SettingsView(props: ViewProps & { email: string }) {
           <div className="card"><InviteForm {...props} /></div>
         )}
       </section>
-
-      {partner && <DefaultSplit {...props} partnerName={partner.display_name} />}
 
       <Categories {...props} />
 
@@ -172,7 +169,6 @@ function InlineText({ label, value, maxLength, onSave, reload }: {
   );
 }
 
-/** Reparto con el que empiezan los gastos nuevos (por ejemplo 60/40 según los sueldos). */
 /** Tu color y tu emoji: salen en tus gastos, en el saldo y en todo lo que haces. */
 function Profile({ data, me, reload }: ViewProps) {
   const partner = partnerOf(data.members, me);
@@ -237,58 +233,6 @@ function Profile({ data, me, reload }: ViewProps) {
           </div>
         </fieldset>
       </div>
-    </section>
-  );
-}
-
-function DefaultSplit({ data, me, reload, partnerName }: ViewProps & { partnerName: string }) {
-  const id = useId();
-  const saved = defaultMyPercent(data.household, me, data.members);
-  const [value, setValue] = useState(String(saved));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => setValue(String(saved)), [saved]);
-
-  const p = Number(value.trim().replace(',', '.'));
-  const valid = value.trim() !== '' && Number.isInteger(p) && p >= 0 && p <= 100;
-
-  async function save(e: FormEvent) {
-    e.preventDefault();
-    if (!valid) return setError('Escribe un número entero entre 0 y 100');
-    setBusy(true);
-    setError(null);
-    const patch = p === 50 ? { default_split_user: null, default_split_percent: null } : { default_split_user: me, default_split_percent: p };
-    const { error } = await supabase.from('households').update(patch).eq('id', data.household.id);
-    setBusy(false);
-    if (error) return setError(errorMessage(error));
-    toast('Reparto guardado');
-    await reload();
-  }
-
-  return (
-    <section className="settings-group" aria-labelledby="set-split">
-      <h2 id="set-split">Reparto de los gastos</h2>
-      <form className="card stack" onSubmit={save} noValidate>
-        <div className="field">
-          <label className="field-label" htmlFor={id}>Tu parte de cada gasto nuevo (%)</label>
-          <div className="row">
-            <input id={id} className="grow" inputMode="numeric" maxLength={3} value={value} onChange={(e) => setValue(e.target.value)} />
-            <button className="primary" disabled={busy || !valid || p === saved}>{busy ? 'Guardando…' : 'Guardar'}</button>
-          </div>
-          <div className="chips" role="group" aria-label="Repartos habituales">
-            {[50, 60, 40].map((n) => (
-              <button key={n} type="button" className={'chip' + (p === n ? ' selected' : '')} onClick={() => setValue(String(n))}>
-                {n === 50 ? 'A medias' : `${n} / ${100 - n}`}
-              </button>
-            ))}
-          </div>
-        </div>
-        <p className="field-hint">
-          {valid ? (p === 50 ? 'Cada gasto nuevo se reparte a medias.' : `A ${partnerName} le toca el ${100 - p} %.`) : 'Escribe un número entre 0 y 100.'}{' '}
-          Se puede cambiar en cada gasto, y los que ya están apuntados no cambian.
-        </p>
-        {error && <p className="error" role="alert">{error}</p>}
-      </form>
     </section>
   );
 }

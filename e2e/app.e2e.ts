@@ -57,6 +57,20 @@ test('apuntar un gasto lo guarda y sale en la lista', async ({ page }) => {
   await expect(page.getByText('Panadería')).toBeVisible();
 });
 
+test('un gasto todo de la pareja se guarda entero para ella', async ({ page }) => {
+  const fake = await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Añadir gasto' }).click();
+  await page.getByLabel('Importe').fill('20');
+  await page.getByLabel(/Concepto/).fill('Regalo');
+  await page.getByRole('button', { name: /Reparto/ }).click();
+  await expect(page.getByRole('radio', { name: 'A medias' })).toBeChecked();
+  await page.getByText('Todo de Bea').click();
+  await expect(page.getByText(/Es solo de Bea y lo pagas tú/)).toBeVisible();
+  await page.getByRole('button', { name: 'Guardar gasto' }).click();
+
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST expenses')?.body).toMatchObject({ amount_cents: 2000, paid_by: expect.any(String), owed_cents: 2000 });
+});
+
 test('añadir a la lista de la compra', async ({ page }) => {
   const fake = await openApp(page);
   await tabs(page).getByRole('button', { name: 'Compra', exact: true }).click();

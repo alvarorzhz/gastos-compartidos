@@ -14,7 +14,7 @@ La barra de abajo tiene **Inicio · Gastos · Compra · + · Presupuesto · Pers
 - **Historia del mes**: el mes contado en pantallas a pantalla completa, al estilo de los resúmenes de fin de año de la música. Sale el día 1 y se puede abrir los 10 primeros días del mes.
 
 **Gastos**
-- Importe, fecha, categoría, quién pagó y nota. Reparto 50/50 por defecto (o el del espacio, por ejemplo 60/40, en Ajustes); cada gasto puede tener otro porcentaje, un importe exacto o ser de una sola persona.
+- Importe, fecha, categoría, quién pagó y nota. Reparto con tres opciones: «A medias» (por defecto), «Todo de» uno o «Todo de» la otra persona. Los gastos antiguos con otro porcentaje se conservan tal cual.
 - **Saldo** y **reembolsos** (Bizum, transferencia…): solo se anotan, la app no mueve dinero.
 - **Gastos fijos** semanales, mensuales o anuales, que se apuntan solos cada mañana. Si algo se repite cada mes, la app propone hacerlo fijo.
 - **Viajes y eventos**: agrupan los gastos de unas fechas con su total y su saldo.
@@ -39,7 +39,7 @@ La barra de abajo tiene **Inicio · Gastos · Compra · + · Presupuesto · Pers
 - **Lo que se repite**: suscripciones con su coste al mes y al año, cobros duplicados, renovaciones anuales, gastos hormiga y un simulador de ahorro. **Ordenar «Otros»** propone la categoría que falta.
 
 **Ajustes**
-- Invitar a la pareja, nombre del espacio, reparto por defecto y categorías.
+- Invitar a la pareja, nombre del espacio y categorías.
 - **Contraseña** (necesaria en iPhone para entrar desde la app instalada; también se puede entrar con el enlace del correo).
 - **Avisos en el móvil**: cuando la pareja apunta un gasto, cuando un presupuesto llega a su aviso, los fijos de cada mañana y los resúmenes de la semana (lunes) y del mes (día 1). En iPhone solo con la app instalada.
 - **Apuntar al pagar con Apple Pay**: guía para crear el atajo de Cartera en el iPhone.
