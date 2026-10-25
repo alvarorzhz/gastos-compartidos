@@ -379,6 +379,51 @@ reset role;
 select pg_temp.check((select count(*) from expense_reactions) = 0, 'la reacción se borra con el gasto');
 set role authenticated;
 
+-- Historial de cambios (0014): se apunta quién crea, cambia o borra cada gasto.
+select pg_temp.check((select array_agg(action order by id) from expense_changes where expense_id = :'reid') = '{insert,delete}', 'el historial apunta el alta y el borrado');
+select pg_temp.check((select changed_by from expense_changes where expense_id = :'reid' and action = 'delete') = auth.uid(), 'el historial sabe quién borró');
+select pg_temp.expect_error(format($$ insert into expense_changes (household_id, expense_id, action) values (%L, %L, 'delete') $$, :'rhid', :'reid'));
+update expense_changes set changed_by = null;
+delete from expense_changes;
+select pg_temp.check((select count(*) from expense_changes where changed_by is not null and expense_id = :'reid') = 2, 'nadie cambia ni borra el historial');
+select id as chid from expense_changes where expense_id = :'reid' and action = 'delete' \gset
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+select pg_temp.check((select count(*) from expense_changes where household_id = :'rhid') = 0, 'C no ve el historial ajeno');
+select pg_temp.expect_error(format($$ select public.restore_expense(%s) $$, :'chid'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select public.restore_expense(:'chid') = :'reid'::uuid;
+select pg_temp.check((select amount_cents from expenses where id = :'reid') = 4242, 'B recupera el gasto borrado');
+select pg_temp.expect_error(format($$ select public.restore_expense(%s) $$, :'chid'));
+update expenses set note = 'Cena' where id = :'reid';
+update expenses set updated_at = now() where id = :'reid';
+select pg_temp.check((select count(*) from expense_changes where expense_id = :'reid' and action = 'update') = 1, 'se apunta el cambio de nota y no el que no cambia nada');
+select pg_temp.check((select old_row ->> 'note' is null and new_row ->> 'note' = 'Cena' from expense_changes where expense_id = :'reid' and action = 'update'), 'el historial guarda el antes y el después');
+delete from expenses where id = :'reid';
+
+-- Copias de seguridad (0014): solo las hace el servidor; lo común lo ven los dos, lo personal solo su dueño.
+select pg_temp.expect_error($$ select public.run_backup() $$);
+reset role;
+select public.run_backup();
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 1, 'A ve las copias del espacio');
+select pg_temp.check((select count(*) from backups where user_id = auth.uid()) = 1, 'A ve las copias de lo suyo');
+select pg_temp.check((select jsonb_array_length(data -> 'expenses') from backups where household_id = :'rhid' order by id desc limit 1) = (select count(*) from expenses), 'la copia lleva todos los gastos');
+select pg_temp.check((select bool_and(user_id = auth.uid() or household_id is not null) from backups), 'A solo ve sus copias personales');
+select pg_temp.expect_error(format($$ insert into backups (household_id, data) values (%L, '{}') $$, :'rhid'));
+delete from backups;
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 1, 'B ve las copias del espacio (nadie las borra)');
+select pg_temp.check((select count(*) from backups where user_id = '00000000-0000-0000-0000-00000000000a') = 0, 'B no ve las copias personales de A');
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 0, 'C no ve copias ajenas');
+reset role;
+do $$ begin for i in 1..9 loop perform public.run_backup(); end loop; end $$;
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 8, 'se guardan solo las 8 últimas copias');
+select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 14, 'migraciones registradas');
+set role authenticated;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
 -- Borrado del espacio: se va todo.
 select public.delete_household();
 reset role;

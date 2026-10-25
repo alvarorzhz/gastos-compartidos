@@ -12,6 +12,7 @@ import PasswordSettings from './PasswordSettings';
 import PushSettings from './PushSettings';
 import AutomationStatus from './AutomationStatus';
 import ApplePaySettings from './ApplePaySettings';
+import { Backups, ChangeHistory } from './DataSafety';
 import { VersionCard } from './WhatsNew';
 
 export default function SettingsView(props: ViewProps & { email: string }) {
@@ -100,6 +101,10 @@ export default function SettingsView(props: ViewProps & { email: string }) {
         </ul>
         <p className="note">El Excel trae una hoja para gastos, reembolsos, presupuestos, huchas, sus movimientos y tus movimientos personales. El JSON es una copia completa de todo.</p>
       </section>
+
+      <Backups />
+
+      <ChangeHistory {...props} />
 
       <VersionCard />
 
