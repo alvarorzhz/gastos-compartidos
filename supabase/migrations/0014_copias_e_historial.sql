@@ -248,6 +248,8 @@ create table if not exists supabase_migrations.schema_migrations (
   statements text[],
   name text
 );
+-- Solo la usa Supabase: con RLS y sin políticas, nadie la lee desde la app.
+alter table supabase_migrations.schema_migrations enable row level security;
 insert into supabase_migrations.schema_migrations (version, name) values
   ('0001', 'init'),
   ('0002', 'reparto_y_tiempo_real'),
