@@ -1,5 +1,5 @@
 import { centsToInput, parseEuros } from './money';
-import type { Expense, Household, Member } from './types';
+import type { Expense } from './types';
 
 export type SplitMode = 'equal' | 'percent' | 'amount';
 
@@ -34,17 +34,31 @@ export function formatPercent(p: number): string {
   return String(Math.round(p * 100) / 100).replace('.', ',');
 }
 
-/** Mi parte (%) de cada gasto nuevo según el reparto por defecto del espacio. */
-export function defaultMyPercent(household: Pick<Household, 'default_split_user' | 'default_split_percent'>, me: string, members: Member[]): number {
-  const { default_split_user: user, default_split_percent: p } = household;
-  if (user == null || p == null || members.length < 2 || !members.some((m) => m.user_id === user)) return 50;
-  return user === me ? p : 100 - p;
+/** Las tres formas de repartir que se eligen en el formulario (más la de un gasto antiguo raro). */
+export type SplitChoice = 'equal' | 'mine' | 'theirs' | 'custom';
+
+export const HALF: SplitState = { mode: 'equal', myShare: '50' };
+
+/** Qué opción del formulario corresponde a un reparto: todo mío (100 %), todo suyo (0 %) o a medias. */
+export function choiceOf(split: SplitState): SplitChoice {
+  if (split.mode === 'equal') return 'equal';
+  if (split.mode === 'percent') {
+    const p = Number(split.myShare.trim().replace(',', '.'));
+    if (p === 50) return 'equal';
+    if (p === 100) return 'mine';
+    if (p === 0) return 'theirs';
+  }
+  return 'custom';
 }
 
-/** Reparto con el que empieza un gasto nuevo. */
-export function defaultSplit(household: Pick<Household, 'default_split_user' | 'default_split_percent'>, me: string, members: Member[]): SplitState {
-  const mine = defaultMyPercent(household, me, members);
-  return mine === 50 ? { mode: 'equal', myShare: '50' } : { mode: 'percent', myShare: String(mine) };
+export function splitForChoice(choice: Exclude<SplitChoice, 'custom'>): SplitState {
+  return choice === 'equal' ? HALF : { mode: 'percent', myShare: choice === 'mine' ? '100' : '0' };
+}
+
+/** Para un gasto nuevo solo valen las tres opciones: un reparto raro de otras veces pasa a medias. */
+export function simpleSplit(split: SplitState): SplitState {
+  const choice = choiceOf(split);
+  return choice === 'custom' ? HALF : splitForChoice(choice);
 }
 
 /** Estado inicial del formulario a partir de un gasto (o gasto fijo) guardado. */

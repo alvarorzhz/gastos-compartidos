@@ -23,14 +23,19 @@ const ctx = (expenses: Expense[], me = 'a') => ({ expenses, categories, members,
 describe('suggestForNote', () => {
   it('copia categoría, quien suele pagar y el reparto de otras veces', () => {
     const list = [
-      exp('Mercadona', 'super', 'b', '2026-10-01', 400),
-      exp('mercadona', 'super', 'b', '2026-10-08', 400),
+      exp('Mercadona', 'super', 'b', '2026-10-01', 1000),
+      exp('mercadona', 'super', 'b', '2026-10-08', 1000),
       exp('Mercadona', 'super', 'a', '2026-09-20'),
     ];
-    // La última vez pagó Ana y a Alvaro le tocaban 4 € de 10 €: un 40 %.
+    // La última vez pagó Ana y era todo de Alvaro.
     expect(suggestForNote('Mercadona', ctx(list))).toEqual({
-      categoryId: 'super', paidBy: 'b', split: { mode: 'percent', myShare: '40' }, from: 'history',
+      categoryId: 'super', paidBy: 'b', split: { mode: 'percent', myShare: '100' }, from: 'history',
     });
+  });
+
+  it('un reparto antiguo raro (40 %) se propone a medias', () => {
+    const list = [exp('Mercadona', 'super', 'b', '2026-10-08', 400)];
+    expect(suggestForNote('Mercadona', ctx(list))?.split).toEqual({ mode: 'equal', myShare: '50' });
   });
 
   it('acepta el principio del concepto y elige el más usado', () => {

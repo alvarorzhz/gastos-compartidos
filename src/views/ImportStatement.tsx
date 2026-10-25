@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatEuros } from '../lib/money';
 import { categoryOptions } from '../lib/personal';
-import { defaultSplit, owedFromSplit } from '../lib/split';
 import { parseCsv, parseStatement, proposeImport, type Destination, type ImportRow } from '../lib/statement';
 import { errorMessage, supabase } from '../lib/supabase';
 import { notifyNewExpenses } from '../lib/push';
@@ -60,12 +59,7 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
     if (!rows) return;
     setBusy(true);
     setError(null);
-    // Los gastos comunes se apuntan como pagados por ti, con el reparto por defecto del espacio.
-    const split = defaultSplit(data.household, me, data.members);
-    const owedOf = (cents: number) => {
-      const owed = owedFromSplit(split, cents, true);
-      return owed === 'invalid' ? null : owed;
-    };
+    // Los gastos comunes se apuntan como pagados por ti y a medias.
     const common = chosen
       .filter((r) => r.destination === 'common')
       .map((r) => ({
@@ -74,7 +68,7 @@ export default function ImportStatement({ data, me, reload, onClose }: ViewProps
         spent_on: r.movement.date,
         category_id: r.categoryId,
         paid_by: me,
-        owed_cents: owedOf(Math.abs(r.movement.amountCents)),
+        owed_cents: null,
         note: r.note.trim().slice(0, 200) || null,
         created_by: me,
       }));

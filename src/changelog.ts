@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.14.0',
+    date: '2026-10-25',
+    changes: [
+      { kind: 'mejora', text: 'Reparto más fácil: al apuntar un gasto eliges «A medias», «Todo de» ti o «Todo de» tu pareja, con vuestros nombres. Se acabaron los porcentajes.' },
+      { kind: 'mejora', text: 'Los gastos nuevos empiezan siempre a medias, también los del extracto del banco y los de terminar un viaje. El reparto por defecto de Ajustes desaparece.' },
+      { kind: 'mejora', text: 'Los gastos antiguos con otro reparto (por ejemplo 60/40) siguen igual y se ven bien; al editarlos se quedan así salvo que elijas otra opción.' },
+    ],
+  },
+  {
     version: '3.13.0',
     date: '2026-10-24',
     changes: [

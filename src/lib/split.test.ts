@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPercent, defaultMyPercent, defaultSplit, owedFromSplit, splitFromExpense } from './split';
+import { choiceOf, formatPercent, owedFromSplit, simpleSplit, splitForChoice, splitFromExpense } from './split';
 import type { Expense } from './types';
 
 const ME = 'me';
@@ -68,19 +68,32 @@ describe('splitFromExpense', () => {
   });
 });
 
-describe('reparto por defecto', () => {
-  const members = [{ household_id: 'h', user_id: ME, display_name: 'Yo' }, { household_id: 'h', user_id: 'otra', display_name: 'Otra' }];
-  it('empieza a medias si no hay reparto guardado', () => {
-    expect(defaultSplit({ default_split_user: null, default_split_percent: null }, ME, members)).toEqual({ mode: 'equal', myShare: '50' });
+describe('opciones del formulario', () => {
+  it('reconoce a medias, todo mío y todo suyo', () => {
+    expect(choiceOf({ mode: 'equal', myShare: '50' })).toBe('equal');
+    expect(choiceOf({ mode: 'percent', myShare: '50' })).toBe('equal');
+    expect(choiceOf({ mode: 'percent', myShare: '100' })).toBe('mine');
+    expect(choiceOf({ mode: 'percent', myShare: '0' })).toBe('theirs');
+    expect(choiceOf({ mode: 'percent', myShare: '60' })).toBe('custom');
+    expect(choiceOf({ mode: 'amount', myShare: '6,66' })).toBe('custom');
   });
-  it('da a cada uno su parte', () => {
-    const h = { default_split_user: ME, default_split_percent: 60 };
-    expect(defaultMyPercent(h, ME, members)).toBe(60);
-    expect(defaultMyPercent(h, 'otra', members)).toBe(40);
-    expect(defaultSplit(h, 'otra', members)).toEqual({ mode: 'percent', myShare: '40' });
+
+  it('todo de quien no pagó: lo debe entero; todo de quien pagó: nadie debe nada', () => {
+    expect(owedFromSplit(splitForChoice('theirs'), 2550, true)).toBe(2550);
+    expect(owedFromSplit(splitForChoice('mine'), 2550, false)).toBe(2550);
+    expect(owedFromSplit(splitForChoice('mine'), 2550, true)).toBe(0);
+    expect(owedFromSplit(splitForChoice('theirs'), 2550, false)).toBe(0);
+    expect(owedFromSplit(splitForChoice('equal'), 2550, true)).toBeNull();
   });
-  it('vuelve a medias si quien lo guardó ya no está', () => {
-    expect(defaultMyPercent({ default_split_user: 'antigua', default_split_percent: 70 }, ME, members)).toBe(50);
+
+  it('un gasto antiguo todo de uno se abre con su opción', () => {
+    expect(choiceOf(splitFromExpense({ ...base, owed_cents: 10000 }, ME))).toBe('theirs');
+    expect(choiceOf(splitFromExpense({ ...base, owed_cents: 10000 }, OTHER))).toBe('mine');
+  });
+
+  it('para gastos nuevos un reparto raro pasa a medias', () => {
+    expect(simpleSplit({ mode: 'percent', myShare: '60' })).toEqual({ mode: 'equal', myShare: '50' });
+    expect(simpleSplit({ mode: 'percent', myShare: '100' })).toEqual({ mode: 'percent', myShare: '100' });
   });
 });
 
