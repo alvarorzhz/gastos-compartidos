@@ -85,6 +85,7 @@ test('añadir a la lista de la compra', async ({ page }) => {
 test('Ajustes: historial de cambios, recuperar un borrado y copias', async ({ page }) => {
   const fake = await openApp(page);
   await tabs(page).getByRole('button', { name: 'Ajustes', exact: true }).click();
+  await page.getByRole('button', { name: /Tus datos/ }).click();
 
   const history = page.getByRole('region', { name: 'Historial de cambios' });
   await expect(history.getByText(/Bea borró 18,00\s€ · Farmacia/)).toBeVisible();

@@ -44,11 +44,11 @@ export default function PersonalView(props: ViewProps) {
         <div className="stat-grid">
           <div className="stat-tile">
             <span className="stat-label">Ingresos</span>
-            <strong className="positive">{formatEuros(sum.incomeCents)}</strong>
+            <strong className={sum.incomeCents > 0 ? 'positive' : ''}>{formatEuros(sum.incomeCents)}</strong>
           </div>
           <div className="stat-tile">
             <span className="stat-label">Gastos personales</span>
-            <strong className="negative">−{formatEuros(sum.expenseCents)}</strong>
+            <strong className={sum.expenseCents > 0 ? 'negative' : ''}>{sum.expenseCents > 0 ? '−' : ''}{formatEuros(sum.expenseCents)}</strong>
           </div>
         </div>
         {common > 0 && (
@@ -65,7 +65,7 @@ export default function PersonalView(props: ViewProps) {
 
       <div className="row wrap">
         <button className="pill" onClick={() => setShowFixed(true)}>
-          <Icon name="repeat" size={16} /> Fijos <span className="count">{data.personalRecurring.length}</span>
+          <Icon name="repeat" size={16} /> Fijos {data.personalRecurring.length > 0 && <span className="count">{data.personalRecurring.length}</span>}
         </button>
         <button className="pill" onClick={() => setImporting(true)}>
           <Icon name="fileIn" size={16} /> Importar extracto

@@ -34,11 +34,11 @@ type View = 'inicio' | 'gastos' | 'saldo' | 'compra' | 'presupuesto' | 'graficos
  * Las secciones con dos vistas muestran un selector bajo el título. Cada vista tiene su dirección
  * (#gastos, #saldo, #presupuesto…), así que los enlaces de versiones anteriores siguen funcionando.
  */
-const SECTIONS: { id: string; label: string; icon: IconName; views: { id: View; label: string }[] }[] = [
+const SECTIONS: { id: string; label: string; short?: string; icon: IconName; views: { id: View; label: string }[] }[] = [
   { id: 'inicio', label: 'Inicio', icon: 'home', views: [{ id: 'inicio', label: 'Inicio' }] },
   { id: 'gastos', label: 'Gastos', icon: 'receipt', views: [{ id: 'gastos', label: 'Movimientos' }, { id: 'saldo', label: 'Saldo' }] },
   { id: 'compra', label: 'Compra', icon: 'cart', views: [{ id: 'compra', label: 'Lista de la compra' }] },
-  { id: 'presupuesto', label: 'Presupuesto', icon: 'pie', views: [{ id: 'presupuesto', label: 'Presupuesto' }, { id: 'graficos', label: 'Gráficos' }] },
+  { id: 'presupuesto', label: 'Presupuesto', short: 'Plan', icon: 'pie', views: [{ id: 'presupuesto', label: 'Presupuesto' }, { id: 'graficos', label: 'Gráficos' }] },
   { id: 'personal', label: 'Personal', icon: 'user', views: [{ id: 'personal', label: 'Personal' }] },
   { id: 'ajustes', label: 'Ajustes', icon: 'settings', views: [{ id: 'ajustes', label: 'Ajustes' }] },
 ];
@@ -88,8 +88,8 @@ function Loading() {
         <svg viewBox="0 0 120 120">
           <defs>
             <linearGradient id="splash-tile-app" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stopColor="#14998b" />
-              <stop offset="1" stopColor="#0b6159" />
+              <stop offset="0" stopColor="#5a8d69" />
+              <stop offset="1" stopColor="#335c40" />
             </linearGradient>
           </defs>
           <rect width="120" height="120" rx="30" fill="url(#splash-tile-app)" />
@@ -251,9 +251,11 @@ function firstName(members: Member[], userId: string): string {
 
 function TabButton({ section, active, onClick }: { section: (typeof SECTIONS)[number]; active: boolean; onClick: () => void }) {
   return (
-    <button className="tab" onClick={onClick} aria-current={active ? 'page' : undefined}>
+    <button className="tab" onClick={onClick} aria-current={active ? 'page' : undefined} aria-label={section.label}>
       <Icon name={section.icon} />
+      {/* En la barra del móvil va el nombre corto (si lo tiene) para que se lea bien; en la lateral, el completo. */}
       <span className="tab-label">{section.label}</span>
+      {section.short && <span className="tab-label tab-label-short">{section.short}</span>}
     </button>
   );
 }

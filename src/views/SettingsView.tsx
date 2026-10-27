@@ -5,7 +5,7 @@ import { partnerOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
 import { signOut } from '../lib/session';
 import { askText, Avatar, CategoryIcon, confirmAction, Notice, toast, type ViewProps } from './common';
-import { Icon } from './icons';
+import { Icon, type IconName } from './icons';
 import InstallCard from './InstallCard';
 import PasswordSettings from './PasswordSettings';
 import PushSettings from './PushSettings';
@@ -14,11 +14,78 @@ import ApplePaySettings from './ApplePaySettings';
 import { Backups, ChangeHistory } from './DataSafety';
 import { VersionCard } from './WhatsNew';
 
+type SettingsPage = 'vosotros' | 'avisos' | 'datos' | 'cuenta';
+
+/** Portada de Ajustes: cuatro apartados que abren cada uno su página, para no tener todo en una lista larguísima. */
+const PAGES: { id: SettingsPage; title: string; meta: string; icon: IconName }[] = [
+  { id: 'vosotros', title: 'Vosotros', meta: 'Nombres, tu perfil, tu pareja y categorías', icon: 'users' },
+  { id: 'avisos', title: 'Avisos y automático', meta: 'Avisos en el móvil, Apple Pay y lo que la app hace sola', icon: 'bell' },
+  { id: 'datos', title: 'Tus datos', meta: 'Exportar, copias de seguridad e historial de cambios', icon: 'download' },
+  { id: 'cuenta', title: 'Cuenta', meta: 'Contraseña, instalar en el móvil, cerrar sesión y borrar', icon: 'user' },
+];
+
 export default function SettingsView(props: ViewProps & { email: string }) {
+  const { data, me } = props;
+  const partner = partnerOf(data.members, me);
+  const [page, setPage] = useState<SettingsPage | null>(null);
+
+  function open(next: SettingsPage | null) {
+    setPage(next);
+    window.scrollTo({ top: 0 });
+  }
+
+  if (page) {
+    const info = PAGES.find((p) => p.id === page)!;
+    return (
+      <>
+        <button className="link-btn back-btn" onClick={() => open(null)}><Icon name="chevronLeft" size={18} /> Ajustes</button>
+        <h2 className="settings-page-title">{info.title}</h2>
+        {page === 'vosotros' && <UsPage {...props} />}
+        {page === 'avisos' && (
+          <>
+            <PushSettings hasPartner={partner != null} />
+            <ApplePaySettings />
+            <AutomationStatus />
+          </>
+        )}
+        {page === 'datos' && <DataPage {...props} />}
+        {page === 'cuenta' && <AccountPage {...props} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {!partner && (
+        <section className="settings-group" aria-labelledby="set-invite">
+          <h2 id="set-invite">Tu pareja</h2>
+          <div className="card"><InviteForm {...props} /></div>
+        </section>
+      )}
+
+      <section className="settings-group" aria-label="Apartados">
+        <ul className="list with-icons">
+          {PAGES.map((p) => (
+            <li key={p.id}>
+              <button className="row-item" onClick={() => open(p.id)}>
+                <span className="icon-tile accent"><Icon name={p.icon} /></span>
+                <span className="row-main"><span className="row-title">{p.title}</span><span className="row-meta">{p.meta}</span></span>
+                <Icon name="chevronRight" size={18} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <VersionCard />
+    </>
+  );
+}
+
+function UsPage(props: ViewProps & { email: string }) {
   const { data, me, reload, email } = props;
   const partner = partnerOf(data.members, me);
   const myMember = data.members.find((m) => m.user_id === me)!;
-
   return (
     <>
       <section className="settings-group" aria-labelledby="set-space">
@@ -69,19 +136,16 @@ export default function SettingsView(props: ViewProps & { email: string }) {
       </section>
 
       <Categories {...props} />
+    </>
+  );
+}
 
-      <PasswordSettings email={email} />
-
-      <InstallCard />
-
-      <PushSettings hasPartner={partner != null} />
-
-      <ApplePaySettings />
-
-      <AutomationStatus />
-
+function DataPage(props: ViewProps) {
+  const { data } = props;
+  return (
+    <>
       <section className="settings-group" aria-labelledby="set-data">
-        <h2 id="set-data">Tus datos</h2>
+        <h2 id="set-data">Exportar</h2>
         <ul className="list with-icons">
           <li>
             <button className="row-item" onClick={() => exportXlsx(data)}>
@@ -102,15 +166,23 @@ export default function SettingsView(props: ViewProps & { email: string }) {
       <Backups />
 
       <ChangeHistory {...props} />
+    </>
+  );
+}
 
-      <VersionCard />
+function AccountPage(props: ViewProps & { email: string }) {
+  return (
+    <>
+      <PasswordSettings email={props.email} />
+
+      <InstallCard />
 
       <section className="settings-group" aria-label="Sesión">
         <ul className="list with-icons">
           <li>
             <button className="row-item" onClick={() => void signOut()}>
               <span className="icon-tile"><Icon name="logout" /></span>
-              <span className="row-main"><span className="row-title">Cerrar sesión</span></span>
+              <span className="row-main"><span className="row-title">Cerrar sesión</span><span className="row-meta">Has entrado como {props.email}</span></span>
             </button>
           </li>
         </ul>

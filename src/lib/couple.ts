@@ -9,9 +9,9 @@ import type { Budget, Category, Expense, ExpenseReaction, Member, PersonColor, S
  */
 
 export const PERSON_COLORS: { value: PersonColor; label: string }[] = [
-  { value: 'teal', label: 'Verde azulado' },
+  { value: 'teal', label: 'Verde helecho' },
   { value: 'violet', label: 'Violeta' },
-  { value: 'coral', label: 'Coral' },
+  { value: 'coral', label: 'Terracota' },
   { value: 'blue', label: 'Azul' },
   { value: 'amber', label: 'Ámbar' },
   { value: 'pink', label: 'Rosa' },
@@ -25,11 +25,11 @@ export const AVATAR_EMOJIS = ['🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '�
 /** Reacciones rápidas a un gasto. */
 export const REACTION_EMOJIS = ['❤️', '😋', '😂', '🙈', '😱', '👏'];
 
-/** Color de cada persona: el que eligió, o el de siempre (el primero verde azulado, el segundo violeta). */
+/** Color de cada persona: el que eligió, o el de siempre (el primero verde helecho, el segundo terracota). */
 export function personColor(members: Member[], userId: string): PersonColor | 'none' {
   const i = members.findIndex((m) => m.user_id === userId);
   if (i < 0) return 'none';
-  return members[i].color ?? (i % 2 === 0 ? 'teal' : 'violet');
+  return members[i].color ?? (i % 2 === 0 ? 'teal' : 'coral');
 }
 
 /** "Buenos días" hasta las 14, "Buenas tardes" hasta las 21 y "Buenas noches" el resto. */

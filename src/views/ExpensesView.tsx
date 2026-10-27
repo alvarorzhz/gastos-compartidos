@@ -52,7 +52,7 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
           <Icon name="search" size={18} />
           <input
             type="search"
-            placeholder="Buscar por concepto, categoría, quién o importe"
+            placeholder="Buscar gastos o importes"
             value={text}
             onChange={(e) => setText(e.target.value)}
             aria-label="Buscar gastos"
@@ -85,7 +85,7 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
 
       <div className="row wrap">
         <button className="pill" onClick={() => setShowFixed(true)}>
-          <Icon name="repeat" size={16} /> Gastos fijos <span className="count">{data.recurring.length}</span>
+          <Icon name="repeat" size={16} /> Gastos fijos {data.recurring.length > 0 && <span className="count">{data.recurring.length}</span>}
         </button>
         <button className="pill" onClick={() => setShowEvents(true)}>
           <Icon name="suitcase" size={16} /> Viajes{data.events.some((e) => !e.archived) && <span className="count">{data.events.filter((e) => !e.archived).length}</span>}

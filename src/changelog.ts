@@ -18,6 +18,23 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.15.0',
+    date: '2026-10-27',
+    changes: [
+      { kind: 'nuevo', text: 'Tema «Jardín»: verde helecho, terracota y caléndula, en claro y en oscuro. El icono de la app también cambia (en el móvil se ve nuevo al volver a instalarla).' },
+      { kind: 'mejora', text: 'Ajustes ordenado en cuatro apartados: Vosotros, Avisos y automático, Tus datos y Cuenta. La contraseña está ahora en Ajustes → Cuenta.' },
+      { kind: 'mejora', text: 'La barra de abajo se lee mejor: letra más grande y más oscura, y «Presupuesto» se llama «Plan» en el móvil.' },
+      { kind: 'mejora', text: 'Presupuesto sin poner: en vez de una raya ves lo que lleváis gastado este mes.' },
+      { kind: 'mejora', text: 'Lo importante destaca más: el cambio de mes y el aviso de lo último que apuntó tu pareja van más discretos.' },
+      { kind: 'mejora', text: 'Si tu pareja no había elegido color, ahora sale en terracota. Cada uno puede cambiarlo en Ajustes → Vosotros → Tu perfil.' },
+      { kind: 'correccion', text: 'Inicio ya no deja un hueco de más entre «Lo que lleváis este mes» y el saldo.' },
+      { kind: 'correccion', text: 'En Personal, un mes sin gastos ya no sale como «−0,00 €» en rojo.' },
+      { kind: 'correccion', text: 'Textos que se cortaban: el buscador de gastos y los nombres largos de categoría al apuntar un gasto (como «Supermercado»).' },
+      { kind: 'correccion', text: 'La pantalla de entrar ya no promete un código que no llega, y el botón no sale apagado: si falta el email, te lo dice.' },
+      { kind: 'correccion', text: '«Gastos fijos» y «Fijos» ya no enseñan un 0 cuando no hay ninguno.' },
+    ],
+  },
+  {
     version: '3.14.0',
     date: '2026-10-25',
     changes: [

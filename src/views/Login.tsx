@@ -13,6 +13,7 @@ export default function Login() {
 
   async function sendCode(e: FormEvent) {
     e.preventDefault();
+    if (!email.trim()) return setError('Escribe tu email para enviarte el enlace.');
     setBusy(true);
     setError(null);
     const { error } = await supabase.auth.signInWithOtp({
@@ -26,13 +27,14 @@ export default function Login() {
 
   async function signInWithPassword(e: FormEvent) {
     e.preventDefault();
+    if (!email.trim() || !password) return setError('Escribe tu email y tu contraseña.');
     setBusy(true);
     setError(null);
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     setBusy(false);
     // Si va bien, onAuthStateChange en App muestra la app.
     if (error) setError(/invalid login credentials/i.test(error.message)
-      ? 'Email o contraseña incorrectos. Si aún no tienes contraseña, entra con el enlace del correo (en Safari) y créala en Ajustes → Contraseña.'
+      ? 'Email o contraseña incorrectos. Si aún no tienes contraseña, entra con el enlace del correo (en Safari) y créala en Ajustes → Cuenta → Contraseña.'
       : friendlyError(error));
   }
 
@@ -95,8 +97,8 @@ export default function Login() {
               <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             {error && <p className="error" role="alert">{error}</p>}
-            <button className="primary lg" disabled={busy || !email.trim() || !password}>{busy ? 'Entrando…' : 'Entrar'}</button>
-            <p className="field-hint">¿Aún no tienes contraseña? Entra con el enlace del correo y créala en Ajustes → Contraseña.</p>
+            <button className="primary lg" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
+            <p className="field-hint">¿Aún no tienes contraseña? Entra con el enlace del correo y créala en Ajustes → Cuenta → Contraseña.</p>
             <button type="button" className="link-btn small" onClick={() => switchMode(false)}>Entrar con un enlace por email</button>
           </form>
         ) : (
@@ -106,8 +108,8 @@ export default function Login() {
               <input id="login-email" type="email" autoComplete="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nombre@ejemplo.com" />
             </div>
             {error && <p className="error" role="alert">{error}</p>}
-            <button className="primary lg" disabled={busy || !email.trim()}>{busy ? 'Enviando…' : 'Enviarme un enlace para entrar'}</button>
-            <p className="field-hint">Recibirás un enlace (o un código) por email.</p>
+            <button className="primary lg" disabled={busy}>{busy ? 'Enviando…' : 'Enviarme un enlace para entrar'}</button>
+            <p className="field-hint">Te mandaremos un enlace al correo para entrar sin contraseña.</p>
             <button type="button" className="link-btn small" onClick={() => switchMode(true)}>Entrar con contraseña</button>
           </form>
         )}

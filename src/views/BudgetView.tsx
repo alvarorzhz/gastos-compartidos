@@ -35,7 +35,7 @@ export default function BudgetView(props: ViewProps) {
       <section className="card hero" aria-label={`Presupuesto de ${formatMonth(month)}`}>
         <div className="hero-top">
           <div className="hero-label">
-            <p className="stat-label">{left >= 0 || !hasBudget ? 'Presupuesto restante' : 'Por encima del presupuesto'}</p>
+            <p className="stat-label">{!hasBudget ? 'Gastado este mes' : left >= 0 ? 'Presupuesto restante' : 'Por encima del presupuesto'}</p>
             {status && (
               <span className={'status-pill status-' + status}>
                 <Icon name={status === 'ok' ? 'check' : 'alert'} size={15} />
@@ -43,9 +43,10 @@ export default function BudgetView(props: ViewProps) {
               </span>
             )}
           </div>
-          <p className={'stat-big' + (hasBudget && left < 0 ? ' negative' : '')}>{hasBudget ? formatEuros(Math.abs(left)) : '—'}</p>
+          <p className={'stat-big' + (hasBudget && left < 0 ? ' negative' : '')}>{formatEuros(hasBudget ? Math.abs(left) : sum.spentCents)}</p>
         </div>
         {sum.budgetCents > 0 && <Progress value={sum.budgetedSpentCents} max={sum.budgetCents} label="Presupuesto gastado" />}
+        {hasBudget && (
         <div className={'stat-grid' + (sum.budgetCents > 0 ? ' three' : '')}>
           <div className="stat-tile">
             <span className="stat-label">Presupuesto</span>
@@ -62,12 +63,13 @@ export default function BudgetView(props: ViewProps) {
             </div>
           )}
         </div>
+        )}
         {hasBudget && unbudgeted > 0 && (
           <p className="muted small">De lo gastado, {formatEuros(unbudgeted)} son de categorías sin presupuesto y no cuentan para el límite.</p>
         )}
         {!hasBudget && (
           <Notice>
-            Aún no hay presupuesto. Toca una categoría de abajo para ponerle un límite: se mantendrá los meses siguientes hasta que lo cambies.
+            Aún no tenéis presupuesto este mes. Toca una categoría de abajo para ponerle un límite: se mantendrá los meses siguientes hasta que lo cambies.
           </Notice>
         )}
         <div className="row wrap">

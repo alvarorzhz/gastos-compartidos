@@ -17,10 +17,10 @@ const reaction = (expense_id: string, user_id: string, extra: Partial<ExpenseRea
 
 describe('personColor', () => {
   it('usa el color elegido o, si no, el de siempre según el orden', () => {
-    const members = [member('a'), member('b', { color: 'coral' })];
+    const members = [member('a'), member('b', { color: 'blue' })];
     expect(personColor(members, 'a')).toBe('teal');
-    expect(personColor(members, 'b')).toBe('coral');
-    expect(personColor([member('a'), member('b')], 'b')).toBe('violet');
+    expect(personColor(members, 'b')).toBe('blue');
+    expect(personColor([member('a'), member('b')], 'b')).toBe('coral');
     expect(personColor(members, 'x')).toBe('none');
   });
 });
