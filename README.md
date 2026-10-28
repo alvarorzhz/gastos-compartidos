@@ -142,7 +142,7 @@ Pruebas:
 npm test                     # saldo, presupuestos, importes, tickets, extractos, compra, función avisar…
 npm run lint                 # revisión del código (ESLint, reglas de los hooks de React)
 npm run test:screens         # pruebas de pantallas con Playwright contra un Supabase de mentira
-deno check supabase/functions/avisar/index.ts   # tipos de la función avisar (necesita Deno)
+deno check --node-modules-dir=none supabase/functions/avisar/index.ts   # tipos de la función avisar (necesita Deno)
 DATABASE_URL=postgres://… scripts/test-db.sh   # migraciones + pruebas de acceso en un Postgres vacío
 ```
 

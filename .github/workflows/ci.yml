@@ -30,7 +30,7 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check --no-lock supabase/functions/avisar/index.ts
+      - run: deno check --no-lock --node-modules-dir=none supabase/functions/avisar/index.ts
 
   screens:
     runs-on: ubuntu-latest
