@@ -18,6 +18,13 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.17.1',
+    date: '2026-10-28',
+    changes: [
+      { kind: 'correccion', text: 'Los tickets de Carrefour (en PDF o en foto) ya se leen producto a producto: el precio va debajo del nombre, las cantidades como «2 x ( 1,99 )» y los descuentos del 3x2 o la 2ª unidad. Antes solo salía el total.' },
+    ],
+  },
+  {
     version: '3.17.0',
     date: '2026-10-28',
     changes: [
