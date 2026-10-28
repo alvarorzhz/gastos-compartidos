@@ -147,6 +147,8 @@ function lineAmounts(line: string): { amounts: number[]; negative: boolean; rest
   // El punto del último importe leído como dos puntos ("10:14").
   let l = line.replace(/(\d):(\d{2}[AB\d]?(?:\s+\S{1,3})*\s*)$/, '$1.$2').replace(/(\d[,.]\d{2}[AB\d]?)(?:\s+\S{1,3}|\s*[^\w\s]+)+\s*$/, '$1').replace(/\s+[AB]\s*$/, '').replace(/(\d[,.]\d{2})[\dB]\s*$/, '$1').replace(/(^|\s)[,.](\d{2})\s*$/, '$10,$2');
   const negative = /-\s*\d+[,.]\d{2}\s*$/.test(l);
+  // El signo pegado ("-9,59") no deja ver el importe: se quita, ya se sabe que es negativo.
+  if (negative) l = l.replace(/-\s*(?=\d+[,.]\d{2}\s*$)/, ' ');
   const amounts = amountsIn(l);
   // Lo que queda antes del primer importe es el nombre.
   const first = l.search(/\d+[,.]\d{2}(?!\d)/);
@@ -166,6 +168,8 @@ function cleanName(raw: string): { name: string; quantity: number } {
   }
   // Desde una mancha (". -") hasta el final, si solo quedan trocitos sueltos, es basura.
   s = s.replace(/\s+[^\sA-Za-z0-9ÁÉÍÓÚÑ%€]+(?:\s+(?:\S{1,2}|[^\sA-Za-z0-9]+))*$/, '');
+  // Códigos de oferta pegados al final ("CALDO CASERO POLLO 4T54", "GNOCCHI CON POLLO BD24").
+  s = s.replace(/\s+(?:\d[A-Z]\d{2}|BD\d{2})$/, '');
   let quantity = 1;
   const q = s.match(/^(\d{1,2})\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/);
   if (q) {
@@ -186,9 +190,19 @@ function findLines(lines: string[]): ReceiptLine[] {
   // La cabecera de columnas no lleva importes (si los lleva, es un producto con "UD" en el nombre).
   let start = norm.findIndex((l, i) => COLUMNS.test(l) || (HEADER.test(l) && !NOT_ITEM.test(l.replace(/importe|\bimp\./g, '')) && !amountsIn(lines[i]).length));
   if (start < 0) start = norm.findIndex((l) => /factura simplificada|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/.test(l));
+  const out = linesFrom(lines, norm, start);
+  // Sin cabecera, la primera fecha puede estar al final (Carrefour): entonces se lee desde arriba.
+  return out.length === 0 && start >= 0 ? linesFrom(lines, norm, -1) : out;
+}
+
+/** "2 x ( 1,99 )" entre el nombre y el importe de la línea (Carrefour): cantidad y precio por unidad. */
+const QTY_PAREN = /^\s*(\d{1,3})\s*[xX×*]\s*\(\s*\d+[,.]\d{2}\s*\)\s*$/;
+
+function linesFrom(lines: string[], norm: string[], start: number): ReceiptLine[] {
   const out: ReceiptLine[] = [];
   const qtyBelow = lines.some((l) => QTY_LINE.test(l));
   let pendingName: string | null = null;
+  let pendingQty: number | null = null;
   for (let i = start + 1; i < lines.length; i++) {
     // El total cierra la lista. Si aún no hay productos, es la cabecera de columnas mal leída ("TOTAL IA").
     if ((STRONG.test(norm[i]) && !/articulos|art\. vendidos/.test(norm[i])) || ITEM_COUNT.test(norm[i])) {
@@ -205,6 +219,11 @@ function findLines(lines: string[]): ReceiptLine[] {
       pendingName = cleanName(lineAmounts(lines[i].replace(/(\d)[,.](\d)/g, '$1·$2')).rest.replace(/·/g, '.')).name;
       continue;
     }
+    const paren = pendingName ? lines[i].match(QTY_PAREN) : null;
+    if (paren) {
+      pendingQty = Number(paren[1]) || 1;
+      continue;
+    }
     const { amounts, negative, rest } = lineAmounts(lines[i]);
     const cleaned = cleanName(rest);
     const name = cleaned.name;
@@ -214,14 +233,16 @@ function findLines(lines: string[]): ReceiptLine[] {
     if (amounts.length === 0) {
       // Nombre largo cuyo importe va en la línea siguiente (con "2 x 1,15").
       pendingName = letters(rest) >= 3 ? name : null;
+      pendingQty = null;
       continue;
     }
     const cents = amounts[amounts.length - 1] * (negative ? -1 : 1);
     if ((qtyLine || letters(name) < 3) && pendingName) {
       const m = lines[i].match(/(-?\d+(?:[,.]\d+)?)\s*[xX×*%]/) ?? lines[i].match(QTY);
-      const qty = m ? Math.abs(Number(m[1].replace(',', '.'))) || 1 : 1;
+      const qty = pendingQty ?? (m ? Math.abs(Number(m[1].replace(',', '.'))) || 1 : 1);
       out.push({ name: pendingName, cents, quantity: qty });
       pendingName = null;
+      pendingQty = null;
       continue;
     }
     pendingName = null;

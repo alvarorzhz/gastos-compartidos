@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bestReading, parseReceipt, type ReceiptGuess } from './receipt';
+import { CARREFOUR_TEXT } from './receipt.carrefour.fixture';
 import { LECLERC_OCR, LECLERC_TEXT } from './receipt.leclerc.fixture';
 
 const TODAY = '2026-10-13';
@@ -178,5 +179,18 @@ BEBIDA TE VERDE 1,32 A
     const guessed = { ...base, amountCents: 270, totalCertainty: 0, merchant: 'A sa AN', lines: [{ name: 'ANACARDO', cents: 270, quantity: 1 }] };
     expect(bestReading([fromPayment, guessed])).toMatchObject({ amountCents: 981, date: '2026-05-26', merchant: 'Mercadona', lines: guessed.lines });
     expect(bestReading([])).toBeNull();
+  });
+});
+
+describe('ticket de Carrefour en PDF', () => {
+  it('saca cada producto con el precio de la línea de debajo, las cantidades y los descuentos', () => {
+    const r = parseReceipt(CARREFOUR_TEXT, '2026-10-28');
+    expect(r).toMatchObject({ amountCents: 8238, date: '2026-10-27', merchant: 'Carrefour', linesMatchTotal: true });
+    expect(r.lines).toHaveLength(26);
+    expect(r.lines[0]).toEqual({ name: 'CALDO CARNE ANTEO 1L', cents: 459, quantity: 1 });
+    expect(r.lines).toContainEqual({ name: 'CALDO CASERO POLLO', cents: 434, quantity: 1 });
+    expect(r.lines).toContainEqual({ name: 'FIDEO GARBANZO 250G', cents: 398, quantity: 2 });
+    expect(r.lines).toContainEqual({ name: 'PALETA CEBO CAMPO', cents: 2877, quantity: 3 });
+    expect(r.lines.filter((l) => l.cents < 0).map((l) => l.cents)).toEqual([-959, -280]);
   });
 });
