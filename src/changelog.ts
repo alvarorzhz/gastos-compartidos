@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.18.0',
+    date: '2026-10-28',
+    changes: [
+      { kind: 'nuevo', text: 'La app se mueve más: al cambiar de sección las tarjetas y las filas aparecen una detrás de otra, las cifras grandes suben hasta su importe y las barras del presupuesto y los gráficos se llenan solas.' },
+      { kind: 'mejora', text: 'Pequeños detalles al tocar: el icono de la sección salta, el + gira, la pastilla de las opciones se desliza, al marcar algo de la compra la palomita se dibuja, y los avisos breves y la racha 🔥 tienen su propia animación.' },
+      { kind: 'mejora', text: 'Si en el móvil tienes activado «Reducir movimiento», la app respeta esa opción y lo enseña todo sin animar.' },
+    ],
+  },
+  {
     version: '3.17.1',
     date: '2026-10-28',
     changes: [

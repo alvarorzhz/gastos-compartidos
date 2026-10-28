@@ -92,6 +92,8 @@
   --shadow-3: 0 -8px 40px rgb(0 0 0 / 0.16);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur: 180ms;
+  /* Con un pequeño rebote al final, para lo que «salta» (iconos, pastillas, marcas) */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   --tabbar-h: 60px;
   --content-w: 640px;
@@ -400,6 +402,23 @@ select {
 .segmented label:has(input:focus-visible) { box-shadow: var(--focus); }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; min-height: 0; }
 .segmented-sm label { min-height: 34px; }
+/* La pastilla blanca de la opción elegida se desliza al cambiar (las opciones miden lo mismo). */
+.segmented-track { position: relative; }
+.segmented-track.has-pill::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  --seg-w: calc((100% - 6px - (var(--seg-n) - 1) * 2px) / var(--seg-n));
+  width: var(--seg-w);
+  left: calc(3px + var(--seg-i) * (var(--seg-w) + 2px));
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+  transition: left 260ms var(--ease);
+}
+.segmented-track.has-pill label { position: relative; z-index: 1; }
+.segmented-track.has-pill label.selected { background: transparent; box-shadow: none; }
 
 /* Rejilla de categorías para elegir */
 .category-picker { border: none; margin: 0; padding: 0; min-width: 0; }
@@ -481,6 +500,15 @@ select {
 
 .view { display: flex; flex-direction: column; gap: var(--s5); animation: view-in 220ms var(--ease); }
 @keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
+/* Al entrar en una pantalla, sus bloques aparecen uno detrás de otro. Sin «forwards», para no dejar
+   un transform puesto que descoloque los paneles que se abren dentro. */
+:where(.view > *, .home-col > *) { animation: rise-in 420ms var(--ease) backwards; }
+:where(.view > *:nth-child(2), .home-col > *:nth-child(2)) { animation-delay: 50ms; }
+:where(.view > *:nth-child(3), .home-col > *:nth-child(3)) { animation-delay: 100ms; }
+:where(.view > *:nth-child(4), .home-col > *:nth-child(4)) { animation-delay: 150ms; }
+:where(.view > *:nth-child(5), .home-col > *:nth-child(5)) { animation-delay: 200ms; }
+:where(.view > *:nth-child(n + 6), .home-col > *:nth-child(n + 6)) { animation-delay: 250ms; }
+@keyframes rise-in { from { opacity: 0; transform: translateY(12px); } }
 
 /* Barra inferior con el botón central de añadir */
 .tabbar {
@@ -510,6 +538,9 @@ select {
 .tab:active:not(:disabled) { transform: none; }
 .tab .icon { width: 24px; height: 24px; }
 .tab[aria-current='page'] { color: var(--accent); font-weight: 600; }
+/* El icono de la sección elegida da un saltito */
+.tab[aria-current='page'] .icon { animation: tab-pop 420ms var(--ease-spring); }
+@keyframes tab-pop { 0% { transform: scale(0.8) translateY(2px); } 55% { transform: scale(1.15) translateY(-2px); } 100% { transform: none; } }
 .tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tab-add { height: var(--tabbar-h); padding: 0; display: flex; align-items: center; justify-content: center; }
 .tab-add .add-circle {
@@ -525,6 +556,10 @@ select {
   transition: transform var(--dur) var(--ease);
 }
 .tab-add:active .add-circle { transform: translateY(-10px) scale(0.94); }
+/* El + gira un cuarto de vuelta al tocarlo o pasar el ratón */
+.tab-add .add-circle .icon { transition: transform 320ms var(--ease-spring); }
+.tab-add:active .add-circle .icon { transform: rotate(90deg); }
+@media (hover: hover) { .tab-add:hover .add-circle .icon { transform: rotate(90deg); } }
 .tab-add:focus-visible { box-shadow: none; }
 .tab-add:focus-visible .add-circle { box-shadow: var(--focus); }
 .tab-add .icon { width: 26px; height: 26px; stroke-width: 2.4; }
@@ -604,6 +639,15 @@ button.card { align-items: stretch; }
   border-top: 1px solid var(--separator);
 }
 .list.with-icons { --sep-inset: 4.1rem; }
+/* Las filas de las listas entran en cascada (las primeras; el resto, juntas) */
+:where(.list > li) { animation: rise-in 360ms var(--ease) backwards; }
+:where(.list > li:nth-child(2)) { animation-delay: 30ms; }
+:where(.list > li:nth-child(3)) { animation-delay: 60ms; }
+:where(.list > li:nth-child(4)) { animation-delay: 90ms; }
+:where(.list > li:nth-child(5)) { animation-delay: 120ms; }
+:where(.list > li:nth-child(6)) { animation-delay: 150ms; }
+:where(.list > li:nth-child(7)) { animation-delay: 180ms; }
+:where(.list > li:nth-child(n + 8)) { animation-delay: 210ms; }
 
 .row-item {
   display: flex;
@@ -692,6 +736,9 @@ button.row-main:active:not(:disabled) { transform: none; }
 
 .progress { height: 10px; background: var(--surface-3); border-radius: var(--r-full); overflow: hidden; }
 .progress > div { height: 100%; border-radius: var(--r-full); transition: width 400ms var(--ease); }
+/* Las barras se llenan de izquierda a derecha al aparecer */
+.progress > div, .hbar > div, .split-track > div { animation: fill-in 800ms 120ms var(--ease) backwards; }
+@keyframes fill-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 .progress-ok > div { background: var(--positive-fill); }
 .progress-warn > div { background: var(--warning-fill); }
 .progress-over > div { background: var(--negative-fill); }
@@ -733,6 +780,7 @@ button.row-main:active:not(:disabled) { transform: none; }
 .month-bars .bar { cursor: pointer; }
 .month-bars .bar-fill { fill: var(--accent); opacity: 0.35; transition: opacity var(--dur) var(--ease); }
 .month-bars .bar.selected .bar-fill { opacity: 1; }
+.month-bars .bar-fill { transform-box: fill-box; transform-origin: bottom; animation: grow-up 650ms var(--ease) backwards; }
 .month-bars .bar.over .bar-fill { fill: var(--negative-fill); }
 .month-bars .bar:focus-visible { outline: none; }
 .month-bars .bar:focus-visible .bar-fill { opacity: 1; stroke: var(--text); stroke-width: 1.5; }
@@ -817,6 +865,8 @@ button.row-main:active:not(:disabled) { transform: none; }
 .empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--s2); padding: var(--s8) var(--s4); }
 .empty-state > button { margin-top: var(--s2); }
 .empty-icon { width: 56px; height: 56px; border-radius: var(--r-full); display: grid; place-items: center; background: var(--surface-3); color: var(--text-2); margin-bottom: var(--s1); }
+.empty-icon .icon { animation: float 3.2s ease-in-out infinite; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 .empty-title { font-weight: 650; font-size: var(--fs-lg); }
 .empty-text { color: var(--text-2); font-size: var(--fs-sm); max-width: 22rem; }
 .card .empty-state, .list .empty-state { padding: var(--s6) var(--s4); }
@@ -952,6 +1002,8 @@ button.row-main:active:not(:disabled) { transform: none; }
   animation: toast-in 240ms var(--ease);
 }
 .toast-success .icon { color: var(--positive-fill); }
+.toast > .icon { animation: icon-pop 450ms 100ms var(--ease-spring) backwards; }
+@keyframes icon-pop { from { transform: scale(0) rotate(-30deg); } }
 .toast.with-action { pointer-events: auto; padding-right: var(--s2); }
 .toast-action { min-height: 36px; padding: 0 var(--s3); border-radius: var(--r-full); color: inherit; font-weight: 700; background: color-mix(in srgb, var(--bg) 14%, transparent); }
 .toast-error { background: var(--negative-fill); color: var(--on-fill); border-radius: var(--r-md); }
@@ -970,7 +1022,7 @@ button.row-main:active:not(:disabled) { transform: none; }
 .month-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); background: transparent; border: 1px solid var(--border); border-radius: var(--r-full); padding: 2px; }
 .month-nav .icon-btn { width: 40px; height: 40px; min-height: 40px; }
 .month-nav-label { display: flex; flex-direction: column; align-items: center; min-width: 0; line-height: 1.2; }
-.month-nav-label strong { font-size: var(--fs-md); }
+.month-nav-label strong { font-size: var(--fs-md); animation: fade-in 260ms ease-out; }
 .month-nav-label .link-btn { padding: 0; font-size: var(--fs-xs); }
 
 /* Inicio */
@@ -978,6 +1030,16 @@ button.row-main:active:not(:disabled) { transform: none; }
 .hero-top { display: flex; flex-direction: column; gap: var(--s1); }
 .hero-label { display: flex; justify-content: space-between; align-items: center; gap: var(--s2); flex-wrap: wrap; }
 .hero .stat-big { white-space: nowrap; font-size: clamp(2rem, 10vw, var(--fs-3xl)); }
+.status-pill { animation: icon-pop 450ms 350ms var(--ease-spring) backwards; }
+.streak > span:first-child { display: inline-block; transform-origin: bottom; animation: flame 1.8s ease-in-out infinite; }
+@keyframes flame { 0%, 100% { transform: scale(1) rotate(0); } 30% { transform: scale(1.12) rotate(-6deg); } 60% { transform: scale(0.96) rotate(4deg); } }
+/* Tarjetas que se pueden tocar: en ordenador se levantan un poco al pasar el ratón */
+@media (hover: hover) {
+  .card-link, .quick-action { transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), background-color var(--dur) var(--ease); }
+  .card-link:hover, .quick-action:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+}
+.quick-action .icon { transition: transform 320ms var(--ease-spring); }
+.quick-action:active .icon { transform: scale(1.2); }
 .hero-foot { display: flex; justify-content: space-between; gap: var(--s3); font-size: var(--fs-sm); color: var(--text-2); flex-wrap: wrap; }
 .hero-foot strong { color: var(--text); font-variant-numeric: tabular-nums; }
 .balance-card { flex-direction: row; align-items: center; gap: var(--s3); }
@@ -1189,6 +1251,11 @@ button.row-main:active:not(:disabled) { transform: none; }
 .shop-check .icon { stroke-width: 3; }
 .shop-toggle:hover:not(:disabled) .shop-check { border-color: var(--accent); }
 .shop-check.checked { background: var(--accent); border-color: var(--accent); color: var(--on-accent); transform: scale(1.08); }
+/* Al marcar: el círculo late y la palomita se dibuja */
+.shop-check.checked { animation: check-pop 360ms var(--ease-spring); }
+.shop-check.checked path { stroke-dasharray: 24; animation: draw-check 300ms 80ms ease-out backwards; }
+@keyframes check-pop { 0% { transform: scale(0.85); } 60% { transform: scale(1.22); } 100% { transform: scale(1.08); } }
+@keyframes draw-check { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
 .shop-name { font-size: var(--fs-md); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
 .shop-name > .icon { flex: none; }
 .shop-star { color: var(--warning-fill); fill: var(--warning-fill); }

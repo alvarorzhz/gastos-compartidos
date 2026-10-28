@@ -13,7 +13,7 @@ import { goalProgress } from '../lib/savings';
 import { monthForecast, type Forecast } from '../lib/forecast';
 import type { Expense } from '../lib/types';
 import { BalanceText } from './BalanceView';
-import { Avatar, CategoryIcon, celebrate, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, toast, type ViewProps, useMonth } from './common';
+import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, toast, type ViewProps, useMonth } from './common';
 import ExpenseForm from './ExpenseForm';
 import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
@@ -223,7 +223,7 @@ export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurre
           </span>
           )}
         </div>
-        <p className="stat-big">{formatEuros(spent)}</p>
+        <p className="stat-big"><CountUp cents={spent} /></p>
       </div>
       {budget > 0 ? (
         <>

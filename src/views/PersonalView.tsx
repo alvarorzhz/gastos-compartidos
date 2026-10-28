@@ -6,7 +6,7 @@ import { errorMessage, supabase } from '../lib/supabase';
 import { FREQUENCIES, frequencyText, monthlyEquivalent, nextDate, recurringDate } from '../lib/recurring';
 import type { PaymentPrefill } from '../lib/payments';
 import type { Frequency, PersonalEntry, PersonalRecurring } from '../lib/types';
-import { AmountField, capitalize, CategoryIcon, confirmAction, EmptyState, MonthNav, Notice, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
+import { AmountField, capitalize, CategoryIcon, CountUp, confirmAction, EmptyState, MonthNav, Notice, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
 import { PersonalBudgetSection, PersonalTrends } from './PersonalBudget';
@@ -39,7 +39,7 @@ export default function PersonalView(props: ViewProps) {
       <section className="card hero" aria-label="Tu mes">
         <div>
           <p className="stat-label">Te queda este mes</p>
-          <p className={'stat-big' + (sum.netCents < 0 ? ' negative' : '')}>{formatEuros(sum.netCents)}</p>
+          <p className={'stat-big' + (sum.netCents < 0 ? ' negative' : '')}><CountUp cents={sum.netCents} /></p>
         </div>
         <div className="stat-grid">
           <div className="stat-tile">

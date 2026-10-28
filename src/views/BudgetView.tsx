@@ -5,7 +5,7 @@ import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { AlertPercent } from '../lib/types';
-import { AmountField, CategoryIcon, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
+import { AmountField, CategoryIcon, CountUp, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import { MonthCloseSheet } from './MonthClose';
 import { hasStory, MonthRecap } from './MonthStory';
@@ -43,7 +43,7 @@ export default function BudgetView(props: ViewProps) {
               </span>
             )}
           </div>
-          <p className={'stat-big' + (hasBudget && left < 0 ? ' negative' : '')}>{formatEuros(hasBudget ? Math.abs(left) : sum.spentCents)}</p>
+          <p className={'stat-big' + (hasBudget && left < 0 ? ' negative' : '')}><CountUp cents={hasBudget ? Math.abs(left) : sum.spentCents} /></p>
         </div>
         {sum.budgetCents > 0 && <Progress value={sum.budgetedSpentCents} max={sum.budgetCents} label="Presupuesto gastado" />}
         {hasBudget && (
