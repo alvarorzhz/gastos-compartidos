@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.16.0',
+    date: '2026-10-28',
+    changes: [
+      { kind: 'nuevo', text: 'Errores de la app: si algo falla en el móvil de alguno de los dos, se apunta y lo veis en Ajustes → Tus datos → Errores de la app. Así se puede arreglar aunque nadie se acuerde de contarlo.' },
+      { kind: 'mejora', text: 'Si una pantalla falla al abrirse, ya no se queda en blanco: te lo explica y puedes volver a cargar la app.' },
+      { kind: 'mejora', text: 'Más pruebas automáticas antes de cada versión: los avisos al móvil, los gastos apuntados sin conexión, saldar, presupuestos, viajes, Personal y terminar la compra.' },
+    ],
+  },
+  {
     version: '3.15.0',
     date: '2026-10-27',
     changes: [

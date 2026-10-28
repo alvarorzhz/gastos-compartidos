@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { downloadFile } from '../lib/csv';
+import type { AppError } from '../lib/errorLog';
 import { describeChange, groupByDay, type ExpenseChange } from '../lib/history';
+import { nameOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
-import { Notice, toast, type ViewProps } from './common';
+import { confirmAction, Notice, toast, type ViewProps } from './common';
 import { Icon } from './icons';
 
 const PAGE = 15;
@@ -141,6 +143,69 @@ export function Backups() {
         </ul>
       )}
       <p className="note">Cada lunes el servidor guarda una copia de todo y se quedan las 8 últimas (dos meses). Si algún día se borra algo por error, se puede recuperar desde aquí.</p>
+    </section>
+  );
+}
+
+/** Ajustes → Errores de la app: lo que ha fallado en el móvil de alguno de los dos (últimos 90 días). */
+export function AppErrors({ data, me }: ViewProps) {
+  const [errors, setErrors] = useState<AppError[] | null | undefined>(undefined);
+  const [open, setOpen] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    const { data: rows, error } = await supabase
+      .from('app_errors')
+      .select('*')
+      .order('happened_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(30);
+    setErrors(error ? null : (rows as AppError[]));
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function clearAll() {
+    const ok = await confirmAction({ title: '¿Borrar la lista de errores?', message: 'Solo se borra esta lista; tus datos no se tocan.', confirmLabel: 'Borrar', danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from('app_errors').delete().gte('id', 0);
+    if (error) return toast(errorMessage(error), 'error');
+    toast('Lista de errores borrada');
+    await load();
+  }
+
+  return (
+    <section className="settings-group" aria-labelledby="set-errors">
+      <h2 id="set-errors">Errores de la app</h2>
+      {errors === null && <Notice icon="clock">Se activará en cuanto se actualice el servidor.</Notice>}
+      {errors && errors.length === 0 && <Notice icon="check">Ningún error en los últimos 90 días. Todo va bien.</Notice>}
+      {errors && errors.length > 0 && (
+        <ul className="list with-icons">
+          {errors.map((e) => {
+            const when = new Date(e.happened_at).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const meta = [when, nameOf(data.members, e.user_id, me), e.place, e.app_version && 'versión ' + e.app_version].filter(Boolean).join(' · ');
+            return (
+              <li key={e.id}>
+                <button className="row-item" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>
+                  <span className="icon-tile"><Icon name="alert" /></span>
+                  <span className="row-main">
+                    <span className="row-title error-message">{e.message}</span>
+                    <span className="row-meta">{meta}</span>
+                  </span>
+                </button>
+                {open === e.id && (
+                  <pre className="error-detail">{[e.detail, e.device].filter(Boolean).join('\n\n') || 'Sin más detalle.'}</pre>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {errors && errors.length > 0 && (
+        <button className="link-btn small" onClick={() => void clearAll()}>Borrar la lista</button>
+      )}
+      <p className="note">Si algo falla en el móvil de alguno de los dos, la app lo apunta aquí para poder arreglarlo. No se apuntan los fallos por falta de conexión.</p>
     </section>
   );
 }

@@ -1602,3 +1602,7 @@ span.cancel-check { display: inline-block; }
 .appbar-hello h1 { font-size: var(--fs-xl); white-space: normal; line-height: 1.2; }
 .profile-card fieldset { border: none; padding: 0; margin: 0; min-width: 0; }
 .profile-card legend { padding: 0; margin-bottom: var(--s2); }
+
+/* Ajustes → Errores de la app */
+.error-message { overflow-wrap: anywhere; }
+.error-detail { margin: 0 var(--s3) var(--s3); padding: var(--s3); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }

@@ -86,6 +86,7 @@ function sheetName(name: string): string {
 
 function escapeXml(s: string): string {
   return s
+    // eslint-disable-next-line no-control-regex -- quita los caracteres de control que no caben en un Excel.
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

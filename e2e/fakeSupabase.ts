@@ -62,6 +62,10 @@ export function sampleData(): Tables {
         old_row: expense('e-borrado', 1800, 'Farmacia', 'c-casa', BEA), new_row: null },
       { id: 1, household_id: HOME, expense_id: 'e-1', action: 'insert', changed_by: ANA, changed_at: iso(now), old_row: null, new_row: expense('e-1', 5420, 'Mercadona', 'c-super', ANA) },
     ],
+    app_errors: [
+      { id: 1, household_id: HOME, user_id: BEA, happened_at: iso(now), message: "Cannot read properties of undefined (reading 'id')",
+        detail: 'TypeError: Cannot read properties of undefined\n    at ExpenseRow', place: 'gastos', app_version: '3.15.0', device: 'iPhone de Bea' },
+    ],
     backups: [{ id: 1, household_id: HOME, user_id: null, taken_at: iso(now), data: { expenses: [] } }],
   };
 }
@@ -70,6 +74,8 @@ export interface Fake {
   tables: Tables;
   /** Lo que la app ha pedido escribir, en orden: "POST expenses", "rpc restore_expense"… */
   writes: { what: string; body: unknown }[];
+  /** true = el móvil se queda sin conexión: cada petición falla como sin red. */
+  offline: boolean;
 }
 
 function fakeJwt(sub: string): string {
@@ -125,7 +131,7 @@ async function handleRest(route: Route, fake: Fake) {
   fake.writes.push({ what: `${method} ${path}`, body });
   if (method === 'POST') {
     const added = (Array.isArray(body) ? body : [body ?? {}]).map((r) => ({
-      id: `nuevo-${fake.writes.length}`, household_id: HOME, created_at: iso(new Date()), updated_at: iso(new Date()), created_by: ANA, ...r,
+      id: `nuevo-${fake.writes.length}`, household_id: HOME, user_id: ANA, created_at: iso(new Date()), updated_at: iso(new Date()), created_by: ANA, ...r,
     }));
     rows.push(...added);
     return json(wantsObject ? added[0] : added, 201);
@@ -138,7 +144,7 @@ async function handleRest(route: Route, fake: Fake) {
 
 /** Abre la app con la sesión de Ana ya iniciada (o sin sesión) contra el Supabase de mentira. */
 export async function openApp(page: Page, { loggedIn = true, tables = sampleData() } = {}): Promise<Fake> {
-  const fake: Fake = { tables, writes: [] };
+  const fake: Fake = { tables, writes: [], offline: false };
   const session = {
     access_token: fakeJwt(ANA), refresh_token: 'refresco', token_type: 'bearer', expires_in: 3600 * 24 * 365,
     expires_at: 4102444800, user,
@@ -153,6 +159,7 @@ export async function openApp(page: Page, { loggedIn = true, tables = sampleData
   }, [loggedIn ? JSON.stringify(session) : null, version]);
 
   await page.route('https://example.supabase.co/**', async (route) => {
+    if (fake.offline) return route.abort('internetdisconnected');
     const path = new URL(route.request().url()).pathname;
     if (path.startsWith('/rest/v1/')) return handleRest(route, fake);
     if (path.startsWith('/auth/v1/user')) return route.fulfill({ json: user });

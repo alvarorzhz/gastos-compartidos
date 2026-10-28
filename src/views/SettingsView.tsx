@@ -11,7 +11,7 @@ import PasswordSettings from './PasswordSettings';
 import PushSettings from './PushSettings';
 import AutomationStatus from './AutomationStatus';
 import ApplePaySettings from './ApplePaySettings';
-import { Backups, ChangeHistory } from './DataSafety';
+import { AppErrors, Backups, ChangeHistory } from './DataSafety';
 import { VersionCard } from './WhatsNew';
 
 type SettingsPage = 'vosotros' | 'avisos' | 'datos' | 'cuenta';
@@ -20,7 +20,7 @@ type SettingsPage = 'vosotros' | 'avisos' | 'datos' | 'cuenta';
 const PAGES: { id: SettingsPage; title: string; meta: string; icon: IconName }[] = [
   { id: 'vosotros', title: 'Vosotros', meta: 'Nombres, tu perfil, tu pareja y categorías', icon: 'users' },
   { id: 'avisos', title: 'Avisos y automático', meta: 'Avisos en el móvil, Apple Pay y lo que la app hace sola', icon: 'bell' },
-  { id: 'datos', title: 'Tus datos', meta: 'Exportar, copias de seguridad e historial de cambios', icon: 'download' },
+  { id: 'datos', title: 'Tus datos', meta: 'Exportar, copias, historial de cambios y errores', icon: 'download' },
   { id: 'cuenta', title: 'Cuenta', meta: 'Contraseña, instalar en el móvil, cerrar sesión y borrar', icon: 'user' },
 ];
 
@@ -166,6 +166,8 @@ function DataPage(props: ViewProps) {
       <Backups />
 
       <ChangeHistory {...props} />
+
+      <AppErrors {...props} />
     </>
   );
 }

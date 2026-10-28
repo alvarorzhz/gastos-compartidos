@@ -30,7 +30,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 const euros = new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' });
-const fmt = (cents: number) => euros.format(Math.round(cents) / 100);
+export const fmt = (cents: number) => euros.format(Math.round(cents) / 100);
 
 /** Solo se avisa de gastos recién apuntados (la app llama justo después de guardarlos). */
 const FRESH_MS = 15 * 60 * 1000;
@@ -45,7 +45,7 @@ interface Sub {
   notify_summary?: boolean;
 }
 
-interface Message {
+export interface Message {
   title: string;
   body: string;
   tag: string;
@@ -97,7 +97,30 @@ async function send(admin: SupabaseClient, subs: Sub[], message: Message) {
   );
 }
 
-Deno.serve(async (req) => {
+/** Lo que manda quien llama: JSON normalmente; el atajo del iPhone también puede mandar un formulario. */
+export function parseBody(raw: string): Record<string, unknown> {
+  try {
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return Object.fromEntries(new URLSearchParams(raw));
+  }
+}
+
+/** El aviso a la pareja de lo que se acaba de apuntar. */
+export function expenseMessage(name: string, expenses: NewExpense[], categoryName: (id: string) => string | undefined): Message {
+  const total = expenses.reduce((t, e) => t + e.amount_cents, 0);
+  return expenses.length === 1
+    ? {
+      title: `${name} apuntó ${fmt(total)}`,
+      body: [expenses[0].note, categoryName(expenses[0].category_id)].filter(Boolean).join(' · '),
+      tag: 'gasto-' + expenses[0].id,
+      url: '/#gastos',
+    }
+    : { title: `${name} apuntó ${expenses.length} gastos`, body: `En total, ${fmt(total)}`, tag: 'gastos-' + expenses[0].id, url: '/#gastos' };
+}
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
@@ -111,15 +134,7 @@ Deno.serve(async (req) => {
     }
     if (req.method !== 'POST') return json({ error: 'Método no permitido' }, 405);
 
-    // JSON normalmente; el atajo del iPhone también puede mandar un formulario.
-    const raw = await req.text().catch(() => '');
-    // deno-lint-ignore no-explicit-any
-    let body: any = {};
-    try {
-      body = (raw ? JSON.parse(raw) : null) ?? {};
-    } catch {
-      body = Object.fromEntries(new URLSearchParams(raw));
-    }
+    const body = parseBody(await req.text().catch(() => ''));
 
     // El trabajo de cada mañana: se presenta con la clave de la tabla automation.
     if (body?.daily) {
@@ -193,18 +208,7 @@ Deno.serve(async (req) => {
     // 1. A la pareja: qué se ha apuntado.
     const partnerSubs = subs.filter((s) => s.user_id !== user.id && s.notify_expenses);
     if (partnerSubs.length) {
-      const name = member.display_name as string;
-      const total = expenses.reduce((t, e) => t + e.amount_cents, 0);
-      const message: Message =
-        expenses.length === 1
-          ? {
-            title: `${name} apuntó ${fmt(total)}`,
-            body: [expenses[0].note, categoryOf.get(expenses[0].category_id)?.name].filter(Boolean).join(' · '),
-            tag: 'gasto-' + expenses[0].id,
-            url: '/#gastos',
-          }
-          : { title: `${name} apuntó ${expenses.length} gastos`, body: `En total, ${fmt(total)}`, tag: 'gastos-' + expenses[0].id, url: '/#gastos' };
-      await send(admin, partnerSubs, message);
+      await send(admin, partnerSubs, expenseMessage(member.display_name as string, expenses, (id) => categoryOf.get(id)?.name));
       sent += partnerSubs.length;
     }
 
@@ -216,7 +220,10 @@ Deno.serve(async (req) => {
     console.error(err);
     return json({ error: 'No se han podido enviar los avisos' }, 500);
   }
-});
+}
+
+// En las pruebas (Vitest) no hay Deno: solo se prueban las funciones de abajo.
+if (typeof Deno !== 'undefined') Deno.serve(handle);
 
 /** Avisa a la pareja de tu reacción a un gasto: "Ana: ❤️ «¡Repetimos!»" sobre "Cena japonés · 38,50 €". */
 async function reactionNotice(admin: SupabaseClient, userId: string, expenseId: string): Promise<number> {
@@ -248,10 +255,10 @@ async function reactionNotice(admin: SupabaseClient, userId: string, expenseId: 
 }
 
 /** Texto de un campo del atajo (el iPhone puede mandar número, texto o nada). */
-const field = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
+export const field = (v: unknown) => (typeof v === 'string' ? v : typeof v === 'number' ? String(v) : '');
 
 /** Guarda el pago que manda el atajo y avisa a quien pagó para que lo confirme. */
-async function receivePayment(admin: SupabaseClient, key: string, body: Record<string, unknown>) {
+async function receivePayment(admin: SupabaseClient, key: string, body: Record<string, unknown>): Promise<Response> {
   const { data, error } = await admin.rpc('receive_payment', {
     p_key: key,
     p_amount: field(body.importe ?? body.amount),
@@ -275,12 +282,12 @@ async function receivePayment(admin: SupabaseClient, key: string, body: Record<s
 }
 
 /** "2026-10-01" → "2026-11-01" */
-function addMonth(month: string): string {
+export function addMonth(month: string): string {
   const [y, m] = month.split('-').map(Number);
   return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
 }
 
-interface NewExpense {
+export interface NewExpense {
   id: string;
   amount_cents: number;
   spent_on: string;
@@ -288,7 +295,7 @@ interface NewExpense {
   note: string | null;
 }
 
-type CategoryInfo = { name: string; alert_percent: number | null; archived?: boolean };
+export type CategoryInfo = { name: string; alert_percent: number | null; archived?: boolean };
 
 /** Avisa a `subs` de los presupuestos que, con estos gastos, han llegado a su aviso o al límite. */
 async function budgetAlerts(admin: SupabaseClient, h: string, expenses: NewExpense[], categoryOf: Map<string, CategoryInfo>, subs: Sub[]) {
@@ -318,17 +325,25 @@ async function budgetAlerts(admin: SupabaseClient, h: string, expenses: NewExpen
       admin.from('expenses').select('amount_cents').eq('household_id', h).eq('category_id', categoryId)
         .gte('spent_on', month).lt('spent_on', addMonth(month)).order('id').range(from, to));
     const after = monthRows.reduce((t, r) => t + r.amount_cents, 0);
-    const before = after - added;
-    const crossed = (pct: number) => before * 100 < limit * pct && after * 100 >= limit * pct;
-    const percent = Math.floor((after * 100) / limit);
-    let body: string | null = null;
-    if (after > limit && before <= limit) body = `Os habéis pasado del presupuesto: ${fmt(after)} de ${fmt(limit)} (${percent} %).`;
-    else if (crossed(category.alert_percent)) body = `Lleváis el ${percent} % del presupuesto: ${fmt(after)} de ${fmt(limit)}.`;
+    const body = budgetAlertText(after - added, after, limit, category.alert_percent);
     if (!body) continue;
     await send(admin, subs, { title: category.name, body, tag: 'presupuesto-' + key, url: '/#presupuesto' });
     sent += subs.length;
   }
   return sent;
+}
+
+/**
+ * El texto del aviso de presupuesto si, al pasar de `before` a `after` céntimos gastados, se ha
+ * cruzado el límite o el % de aviso de la categoría. null = no hay que avisar.
+ */
+export function budgetAlertText(before: number, after: number, limit: number, alertPercent: number): string | null {
+  if (limit <= 0) return null;
+  const crossed = (pct: number) => before * 100 < limit * pct && after * 100 >= limit * pct;
+  const percent = Math.floor((after * 100) / limit);
+  if (after > limit && before <= limit) return `Os habéis pasado del presupuesto: ${fmt(after)} de ${fmt(limit)} (${percent} %).`;
+  if (crossed(alertPercent)) return `Lleváis el ${percent} % del presupuesto: ${fmt(after)} de ${fmt(limit)}.`;
+  return null;
 }
 
 /** Todas las filas de una consulta, de mil en mil (Supabase devuelve como mucho mil de una vez). */
@@ -343,23 +358,23 @@ async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data
 }
 
 /** Fecha de hoy en España, "YYYY-MM-DD". */
-function madridDate(d: Date): string {
+export function madridDate(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' }).format(d);
 }
 
-function addDaysIso(iso: string, days: number): string {
+export function addDaysIso(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-const monthName = (month: string) => {
+export const monthName = (month: string) => {
   const [y, m] = month.split('-').map(Number);
   const s = new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString('es-ES', { month: 'long', timeZone: 'UTC' });
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
 /** Lista "a, b y c". */
-const joinList = (items: string[]) => (items.length <= 1 ? items.join('') : items.slice(0, -1).join(', ') + ' y ' + items[items.length - 1]);
+export const joinList = (items: string[]) => (items.length <= 1 ? items.join('') : items.slice(0, -1).join(', ') + ' y ' + items[items.length - 1]);
 
 /** ¿Se manda este resumen? Solo una vez por espacio y periodo, aunque el trabajo se repita. */
 async function firstTime(admin: SupabaseClient, h: string, kind: 'week' | 'month', period: string) {
@@ -494,6 +509,16 @@ async function balanceText(admin: SupabaseClient, h: string, members: { user_id:
     admin.from('expenses').select('amount_cents, owed_cents, paid_by').eq('household_id', h).order('id').range(from, to));
   const settlements = await allRows<{ amount_cents: number; from_user: string; to_user: string }>((from, to) =>
     admin.from('settlements').select('amount_cents, from_user, to_user').eq('household_id', h).order('id').range(from, to));
+  return balanceSentence(a, b, expenses, settlements);
+}
+
+/** El saldo entre `a` y `b` dicho en una frase, a partir de todos los gastos y reembolsos. */
+export function balanceSentence(
+  a: { user_id: string; display_name: string },
+  b: { user_id: string; display_name: string },
+  expenses: { amount_cents: number; owed_cents: number | null; paid_by: string }[],
+  settlements: { amount_cents: number; from_user: string; to_user: string }[],
+): string {
   let owedToA = 0; // lo que b le debe a a
   for (const e of expenses) {
     const owed = e.owed_cents ?? e.amount_cents / 2;

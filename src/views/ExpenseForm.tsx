@@ -98,6 +98,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   // Pago con Apple Pay: la tienda rellena lo de otras veces, como si se hubiera escrito.
   useEffect(() => {
     if (prefill?.note) suggestFrom(prefill.note);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al abrir el formulario.
   }, []);
 
   function changeNote(text: string) {

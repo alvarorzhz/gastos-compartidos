@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { greeting } from './lib/couple';
 import type { Member } from './lib/types';
+import { setErrorContext } from './lib/errorLog';
 import { isOfflineError, useQueuedVersion, withQueued } from './lib/expenseOutbox';
 import { useHideSplash, useKeepSplash } from './lib/splash';
 import { isConfigured, storedSession, supabase } from './lib/supabase';
@@ -119,6 +120,12 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [lastView, setLastView] = useState<Record<string, View>>({});
   const [adding, setAdding] = useState(false);
   const [closeDismissed, setCloseDismissed] = useState(false);
+  const householdId = state.status === 'ready' ? state.data.household.id : null;
+
+  // Los errores de la app se apuntan con quién y en qué espacio (Ajustes → Errores de la app).
+  useEffect(() => {
+    setErrorContext(userId, householdId);
+  }, [userId, householdId]);
 
   useEffect(() => {
     if (location.hash.slice(1) !== view) history.replaceState(null, '', '#' + view);
