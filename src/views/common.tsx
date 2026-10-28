@@ -1,7 +1,9 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { categoryStyle } from '../lib/categoryStyle';
 import { personColor } from '../lib/couple';
 import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
+import { formatEuros } from '../lib/money';
+import { prefersReducedMotion, tweenCents } from '../lib/motion';
 import type { Member } from '../lib/types';
 import type { HouseholdData } from '../lib/useHousehold';
 import { Icon, type IconName } from './icons';
@@ -115,7 +117,7 @@ export function MonthNav({ month, onChange }: { month: string; onChange: (m: str
         <Icon name="chevronLeft" />
       </button>
       <div className="month-nav-label">
-        <strong aria-live="polite">{formatMonth(month)}</strong>
+        <strong key={month} aria-live="polite">{formatMonth(month)}</strong>
         {month !== current && (
           <button type="button" className="link-btn small" onClick={() => onChange(current)}>Volver a este mes</button>
         )}
@@ -138,10 +140,13 @@ export function Segmented<T extends string>({ legend, value, options, onChange, 
   size?: 'sm';
 }) {
   const name = useId();
+  const selected = options.findIndex((o) => o.value === value);
+  // La pastilla de la opción elegida se desliza de una a otra (styles.css → .segmented-track::before).
+  const pill = { '--seg-n': options.length, '--seg-i': selected } as CSSProperties;
   return (
     <fieldset className={'segmented' + (size ? ' segmented-' + size : '')}>
       <legend className={hideLegend ? 'sr-only' : 'field-label'}>{legend}</legend>
-      <div className="segmented-track">
+      <div className={'segmented-track' + (selected >= 0 ? ' has-pill' : '')} style={pill}>
         {options.map((o) => (
           <label key={o.value} className={value === o.value ? 'selected' : ''}>
             <input type="radio" name={name} checked={value === o.value} onChange={() => onChange(o.value)} />
@@ -200,6 +205,35 @@ export function Progress({ value, max, label, tone }: { value: number; max: numb
       <div style={{ width: `${Math.max(0, Math.min(ratio, 1)) * 100}%` }} />
     </div>
   );
+}
+
+/* ───────────── Cifras que suben ───────────── */
+
+/**
+ * Importe que «sube» hasta su valor al aparecer y al cambiar (de lo que había al nuevo).
+ * Con «reducir movimiento» en el móvil sale directamente.
+ */
+export function CountUp({ cents, ms = 700 }: { cents: number; ms?: number }) {
+  const [shown, setShown] = useState(() => (prefersReducedMotion() ? cents : 0));
+  const current = useRef(shown);
+  current.current = shown;
+  useEffect(() => {
+    const from = current.current;
+    if (from === cents || prefersReducedMotion() || typeof requestAnimationFrame === 'undefined') {
+      setShown(cents);
+      return;
+    }
+    let frame = 0;
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = (now - start) / ms;
+      setShown(tweenCents(from, cents, t));
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [cents, ms]);
+  return <>{formatEuros(shown)}</>;
 }
 
 /* ───────────── Estados vacíos, avisos y carga ───────────── */
