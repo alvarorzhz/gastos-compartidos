@@ -12,13 +12,15 @@ import { addedText } from './ExpenseRow';
 import { Icon } from './icons';
 import ScanReceipt from './ScanReceipt';
 import { deleteWithUndo } from './undo';
-import type { ReceiptGuess } from '../lib/receipt';
+import type { ReceiptGuess, ReceiptLine } from '../lib/receipt';
 import { currentEvent, eventDates, selectableEvents } from '../lib/events';
 import { isOfflineError, isQueued, queueExpense, removeQueued, updateQueued } from '../lib/expenseOutbox';
 import { habituals, type Habitual } from '../lib/favorites';
 import { notifyNewExpenses } from '../lib/push';
-import { formatQuantity } from '../lib/shopping';
-import { ShoppingItemsContext } from '../lib/useShopping';
+import { currentBought, formatQuantity } from '../lib/shopping';
+import { matchTicket, prettyTicketName, ticketNewItems } from '../lib/shoppingPrices';
+import { ShoppingContext, ShoppingItemsContext } from '../lib/useShopping';
+import { TicketItems } from './shopping/TicketItems';
 import { suggestForNote } from '../lib/suggest';
 import type { PaymentPrefill } from '../lib/payments';
 
@@ -60,6 +62,12 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const [moreOpen, setMoreOpen] = useState((source != null && split.mode !== 'equal') || frequency !== '');
 
   const [scanned, setScanned] = useState<string | null>(null);
+  // Productos del ticket escaneado: se guardan en la compra con su precio (los de la lista y los nuevos).
+  const shopping = useContext(ShoppingContext);
+  const [ticketLines, setTicketLines] = useState<ReceiptLine[]>([]);
+  const [saveTicket, setSaveTicket] = useState(false);
+  const [ticketSkipped, setTicketSkipped] = useState<Set<number>>(new Set());
+  const [ticketNames, setTicketNames] = useState<Record<number, string>>({});
   // Viaje o evento: los gastos nuevos van solos al que esté en curso.
   const [eventId, setEventId] = useState(() => (template ? '' : expense ? expense.event_id ?? '' : currentEvent(data.events, today())?.id ?? ''));
   const events = template ? [] : selectableEvents(data.events, eventId);
@@ -68,6 +76,14 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   // Si el gasto se apuntó al terminar una compra: lo que se compró.
   const shoppingItems = useContext(ShoppingItemsContext);
   const boughtHere = expense ? shoppingItems.filter((i) => i.expense_id === expense.id) : [];
+  const listItems = shopping ? [...shopping.items.filter((i) => i.status === 'pending' && !i.unsaved), ...currentBought(shopping.items.filter((i) => !i.unsaved))] : [];
+  const ticketMatches = shopping ? matchTicket(listItems, ticketLines, shopping.items) : [];
+  const ticketFresh = shopping ? ticketNewItems(ticketLines, new Set(ticketMatches.map((m) => m.line)), shopping.items) : [];
+  const ticketRows = [
+    ...ticketMatches.map((m) => ({ key: m.line, name: prettyTicketName(ticketLines[m.line].name), cents: ticketLines[m.line].cents, listName: listItems.find((i) => i.id === m.itemId)?.name })),
+    ...ticketFresh.map((f) => ({ key: f.line, name: f.name, cents: f.cents })),
+  ].sort((a, b) => a.key - b.key);
+  const ticketCount = ticketRows.filter((r) => !ticketSkipped.has(r.key)).length;
   // Lo que se elige a mano no lo vuelve a cambiar la propuesta del concepto.
   const touched = useRef({ category: false, paidBy: false, split: false });
   const [suggested, setSuggested] = useState<string | null>(null);
@@ -143,6 +159,12 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     // Si esa tienda ya se apuntó otras veces, manda lo de otras veces.
     if (g.merchant && !note.trim()) suggestFrom(g.merchant);
     setScanned(`He rellenado: ${filled.join(', ')}. Revísalo antes de guardar.`);
+    // Los productos van a la compra si es un súper o si trae cosas de la lista.
+    const lines = g.lines.filter((l) => l.cents > 0);
+    setTicketLines(g.lines);
+    setTicketSkipped(new Set());
+    setTicketNames({});
+    setSaveTicket(lines.length > 0 && (g.categoryName === 'Supermercado' || (shopping != null && matchTicket(listItems, g.lines, shopping.items).length > 0)));
   }
 
   const payers = data.members.map((m) => m.user_id);
@@ -228,9 +250,27 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     if (error) return setError(errorMessage(error));
     notifyNewExpenses([row.id]);
     onSaved?.();
+    const ticketSaved = await saveTicketItems(row.id);
     await reload();
-    toast('Gasto guardado');
+    toast(ticketSaved ? `Gasto guardado y ${ticketSaved} ${ticketSaved === 1 ? 'producto' : 'productos'} con su precio en la compra` : 'Gasto guardado');
     onClose();
+  }
+
+  /** Guarda en la compra los productos del ticket marcados. Devuelve cuántos (0 si no hay o falla). */
+  async function saveTicketItems(expenseId: string): Promise<number> {
+    if (!shopping || !saveTicket || ticketCount === 0) return 0;
+    const on = (key: number) => !ticketSkipped.has(key);
+    const existing = Object.fromEntries(ticketMatches.filter((m) => on(m.line)).map((m) => [m.itemId, { cents: ticketLines[m.line].cents, ticketName: ticketLines[m.line].name }]));
+    const newItems = ticketFresh.filter((f) => on(f.line)).map((f) => ({
+      id: crypto.randomUUID(), name: (ticketNames[f.line] ?? '').trim() || f.name,
+      quantity: f.quantity, category: f.category, cents: f.cents, ticketName: f.ticketName,
+    }));
+    const r = await shopping.recordTicket({ expenseId, existing, newItems });
+    if (!r.ok) {
+      toast(`El gasto está guardado, pero no los productos del ticket: ${r.message}`, 'info', { ms: 5000 });
+      return 0;
+    }
+    return ticketCount;
   }
 
   async function remove() {
@@ -358,6 +398,30 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
 
         {!source && <ScanReceipt onResult={applyScan} />}
         {scanned && <Notice kind="success">{scanned}</Notice>}
+        {!source && !frequency && shopping && ticketRows.length > 0 && (
+          <div className="card stack-sm">
+            <label className="check-line">
+              <input type="checkbox" checked={saveTicket} onChange={(e) => setSaveTicket(e.target.checked)} />
+              <span className="strong">Guardar los productos en la compra ({ticketCount})</span>
+            </label>
+            <p className="field-hint">
+              Cada uno con su precio: lo que está en tu lista se marca como comprado y lo demás se añade nuevo. Así la app sabe lo que cuesta cada cosa y dónde sale más barato.
+            </p>
+            {saveTicket && (
+              <TicketItems
+                rows={ticketRows}
+                skipped={ticketSkipped}
+                names={ticketNames}
+                onToggle={(key) => setTicketSkipped((prev) => {
+                  const next = new Set(prev);
+                  if (!next.delete(key)) next.add(key);
+                  return next;
+                })}
+                onRename={(key, name) => setTicketNames((prev) => ({ ...prev, [key]: name }))}
+              />
+            )}
+          </div>
+        )}
 
         <div className="field">
           <label className="field-label" htmlFor={formId + '-note'}>Concepto <span className="faint">(opcional)</span></label>

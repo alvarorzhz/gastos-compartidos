@@ -197,3 +197,65 @@ test('Ajustes: errores de la app, verlos, borrarlos y apuntar uno nuevo', async 
   await page.evaluate(() => setTimeout(() => { throw new Error('Fallo de prueba'); }));
   await expect.poll(() => fake.writes.find((w) => w.what === 'POST app_errors')?.body).toMatchObject([{ message: 'Fallo de prueba', place: 'ajustes' }]);
 });
+
+/** PDF sencillo con texto (como el ticket de la app de la tienda): cada fila, sus trozos en columnas. */
+function ticketPdf(rows: string[][]): Buffer {
+  const text = rows.flatMap((parts, row) => parts.map((p, i) => `BT /F1 10 Tf ${20 + i * 200} ${780 - row * 14} Td (${p}) Tj ET`)).join('\n');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets: number[] = [];
+  objects.forEach((o, i) => {
+    offsets.push(pdf.length);
+    pdf += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(pdf, 'latin1');
+}
+
+const leclercTicket = () => ticketPdf([
+  ['E.Leclerc'], ['Caja 005-0160 2026-10-27 18:43'], ['TOTAL', 'IVA'],
+  ['LECHE ENTERA 1L', '0.89', '1'], ['ANACARDO TOST 0% SAL', '2.99', '2'],
+  ['Total 2 Articulos', '3.88'], ['Tarjeta', '3.88'], ['IMPORTE:', '3,88 EUR'],
+]);
+
+test('compra: el ticket guarda el precio de lo de la lista y añade lo nuevo', async ({ page }) => {
+  const fake = await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Compra', exact: true }).click();
+  await page.getByRole('button', { name: 'Marcar Leche como comprado' }).click();
+  await page.getByRole('button', { name: /^Terminar/ }).first().click();
+  const pdf = leclercTicket();
+  await page.locator('input[type=file][accept*="pdf"]').setInputFiles({ name: 'ticket.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await expect(page.getByLabel('Total de la compra')).toHaveValue('3,88');
+  await expect(page.getByLabel('Precio de Leche')).toHaveValue('0,89');
+  await expect(page.getByLabel('Nombre de Anacardo tost 0% sal')).toHaveValue('Anacardo tost 0% sal');
+  if (process.env.CAPTURAS) await page.locator('.stack-sm', { has: page.locator('.finish-prices') }).screenshot({ path: `${process.env.CAPTURAS}/1-terminar-compra.png` });
+  await page.getByRole('button', { name: 'Apuntar gasto y terminar' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST shopping_items')?.body).toEqual([
+    expect.objectContaining({ name: 'Anacardo tost 0% sal', price_cents: 299, status: 'bought', ticket_name: 'ANACARDO TOST 0% SAL' }),
+  ]);
+  await expect.poll(() => fake.writes.some((w) => w.what === 'PATCH shopping_items' && (w.body as { price_cents?: number })?.price_cents === 89)).toBe(true);
+});
+
+test('nuevo gasto: el ticket del súper guarda sus productos en la compra', async ({ page }) => {
+  const fake = await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Añadir gasto' }).click();
+  await page.locator('input[type=file][accept*="pdf"]').setInputFiles({ name: 'ticket.pdf', mimeType: 'application/pdf', buffer: leclercTicket() });
+  await expect(page.getByLabel('Importe')).toHaveValue('3,88');
+  await expect(page.getByRole('checkbox', { name: 'Guardar los productos en la compra (2)' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Guardar Leche' })).toBeChecked();
+  await expect(page.getByLabel('Nombre de Anacardo tost 0% sal')).toHaveValue('Anacardo tost 0% sal');
+  if (process.env.CAPTURAS) await page.locator('.card', { hasText: 'Guardar los productos' }).screenshot({ path: `${process.env.CAPTURAS}/2-nuevo-gasto.png` });
+  await page.getByRole('button', { name: 'Guardar gasto' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST shopping_items')?.body).toEqual([
+    expect.objectContaining({ name: 'Anacardo tost 0% sal', price_cents: 299, status: 'bought' }),
+  ]);
+  await expect.poll(() => fake.writes.find((w) => w.what === 'PATCH shopping_items')?.body).toMatchObject({ status: 'bought', price_cents: 89 });
+});

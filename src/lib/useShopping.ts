@@ -47,6 +47,26 @@ export interface FinishOptions {
   prices?: Record<string, { cents: number | null; ticketName: string | null }>;
   /** Productos que se acaban de marcar como comprados al terminar (aún no están en itemsRef). */
   alsoBought?: string[];
+  /** Productos del ticket que no estaban en la lista: se guardan ya comprados, con su precio. */
+  newItems?: TicketItemToSave[];
+}
+
+/** Producto del ticket que se guarda nuevo. Lleva su id desde el móvil: al reintentar no se duplica. */
+export interface TicketItemToSave {
+  id: string;
+  name: string;
+  quantity: number;
+  category: ShopCategory;
+  cents: number;
+  ticketName: string;
+}
+
+export interface TicketRecord {
+  /** Gasto en el que se pagó el ticket. */
+  expenseId: string | null;
+  /** Productos de la lista que salen en el ticket: pasan a comprados, con su precio. */
+  existing: Record<string, { cents: number; ticketName: string }>;
+  newItems: TicketItemToSave[];
 }
 
 export interface Draft {
@@ -260,6 +280,43 @@ export function useShopping(householdId: string | null) {
     });
   }, [enqueue, refresh, setRow]);
 
+  /** Guarda los productos nuevos del ticket como comprados en una compra ya terminada. */
+  const insertTicketItems = useCallback(async (rows: TicketItemToSave[], expenseId: string | null, at: string): Promise<Result> => {
+    if (!householdId || rows.length === 0) return { ok: true };
+    const { error } = await supabase.from('shopping_items').upsert(rows.map((r) => ({
+      id: r.id, household_id: householdId, name: r.name.trim().slice(0, 60), quantity: r.quantity, unit: null,
+      category: r.category, important: false, estimated_cents: null, status: 'bought', cleared_at: at,
+      price_cents: r.cents, ticket_name: r.ticketName.slice(0, 80) || null, expense_id: expenseId,
+    })), { onConflict: 'id', ignoreDuplicates: true });
+    return error ? { ok: false, reason: 'error', message: errorMessage(error) } : { ok: true };
+  }, [householdId]);
+
+  /**
+   * Apunta lo que trae un ticket escaneado al apuntar un gasto: los productos de la lista que
+   * salen en él pasan a comprados (con su precio) y lo demás se guarda como comprado nuevo.
+   * Así quedan los precios de cada producto para la próxima lista y para comparar tiendas.
+   */
+  const recordTicket = useCallback(async (rec: TicketRecord): Promise<Result> => {
+    if (!householdId) return { ok: false, reason: 'error', message: 'Sin espacio' };
+    const now = new Date().toISOString();
+    const linked = rec.expenseId ? { expense_id: rec.expenseId } : {};
+    setInFlight((n) => n + 1);
+    try {
+      const fresh = await insertTicketItems(rec.newItems, rec.expenseId, now);
+      if (!fresh.ok) return fresh;
+      const results = await Promise.all(Object.entries(rec.existing).map(([id, p]) =>
+        supabase.from('shopping_items')
+          .update({ status: 'bought', cleared_at: now, price_cents: p.cents, ticket_name: p.ticketName.slice(0, 80), ...linked })
+          .eq('id', id)
+          .is('cleared_at', null)));
+      const failed = results.find((r) => r.error);
+      await refresh();
+      return failed?.error ? { ok: false, reason: 'error', message: errorMessage(failed.error) } : { ok: true };
+    } finally {
+      setInFlight((n) => n - 1);
+    }
+  }, [householdId, insertTicketItems, refresh]);
+
   /**
    * Termina la compra: lo comprado pasa al historial. No se borra nada. Si se apuntó el gasto,
    * los productos quedan enlazados a él, y cada uno guarda lo que costó y su nombre en el ticket.
@@ -272,7 +329,8 @@ export function useShopping(householdId: string | null) {
       ...before.filter((i) => i.status === 'bought' && !i.cleared_at && !i.unsaved).map((i) => i.id),
       ...(opts.alsoBought ?? []),
     ])];
-    if (ids.length === 0) return { ok: true };
+    const newItems = opts.newItems ?? [];
+    if (ids.length === 0 && newItems.length === 0) return { ok: true };
     const prices = opts.prices ?? {};
     const linked = opts.expenseId ? { expense_id: opts.expenseId } : {};
     update((prev) => prev.map((i) => (ids.includes(i.id)
@@ -280,7 +338,13 @@ export function useShopping(householdId: string | null) {
       : i)));
     setInFlight((n) => n + 1);
     try {
-      const { error } = await supabase
+      // Primero lo nuevo del ticket: si falla, no se ha terminado nada y se puede reintentar.
+      const fresh = await insertTicketItems(newItems, opts.expenseId ?? null, now);
+      if (!fresh.ok) {
+        update((prev) => prev.map((i) => (ids.includes(i.id) ? before.find((b) => b.id === i.id) ?? i : i)));
+        return fresh;
+      }
+      const { error } = ids.length === 0 ? { error: null } : await supabase
         .from('shopping_items')
         .update({ cleared_at: now, ...linked })
         .eq('household_id', householdId)
@@ -299,7 +363,7 @@ export function useShopping(householdId: string | null) {
     } finally {
       setInFlight((n) => n - 1);
     }
-  }, [householdId, refresh, update]);
+  }, [householdId, insertTicketItems, refresh, update]);
 
   useEffect(() => {
     if (!householdId) return;
@@ -361,10 +425,13 @@ export function useShopping(householdId: string | null) {
 
   const sync: SyncState = inFlight > 0 ? 'saving' : stale || !live || items.some((i) => i.unsaved === 'failed') ? 'offline' : 'live';
 
-  return { items, load, sync, stale, refresh, add, retry, discard, setBought, edit, finishTrip, draft, setDraft };
+  return { items, load, sync, stale, refresh, add, retry, discard, setBought, edit, finishTrip, recordTicket, draft, setDraft };
 }
 
 export type Shopping = ReturnType<typeof useShopping>;
 
 /** Productos de la compra para las pantallas que no la reciben directamente (el detalle de un gasto). */
 export const ShoppingItemsContext = createContext<ShoppingItem[]>([]);
+
+/** La lista de la compra entera, para guardar los productos de un ticket desde el formulario de gasto. */
+export const ShoppingContext = createContext<Shopping | null>(null);

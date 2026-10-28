@@ -7,7 +7,7 @@ import { isOfflineError, useQueuedVersion, withQueued } from './lib/expenseOutbo
 import { useHideSplash, useKeepSplash } from './lib/splash';
 import { isConfigured, storedSession, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
-import { ShoppingItemsContext, useShopping } from './lib/useShopping';
+import { ShoppingContext, ShoppingItemsContext, useShopping } from './lib/useShopping';
 import BalanceView from './views/BalanceView';
 import BudgetView from './views/BudgetView';
 import ChartsView from './views/ChartsView';
@@ -174,6 +174,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const closeMonth = closeDismissed ? null : pendingClose(props);
 
   return (
+    <ShoppingContext.Provider value={shopping}>
     <ShoppingItemsContext.Provider value={shopping.items}>
     <div className="app">
       <header className="appbar">
@@ -248,6 +249,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       <DialogHost />
     </div>
     </ShoppingItemsContext.Provider>
+    </ShoppingContext.Provider>
   );
 }
 

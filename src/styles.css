@@ -1274,6 +1274,14 @@ button.row-main:active:not(:disabled) { transform: none; }
 .expense-bought[open] summary .icon:last-child { transform: rotate(180deg); }
 .expense-bought .expense-items { margin-top: var(--s2); }
 .finish-prices, .finish-loose ul { list-style: none; margin: 0; padding: 0; }
+.ticket-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ticket-item { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) 0; border-bottom: 1px solid var(--border); }
+.ticket-item:last-child { border-bottom: 0; }
+.ticket-item input[type="checkbox"] { flex: none; width: 22px; height: 22px; min-height: 0; margin: 0; accent-color: var(--accent); }
+.ticket-item .row-main { flex: 1; min-width: 0; }
+.ticket-item-name { flex: 1; min-width: 0; }
+.ticket-item-price { flex: none; font-variant-numeric: tabular-nums; }
+.ticket-item.off .ticket-item-price, .ticket-item.off .row-main { opacity: 0.5; }
 
 /* Propuesta de gastos fijos (Inicio, gastos fijos e importar extracto) */
 .fixed-suggestions h2 { gap: var(--s2); color: var(--accent); }
