@@ -267,7 +267,7 @@ export function proposeImport(
 
 /** CSV con ; o , y comillas. */
 export function parseCsv(text: string): string[][] {
-  const clean = text.replace(/^﻿/, '');
+  const clean = text.replace(/^\ufeff/, '');
   const firstLine = clean.split(/\r?\n/, 1)[0] ?? '';
   const sep = (firstLine.match(/;/g)?.length ?? 0) >= (firstLine.match(/,/g)?.length ?? 0) ? ';' : firstLine.includes('\t') ? '\t' : ',';
   const rows: string[][] = [];

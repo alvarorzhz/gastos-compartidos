@@ -420,9 +420,33 @@ select pg_temp.check((select count(*) from backups where household_id = :'rhid')
 reset role;
 do $$ begin for i in 1..9 loop perform public.run_backup(); end loop; end $$;
 select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 8, 'se guardan solo las 8 últimas copias');
-select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 14, 'migraciones registradas');
+select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 15, 'migraciones registradas');
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+
+-- Errores de la app: cada uno apunta los suyos, los dos ven los del espacio y nadie más.
+insert into app_errors (household_id, message, place) values (:'rhid', 'Fallo de A', 'gastos');
+insert into app_errors (message) values ('Fallo de A antes de tener espacio');
+select pg_temp.check((select user_id from app_errors where message = 'Fallo de A') = auth.uid(), 'el error se apunta a quien lo tuvo');
+select pg_temp.expect_error(format($$ insert into app_errors (household_id, user_id, message) values (%L, '00000000-0000-0000-0000-00000000000b', 'Haciéndose pasar por B') $$, :'rhid'));
+select pg_temp.expect_error($$ insert into app_errors (message) values ('') $$);
+select pg_temp.expect_error($$ update app_errors set message = 'Cambiado' $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from app_errors) = 1, 'B ve los errores del espacio, no los de A sin espacio');
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+select pg_temp.check((select count(*) from app_errors) = 0, 'C no ve errores ajenos');
+select pg_temp.expect_error(format($$ insert into app_errors (household_id, message) values (%L, 'Colándose') $$, :'rhid'));
+delete from app_errors;
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+delete from app_errors;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select array_agg(message) from app_errors) = '{"Fallo de A antes de tener espacio"}', 'C no borra nada; B borra los del espacio');
+reset role;
+update app_errors set happened_at = now() - interval '91 days';
+set role authenticated;
+insert into app_errors (household_id, message) values (:'rhid', 'Fallo nuevo');
+select pg_temp.check((select array_agg(message) from app_errors) = '{"Fallo nuevo"}', 'los errores de hace más de 90 días se borran solos');
+delete from app_errors;
 
 -- Borrado del espacio: se va todo.
 select public.delete_household();

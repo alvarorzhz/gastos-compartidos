@@ -28,7 +28,7 @@ describe('budgetAlerts', () => {
 
 describe('alertText', () => {
   const category = { id: 'c', household_id: 'h', name: 'Casa', archived: false, alert_percent: 90 as const };
-  const plain = (s: string) => s.replace(/ /g, ' ');
+  const plain = (s: string) => s.replace(/\u00a0/g, ' ');
   it('habla en euros y en cercano', () => {
     expect(plain(alertText({ category, spentCents: 9200, budgetCents: 10000, percent: 92 }))).toBe('Ojo con Casa: os quedan 8,00 € este mes');
     expect(plain(alertText({ category, spentCents: 10000, budgetCents: 10000, percent: 100 }))).toBe('Casa: habéis llegado justo a lo previsto');

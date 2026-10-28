@@ -3,7 +3,7 @@ import { describeChange, groupByDay, type ExpenseChange } from './history';
 import type { Category, Member } from './types';
 
 /** Intl separa el importe del € con un espacio duro. */
-const plain = (s: string) => s.replace(/ /g, ' ');
+const plain = (s: string) => s.replace(/\u00a0/g, ' ');
 
 const cats: Category[] = [
   { id: 'casa', household_id: 'h', name: 'Casa', archived: false, alert_percent: 90 },

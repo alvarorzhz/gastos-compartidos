@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { today } from './dates';
 import { flushQueued } from './expenseOutbox';
 import { notifyNewExpenses } from './push';
+import { reportError } from './errorLog';
 import { errorMessage, supabase } from './supabase';
 import type { Budget, Category, TripEvent, Expense, ExpenseReaction, Household, Invitation, Member, PersonalBudget, PersonalEntry, PersonalRecurring, RecurringExpense, SavingsContribution, SavingsGoal, Settlement } from './types';
 
@@ -164,6 +165,7 @@ export function useHousehold(userId: string) {
       if (next.status === 'ready') saveSnapshot(userId, next.data);
       setState(next);
     } catch (err) {
+      reportError(err, 'cargar los datos');
       const message = errorMessage(err);
       // Si ya había datos (p. ej. al volver a la app sin cobertura), se quedan en pantalla
       // para no perder lo que se estuviera escribiendo; solo se avisa. Si la app se abre sin

@@ -44,6 +44,7 @@ La barra de abajo tiene **Inicio · Gastos · Compra · + · Presupuesto · Pers
 - **Avisos en el móvil**: cuando la pareja apunta un gasto, cuando un presupuesto llega a su aviso, los fijos de cada mañana y los resúmenes de la semana (lunes) y del mes (día 1). En iPhone solo con la app instalada.
 - **Apuntar al pagar con Apple Pay**: guía para crear el atajo de Cartera en el iPhone.
 - **Instalar en el móvil**, **Lo que la app hace sola**, **Ver novedades**, exportar todo (Excel con una hoja por tabla, o JSON) y borrar el espacio o la cuenta.
+- **Tus datos**: copias de seguridad semanales, historial de cambios de los gastos y **errores de la app** (lo que ha fallado en el móvil de alguno de los dos en los últimos 90 días).
 
 Además: tiempo real entre los dos móviles, modo oscuro automático, se instala como app (PWA) y se abre sin conexión con los datos de la última vez. Moneda: EUR.
 
@@ -83,6 +84,9 @@ Cada archivo de [`supabase/migrations/`](supabase/migrations/) se ejecuta **una 
 | `0010_automatico.sql` | Trabajo de cada mañana con `pg_cron` y `pg_net` | 3.3.0 |
 | `0011_presupuesto_personal.sql` | Límites mensuales personales | 3.6.0 |
 | `0012_pagos_apple_pay.sql` | Pagos por confirmar desde Apple Pay y clave de cada persona | 3.9.0 |
+| `0013_pareja.sql` | Perfil (color y emoji) y reacciones a los gastos | 3.12.0 |
+| `0014_copias_e_historial.sql` | Copias semanales, historial de cambios, retoques del asesor y registro de migraciones | 3.13.0 |
+| `0015_errores.sql` | Errores de la app, que se ven en Ajustes → Tus datos | 3.16.0 |
 
 ## Puesta en marcha (desde cero)
 
@@ -135,11 +139,14 @@ npm run dev                  # http://localhost:5173
 Pruebas:
 
 ```bash
-npm test                     # saldo, presupuestos, importes, tickets, extractos, compra…
+npm test                     # saldo, presupuestos, importes, tickets, extractos, compra, función avisar…
+npm run lint                 # revisión del código (ESLint, reglas de los hooks de React)
+npm run test:screens         # pruebas de pantallas con Playwright contra un Supabase de mentira
+deno check --node-modules-dir=none supabase/functions/avisar/index.ts   # tipos de la función avisar (necesita Deno)
 DATABASE_URL=postgres://… scripts/test-db.sh   # migraciones + pruebas de acceso en un Postgres vacío
 ```
 
-`scripts/test-db.sh` aplica todas las migraciones sobre una imitación mínima del esquema de Supabase (`supabase/tests/00_stub_supabase.sql`) y comprueba, entre otras cosas, que una tercera cuenta no puede ver ni modificar gastos ajenos ni entrar en un espacio lleno, y que lo personal no lo ve la pareja. GitHub Actions ejecuta ambas pruebas y la compilación en cada PR.
+`scripts/test-db.sh` aplica todas las migraciones sobre una imitación mínima del esquema de Supabase (`supabase/tests/00_stub_supabase.sql`) y comprueba, entre otras cosas, que una tercera cuenta no puede ver ni modificar gastos ajenos ni entrar en un espacio lleno, y que lo personal no lo ve la pareja. GitHub Actions ejecuta todo esto y la compilación en cada PR.
 
 ## Cómo se calcula el saldo
 
