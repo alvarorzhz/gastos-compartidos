@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.17.0',
+    date: '2026-10-28',
+    changes: [
+      { kind: 'nuevo', text: 'Al escanear el ticket de la compra se guardan todos los productos con su precio: los que estaban en la lista se emparejan y los que no, se añaden nuevos. Antes de guardar puedes revisarlos, cambiarles el nombre o quitar los que no quieras.' },
+      { kind: 'nuevo', text: 'También al apuntar un gasto con el botón +: si escaneas un ticket del súper, la app te propone guardar sus productos en la compra con su precio.' },
+      { kind: 'mejora', text: 'Con esos precios, la app calcula mejor cuánto costará la próxima lista y en qué súper sale más barato cada cosa.' },
+    ],
+  },
+  {
     version: '3.16.0',
     date: '2026-10-28',
     changes: [

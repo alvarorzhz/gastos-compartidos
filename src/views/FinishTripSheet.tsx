@@ -6,16 +6,18 @@ import { nameOf } from '../lib/people';
 import { notifyNewExpenses } from '../lib/push';
 import type { ReceiptGuess } from '../lib/receipt';
 import { currentBought, formatQuantity } from '../lib/shopping';
-import { lastPrice, matchTicket, prettyTicketName, shoppingCategory } from '../lib/shoppingPrices';
+import { lastPrice, matchTicket, prettyTicketName, shoppingCategory, ticketNewItems } from '../lib/shoppingPrices';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { ListItem, Shopping } from '../lib/useShopping';
 import { AmountField, Avatar, Notice, Segmented, Sheet, toast, type ViewProps } from './common';
 import { Icon } from './icons';
 import ScanReceipt from './ScanReceipt';
+import { TicketItems } from './shopping/TicketItems';
 
 /*
  * Terminar la compra. Lo normal es escanear el ticket: la app rellena el total, la tienda y la
  * fecha, y empareja cada producto comprado con su línea del ticket para guardar lo que costó.
+ * Lo que trae el ticket y no estaba en la lista se guarda también, como comprado y con su precio.
  * Con eso se apunta el gasto común (con el reparto de siempre) y la compra pasa al historial.
  * También se puede escribir el total a mano o terminar sin apuntar gasto.
  * No hace falta haberlo marcado todo: lo que no se marque se queda en la lista para la próxima.
@@ -45,6 +47,11 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
   /** Línea del ticket elegida para cada producto (-1 = ninguna). */
   const [lineOf, setLineOf] = useState<Record<string, number>>({});
   const [pricesOpen, setPricesOpen] = useState(false);
+  /** Productos nuevos del ticket que no se quieren guardar y nombres cambiados (por su primera línea). */
+  const [skipped, setSkipped] = useState<Set<number>>(new Set());
+  const [newNames, setNewNames] = useState<Record<number, string>>({});
+  /** Id de cada producto nuevo, fijo para este ticket: al reintentar no se guarda dos veces. */
+  const [newIds, setNewIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Si el gasto se guardó pero falló terminar la compra, al reintentar no se apunta otra vez.
@@ -52,7 +59,8 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
 
   const lines = guess?.lines ?? [];
   const usedLines = new Set(Object.values(lineOf).filter((l) => l >= 0));
-  const loose = lines.map((l, idx) => ({ ...l, idx })).filter((l) => !usedLines.has(l.idx) && l.cents > 0);
+  const fresh = ticketNewItems(lines, usedLines, items);
+  const freshOn = fresh.filter((f) => !skipped.has(f.line));
   const pricedSum = bought.reduce((a, i) => a + (parseEuros(prices[i.id] ?? '') ?? 0), 0);
   const pricedCount = bought.filter((i) => parseEuros(prices[i.id] ?? '') != null).length;
   const payers = data.members.map((m) => m.user_id);
@@ -80,7 +88,10 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
     }
     setLineOf(nextLine);
     setPrices(nextPrices);
-    if (matches.length < marked.length) setPricesOpen(true);
+    setSkipped(new Set());
+    setNewNames({});
+    setNewIds(g.lines.map(() => crypto.randomUUID()));
+    if (g.lines.length > 0 || matches.length < marked.length) setPricesOpen(true);
   }
 
   function toggleExtra(id: string) {
@@ -90,6 +101,14 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
   function chooseLine(itemId: string, idx: number) {
     setLineOf((prev) => ({ ...prev, [itemId]: idx }));
     if (idx >= 0) setPrices((prev) => ({ ...prev, [itemId]: centsToInput(lines[idx].cents) }));
+  }
+
+  function toggleNew(key: number) {
+    setSkipped((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
   }
 
   /** Precios de cada producto para guardar; null si alguno está mal escrito. */
@@ -147,7 +166,11 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
       notifyNewExpenses([id]);
     }
     setBusy(true);
-    const r = await shopping.finishTrip({ expenseId, prices: priceMap, alsoBought: extra });
+    const newItems = freshOn.map((f) => ({
+      id: newIds[f.line] ?? crypto.randomUUID(), name: (newNames[f.line] ?? '').trim() || f.name,
+      quantity: f.quantity, category: f.category, cents: f.cents, ticketName: f.ticketName,
+    }));
+    const r = await shopping.finishTrip({ expenseId, prices: priceMap, alsoBought: extra, newItems });
     setBusy(false);
     if (!r.ok) {
       return setError(expenseId
@@ -156,7 +179,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
     }
     if (expenseId) {
       await reload();
-      toast(`Compra terminada y gasto apuntado: ${formatEuros(parseEuros(total) ?? 0)}`);
+      toast(`Compra terminada y gasto apuntado: ${formatEuros(parseEuros(total) ?? 0)}${newItems.length ? `. ${newItems.length} ${newItems.length === 1 ? 'producto nuevo guardado' : 'productos nuevos guardados'} con su precio` : ''}`);
     } else {
       toast('Compra terminada. ¡Lista para la próxima!');
     }
@@ -172,6 +195,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
     <Notice kind={guess.linesMatchTotal ? 'success' : 'info'} icon={guess.linesMatchTotal ? 'check' : 'receipt'}>
       {[guess.merchant, guess.date && formatShortDay(guess.date)].filter(Boolean).join(' · ') || 'Ticket leído'}
       {guess.lines.length > 0 ? `: ${guess.lines.length} productos leídos.` : '.'}
+      {lines.length > 0 && ` ${Object.values(lineOf).filter((l) => l >= 0).length} de tu lista con su precio y ${fresh.length} ${fresh.length === 1 ? 'nuevo' : 'nuevos'}.`}
       {guess.linesMatchTotal
         ? ' La suma de los productos cuadra con el total.'
         : guess.lines.length > 0
@@ -189,7 +213,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
         <>
           {error && <p className="error" role="alert">{error}</p>}
           <div className="row">
-            {!savedExpense && bought.length > 0 && (
+            {!savedExpense && (bought.length > 0 || freshOn.length > 0) && (
               <button type="button" className="secondary" onClick={() => void finish(false)} disabled={busy}>Sin gasto</button>
             )}
             <button type="submit" form={formId} className="primary lg" disabled={busy}>
@@ -252,7 +276,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
         <button type="button" className="disclosure" aria-expanded={pricesOpen} onClick={() => setPricesOpen((v) => !v)}>
           <span>Precio de cada producto</span>
           <span className="row">
-            <span className="summary">{pricedCount} de {bought.length}{pricedCount ? ` · ${formatEuros(pricedSum)}` : ''}</span>
+            <span className="summary">{pricedCount} de {bought.length}{freshOn.length ? ` + ${freshOn.length} nuevos` : ''}{pricedCount ? ` · ${formatEuros(pricedSum)}` : ''}</span>
             <Icon name="chevronDown" size={18} />
           </span>
         </button>
@@ -300,15 +324,18 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
                 );
               })}
             </ul>
-            {loose.length > 0 && (
-              <details className="finish-loose">
-                <summary className="muted small">En el ticket pero no en la lista ({loose.length})</summary>
-                <ul>
-                  {loose.map((l) => (
-                    <li key={l.idx} className="row small"><span className="grow">{prettyTicketName(l.name)}</span><span className="muted">{formatEuros(l.cents)}</span></li>
-                  ))}
-                </ul>
-              </details>
+            {fresh.length > 0 && (
+              <div className="stack-sm">
+                <span className="field-label">En el ticket, pero no en la lista ({fresh.length})</span>
+                <p className="field-hint">Se guardan como comprados con su precio, para saber lo que cuestan la próxima vez. Puedes cambiarles el nombre o quitar la marca de lo que no quieras guardar.</p>
+                <TicketItems
+                  rows={fresh.map((f) => ({ key: f.line, name: f.name, cents: f.cents }))}
+                  skipped={skipped}
+                  names={newNames}
+                  onToggle={toggleNew}
+                  onRename={(key, name) => setNewNames((prev) => ({ ...prev, [key]: name }))}
+                />
+              </div>
             )}
           </div>
         )}

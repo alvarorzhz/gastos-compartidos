@@ -1,5 +1,5 @@
 import { normalize } from './search';
-import { boughtHistory, sameProduct, type ShoppingItem } from './shopping';
+import { boughtHistory, guessCategory, knownProducts, MAX_NAME, MAX_QUANTITY, sameProduct, type ShopCategory, type ShoppingItem } from './shopping';
 import type { ReceiptLine } from './receipt';
 import { effectiveBudgets } from './budget';
 import { monthOf } from './dates';
@@ -117,6 +117,62 @@ export function matchTicket(bought: ShoppingItem[], lines: ReceiptLine[], histor
     usedLines.add(p.line);
     out.push({ itemId: p.itemId, line: p.line });
   }
+  return out;
+}
+
+/** Producto del ticket que no está en la lista: se guarda como comprado, con su precio. */
+export interface TicketNewItem {
+  /** Primera línea del ticket de este producto (sirve de clave). */
+  line: number;
+  name: string;
+  ticketName: string;
+  cents: number;
+  quantity: number;
+  category: ShopCategory;
+}
+
+/**
+ * Producto ya comprado otras veces que corresponde a una línea del ticket: primero el que
+ * se llamó igual en otro ticket y, si no, el de nombre casi igual ("Leche" y "LECHE ENT.").
+ */
+function knownFor(ticketName: string, history: ShoppingItem[]): ShoppingItem | null {
+  const t = normalize(ticketName);
+  const learned = boughtHistory(history).find((h) => h.ticket_name && normalize(h.ticket_name) === t);
+  if (learned) return learned;
+  const best = knownProducts(history)
+    .map((p) => ({ p, score: nameScore(p.name, ticketName) }))
+    .filter((x) => x.score >= 0.9)
+    .sort((a, b) => b.score - a.score || b.p.count - a.p.count)[0];
+  return best?.p.last ?? null;
+}
+
+/**
+ * Las líneas del ticket que no son de ningún producto de la lista, como productos nuevos.
+ * Si ese producto ya se compró otras veces, se llama como en la lista y va en su categoría;
+ * si no, con el nombre del ticket. Una misma línea repetida en el ticket se junta en una.
+ */
+export function ticketNewItems(lines: ReceiptLine[], used: Set<number>, history: ShoppingItem[]): TicketNewItem[] {
+  const out: TicketNewItem[] = [];
+  const byName = new Map<string, TicketNewItem>();
+  lines.forEach((l, idx) => {
+    if (used.has(idx) || l.cents <= 0) return;
+    const key = normalize(l.name).replace(/\s+/g, ' ');
+    const same = byName.get(key);
+    if (same) {
+      same.cents += l.cents;
+      same.quantity = Math.min(MAX_QUANTITY, same.quantity + l.quantity);
+      return;
+    }
+    const known = knownFor(l.name, history);
+    const name = known?.name ?? prettyTicketName(l.name).slice(0, MAX_NAME);
+    const item: TicketNewItem = {
+      line: idx, name, ticketName: l.name.slice(0, 80), cents: l.cents,
+      quantity: Math.min(MAX_QUANTITY, Math.max(1, l.quantity || 1)),
+      category: known?.category ?? guessCategory(name, history),
+    };
+    byName.set(key, item);
+    out.push(item);
+  });
   return out;
 }
 
