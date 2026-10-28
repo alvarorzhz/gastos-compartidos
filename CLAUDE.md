@@ -22,3 +22,14 @@ App web privada (PWA) para que una pareja apunte gastos comunes y lleve un presu
 - Toda tabla nueva lleva RLS con `is_member(...)` (o solo el dueño en lo personal) y sus pruebas en `10_rls_test.sql`. Un espacio tiene como máximo 2 miembros.
 - Nunca guardar claves en el repo.
 - Antes de subir: `npm run lint`, `npm test`, `npm run build` y `npm run test:screens`. CI (`.github/workflows/ci.yml`) repite eso, `deno check` de la función y las pruebas de base de datos. Con CI en verde, se puede fusionar la PR (squash).
+
+## Reparto del trabajo entre modelos
+
+El Claude principal (Opus) planifica, decide la arquitectura, resuelve los fallos difíciles que cruzan varios archivos y revisa lo que hacen los demás. Delega la ejecución en los subagentes de `.claude/agents/`:
+
+- `explorer` (Haiku, solo lectura): «¿dónde y cómo está hecho X?» y resúmenes de archivos largos.
+- `implementer` (Sonnet): escribe el código de un plan ya claro: componentes, refactors acotados, migraciones y tests.
+- `test-runner` (Haiku): pasa lint, tests, build y pruebas de pantallas y devuelve solo los fallos.
+- `reviewer` (Sonnet; con `model: opus` si toca dinero, RLS, migraciones o borrados): revisa el diff antes del commit.
+
+Flujo habitual: explorar → plan del principal → implementar → test-runner → reviewer → el principal decide, sube versión y hace commit. Para cambios pequeños (una línea, un texto) el principal puede hacerlo directamente sin delegar.
