@@ -420,7 +420,7 @@ select pg_temp.check((select count(*) from backups where household_id = :'rhid')
 reset role;
 do $$ begin for i in 1..9 loop perform public.run_backup(); end loop; end $$;
 select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 8, 'se guardan solo las 8 últimas copias');
-select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 15, 'migraciones registradas');
+select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 16, 'migraciones registradas');
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
@@ -447,6 +447,31 @@ set role authenticated;
 insert into app_errors (household_id, message) values (:'rhid', 'Fallo nuevo');
 select pg_temp.check((select array_agg(message) from app_errors) = '{"Fallo nuevo"}', 'los errores de hace más de 90 días se borran solos');
 delete from app_errors;
+
+-- Retos (0016): uno propone, el otro acepta; los ven los dos y nadie más.
+select id as rcat from categories where household_id = :'rhid' and name = 'Casa' \gset
+insert into challenges (household_id, kind, title, category_id, amount_cents, starts_on, ends_on)
+values (:'rhid', 'cap', 'Casa por debajo de 200 €', :'rcat', 20000, current_date, current_date + 20);
+select pg_temp.check((select proposed_by from challenges) = auth.uid(), 'el reto queda a nombre de quien lo propone');
+select pg_temp.expect_error(format($$ insert into challenges (household_id, kind, title, starts_on, ends_on) values (%L, 'cap', 'Sin categoría', current_date, current_date) $$, :'rhid'));
+select pg_temp.expect_error(format($$ insert into challenges (household_id, kind, title, keyword, starts_on, ends_on, proposed_by) values (%L, 'without', 'En nombre de B', 'glovo', current_date, current_date + 6, '00000000-0000-0000-0000-00000000000b') $$, :'rhid'));
+select pg_temp.expect_error(format($$ insert into challenges (household_id, kind, title, keyword, starts_on, ends_on, accepted_at) values (%L, 'without', 'Ya aceptado', 'glovo', current_date, current_date + 6, now()) $$, :'rhid'));
+select pg_temp.expect_error(format($$ insert into challenges (household_id, kind, title, keyword, starts_on, ends_on) values (%L, 'without', 'Un año', 'glovo', current_date, current_date + 365) $$, :'rhid'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+update challenges set accepted_at = now();
+select pg_temp.check((select accepted_at is not null from challenges), 'B acepta el reto');
+select pg_temp.expect_error($$ update challenges set notified_end = true $$);
+select pg_temp.expect_error($$ update challenges set amount_cents = 99999999 $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+select pg_temp.check((select count(*) from challenges) = 0, 'C no ve retos ajenos');
+select pg_temp.expect_error(format($$ insert into challenges (household_id, kind, title, keyword, starts_on, ends_on) values (%L, 'without', 'Colándose', 'glovo', current_date, current_date + 6) $$, :'rhid'));
+select id as ccat from categories where household_id <> :'rhid' limit 1 \gset
+delete from challenges;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select count(*) from challenges) = 1, 'C no borra retos ajenos');
+select pg_temp.expect_error(format($$ insert into challenges (household_id, kind, title, category_id, amount_cents, starts_on, ends_on) values (%L, 'cap', 'Categoría ajena', %L, 100, current_date, current_date) $$, :'rhid', :'ccat'));
+delete from challenges;
+select pg_temp.check((select count(*) from challenges) = 0, 'A retira el reto');
 
 -- Borrado del espacio: se va todo.
 select public.delete_household();

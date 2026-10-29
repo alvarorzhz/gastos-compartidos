@@ -167,6 +167,7 @@ async function handle(req: Request): Promise<Response> {
     }
 
     if (typeof body?.reaction_expense_id === 'string') return json({ sent: await reactionNotice(admin, user.id, body.reaction_expense_id) });
+    if (typeof body?.challenge_id === 'string') return json({ sent: await challengeNotice(admin, user.id, body.challenge_id) });
 
     const ids: string[] = Array.isArray(body?.expense_ids) ? body.expense_ids.filter((x: unknown) => typeof x === 'string').slice(0, 500) : [];
     if (ids.length === 0) return json({ sent: 0 });
@@ -252,6 +253,44 @@ async function reactionNotice(admin: SupabaseClient, userId: string, expenseId: 
     url: '/#gastos',
   });
   return subs.length;
+}
+
+export type ChallengeMoment = 'proposed' | 'accepted' | 'mid' | 'end';
+
+/** Avisos de los retos de pareja. */
+export function challengeMessage(moment: ChallengeMoment, title: string, name = ''): Message {
+  const url = '/#inicio';
+  if (moment === 'proposed') return { title: `${name} te propone un reto`, body: `${title}. Entra para aceptarlo.`, tag: 'reto-' + title, url };
+  if (moment === 'accepted') return { title: `${name} acepta el reto 💪`, body: title, tag: 'reto-' + title, url };
+  if (moment === 'mid') return { title: 'Vais por la mitad del reto', body: `${title}. Entrad a ver cómo vais.`, tag: 'reto-mitad-' + title, url };
+  return { title: 'Ha terminado el reto', body: `${title}. Entrad a ver si lo habéis conseguido.`, tag: 'reto-fin-' + title, url };
+}
+
+/** Avisa a la pareja de un reto recién propuesto, o a quien lo propuso de que se ha aceptado. */
+async function challengeNotice(admin: SupabaseClient, userId: string, challengeId: string): Promise<number> {
+  const { data: c } = await admin.from('challenges').select('household_id, title, proposed_by, accepted_at, created_at').eq('id', challengeId).maybeSingle();
+  if (!c) return 0;
+  const { data: members } = await admin.from('members').select('user_id, display_name').eq('household_id', c.household_id);
+  const me = (members ?? []).find((m) => m.user_id === userId);
+  const partner = (members ?? []).find((m) => m.user_id !== userId);
+  if (!me || !partner) return 0;
+  // Solo lo recién hecho (la app llama justo después) y por quien toca.
+  const fresh = (iso: unknown) => typeof iso === 'string' && Date.now() - new Date(iso).getTime() <= FRESH_MS;
+  let moment: ChallengeMoment;
+  if (c.accepted_at == null && c.proposed_by === userId && fresh(c.created_at)) moment = 'proposed';
+  else if (c.accepted_at != null && c.proposed_by === partner.user_id && fresh(c.accepted_at)) moment = 'accepted';
+  else return 0;
+  const { data: subs } = await admin.from('push_subscriptions').select('*').eq('user_id', partner.user_id);
+  if (!subs?.length) return 0;
+  await send(admin, subs as Sub[], challengeMessage(moment, c.title as string, me.display_name as string));
+  return subs.length;
+}
+
+/** ¿Toca el aviso de mitad de reto? Solo en retos de 4 días o más, desde la mitad hasta el final. */
+export function challengeHalfway(startsOn: string, endsOn: string, today: string): boolean {
+  const total = (Date.parse(endsOn) - Date.parse(startsOn)) / 86_400_000 + 1;
+  if (total < 4 || today > endsOn) return false;
+  return today >= addDaysIso(startsOn, Math.floor(total / 2));
 }
 
 /** Texto de un campo del atajo (el iPhone puede mandar número, texto o nada). */
@@ -444,6 +483,24 @@ async function dailyFor(admin: SupabaseClient, h: string, today: string) {
 
   const summarySubs = subs.filter((s) => s.notify_summary !== false);
   if (summarySubs.length === 0) return sent;
+
+  // Retos aceptados: aviso a mitad y al terminar (cada uno una sola vez).
+  const { data: challenges } = await admin
+    .from('challenges')
+    .select('id, title, starts_on, ends_on, notified_mid, notified_end')
+    .eq('household_id', h)
+    .not('accepted_at', 'is', null)
+    .gte('ends_on', addDaysIso(today, -3));
+  for (const c of challenges ?? []) {
+    const moment: ChallengeMoment | null =
+      !c.notified_end && today > c.ends_on ? 'end' : !c.notified_mid && challengeHalfway(c.starts_on, c.ends_on, today) ? 'mid' : null;
+    if (!moment) continue;
+    const flag = moment === 'end' ? { notified_end: true, notified_mid: true } : { notified_mid: true };
+    const { data: claimed } = await admin.from('challenges').update(flag).eq('id', c.id).eq(moment === 'end' ? 'notified_end' : 'notified_mid', false).select('id');
+    if (!claimed?.length) continue;
+    await send(admin, summarySubs, challengeMessage(moment, c.title as string));
+    sent += summarySubs.length;
+  }
   const [y, m, d] = today.split('-').map(Number);
   const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 1 = lunes
 

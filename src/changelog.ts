@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.20.0',
+    date: '2026-10-29',
+    changes: [
+      { kind: 'nuevo', text: 'Retos de pareja: uno propone un reto («este mes, súper por debajo de 300 €», «una semana sin pedir a domicilio», «meter 100 € en la hucha») y el otro lo acepta. La app va contando cómo vais con lo que apuntáis, sin marcar nada.' },
+      { kind: 'nuevo', text: 'La app os sugiere retos con vuestros datos: la categoría en la que os pasasteis el mes pasado, lo que pedís a domicilio o la hucha a la que más le falta.' },
+      { kind: 'nuevo', text: 'Si tenéis los avisos puestos, os llega uno cuando el otro propone o acepta un reto, a mitad de reto y al terminar. Y si lo conseguís, hay fiesta en Inicio 🏆' },
+    ],
+  },
+  {
     version: '3.19.0',
     date: '2026-10-29',
     changes: [

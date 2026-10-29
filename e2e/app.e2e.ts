@@ -297,3 +297,38 @@ test('Presupuesto: propone límites según los últimos 3 meses', async ({ page 
     expect.objectContaining({ category_id: 'c-super', amount_cents: 31000 }),
   ]);
 });
+
+test('Inicio: proponer un reto de pareja', async ({ page }) => {
+  const fake = await openApp(page);
+  const card = page.getByRole('region', { name: 'Retos de pareja' });
+  await card.getByRole('button', { name: 'Proponer un reto' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Proponer un reto' });
+  await expect(sheet.getByText('Una semana sin gastos de Ocio')).toBeVisible();
+  if (process.env.CAPTURAS) await sheet.screenshot({ path: `${process.env.CAPTURAS}/1-proponer.png` });
+  await sheet.getByRole('listitem').filter({ hasText: 'Una semana sin gastos de Ocio' }).getByRole('button', { name: 'Proponer' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST challenges')?.body).toMatchObject({ kind: 'without', category_id: 'c-ocio', title: 'Una semana sin gastos de Ocio' });
+  await expect(card.getByText('Esperando a que Bea lo acepte')).toBeVisible();
+});
+
+test('Inicio: aceptar el reto que propone la pareja y ver cómo vais', async ({ page }) => {
+  const tables = sampleData();
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  tables.challenges.push({
+    id: 'reto-1', household_id: tables.households[0].id, kind: 'cap', title: 'Este mes, Supermercado por debajo de 300,00 €', category_id: 'c-super',
+    keyword: null, goal_id: null, amount_cents: 30000, starts_on: iso(first), ends_on: iso(last), proposed_by: BEA, accepted_at: null, created_at: now.toISOString(),
+  });
+  const fake = await openApp(page, { tables });
+  const card = page.getByRole('region', { name: 'Retos de pareja' });
+  await expect(card.getByText('Bea te propone un reto')).toBeVisible();
+  await card.getByRole('button', { name: 'Aceptar' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'PATCH challenges')?.body).toMatchObject({ accepted_at: expect.any(String) });
+  await expect(card.getByText(/Lleváis 54,20\s€ de 300,00\s€/)).toBeVisible();
+  await expect(card.getByRole('progressbar', { name: 'Límite del reto usado' })).toBeVisible();
+  if (process.env.CAPTURAS) {
+    await expect(page.getByText(/Reto aceptado/)).toBeHidden({ timeout: 10_000 });
+    await card.screenshot({ path: `${process.env.CAPTURAS}/2-en-marcha.png` });
+  }
+});

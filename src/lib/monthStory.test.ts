@@ -28,6 +28,7 @@ function household(expenses: Expense[], extra: Partial<HouseholdData> = {}): Hou
     contributions: [],
     events: [],
     reactions: [],
+    challenges: [],
     ...extra,
   };
 }
