@@ -6,7 +6,7 @@ import { frequencyText, monthlyEquivalent, nextDate } from '../lib/recurring';
 import { filterExpenses } from '../lib/search';
 import type { Expense, RecurringExpense } from '../lib/types';
 import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps, useMonth, useSticky } from './common';
-import ExpenseForm from './ExpenseForm';
+import { ExpenseForm } from './lazy';
 import { ExpenseRow, paidText } from './ExpenseRow';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';

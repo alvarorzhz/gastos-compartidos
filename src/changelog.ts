@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.19.0',
+    date: '2026-10-29',
+    changes: [
+      { kind: 'nuevo', text: '¿Gasto repetido? Si un mismo pago se apunta dos veces (con Apple Pay y luego con el ticket, o cada uno por su lado), Inicio os lo enseña y podéis unirlo en uno con un toque, o decir que no son el mismo.' },
+      { kind: 'nuevo', text: 'Límites a vuestra medida: en Presupuesto, la app propone límites por categoría según lo que habéis gastado de verdad los últimos 3 meses. Los podéis poner uno a uno o todos a la vez.' },
+      { kind: 'mejora', text: 'La app abre más rápido: al entrar solo se descarga Inicio. Con buena cobertura el resto se baja enseguida por detrás, y con poca cada sección se baja al abrirla.' },
+    ],
+  },
+  {
     version: '3.18.0',
     date: '2026-10-28',
     changes: [

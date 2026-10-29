@@ -5,6 +5,7 @@ import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { AlertPercent } from '../lib/types';
+import BudgetSuggestions from './BudgetSuggestions';
 import { AmountField, CategoryIcon, CountUp, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import { MonthCloseSheet } from './MonthClose';
@@ -88,6 +89,8 @@ export default function BudgetView(props: ViewProps) {
           ))}
         </div>
       )}
+
+      {isCurrent && <BudgetSuggestions {...props} month={month} />}
 
       <section className="section" aria-labelledby="budget-categories">
         <SectionHeader id="budget-categories" title="Por categoría" />

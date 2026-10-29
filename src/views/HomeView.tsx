@@ -14,7 +14,8 @@ import { monthForecast, type Forecast } from '../lib/forecast';
 import type { Expense } from '../lib/types';
 import { BalanceText } from './BalanceView';
 import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, toast, type ViewProps, useMonth } from './common';
-import ExpenseForm from './ExpenseForm';
+import { ExpenseForm } from './lazy';
+import Duplicates from './Duplicates';
 import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
 import { Icon } from './icons';
@@ -84,6 +85,8 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
               <Icon name="play" />
             </button>
           )}
+
+          {isCurrent && <div className="o-3"><Duplicates {...props} onOpen={setEditing} /></div>}
 
           {isCurrent && <div className="o-3"><FixedSuggestions {...props} /></div>}
 

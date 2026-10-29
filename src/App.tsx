@@ -8,19 +8,12 @@ import { useHideSplash, useKeepSplash } from './lib/splash';
 import { isConfigured, storedSession, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
 import { ShoppingContext, ShoppingItemsContext, useShopping } from './lib/useShopping';
-import BalanceView from './views/BalanceView';
-import BudgetView from './views/BudgetView';
-import ChartsView from './views/ChartsView';
-import ExpenseForm from './views/ExpenseForm';
-import ExpensesView from './views/ExpensesView';
 import HomeView from './views/HomeView';
+import { ExpenseForm, LazyBalance, LazyBudget, LazyCharts, LazyExpenses, LazyPersonal, LazySettings, LazyShopping, preloadSections, Section } from './views/lazy';
 import { Icon, type IconName } from './views/icons';
 import Login from './views/Login';
 import Onboarding from './views/Onboarding';
-import PersonalView from './views/PersonalView';
 import PendingPayments from './views/PendingPayments';
-import SettingsView from './views/SettingsView';
-import ShoppingView from './views/ShoppingView';
 import { WhatsNewBanner } from './views/WhatsNew';
 import { AlertsOnEntry } from './views/AlertsDialog';
 import { markCloseSeen, pendingClose } from './views/MonthClose';
@@ -146,6 +139,12 @@ function Home({ userId, email }: { userId: string; email: string }) {
     };
   }, []);
 
+  // Con buena cobertura, el resto de secciones se descarga en cuanto la app está lista.
+  const ready = state.status === 'ready';
+  useEffect(() => {
+    if (ready) preloadSections();
+  }, [ready]);
+
   useEffect(() => {
     const onHash = () => setView(readView());
     window.addEventListener('hashchange', onHash);
@@ -212,13 +211,15 @@ function Home({ userId, email }: { userId: string; email: string }) {
           )}
           <WhatsNewBanner />
           {view === 'inicio' && <HomeView {...props} onAdd={() => setAdding(true)} quiet={closeMonth != null} />}
-          {view === 'gastos' && <ExpensesView {...props} onAdd={() => setAdding(true)} />}
-          {view === 'saldo' && <BalanceView {...props} />}
-          {view === 'compra' && <ShoppingView {...props} shopping={shopping} />}
-          {view === 'presupuesto' && <BudgetView {...props} />}
-          {view === 'graficos' && <ChartsView {...props} onAdd={() => setAdding(true)} />}
-          {view === 'personal' && <PersonalView {...props} />}
-          {view === 'ajustes' && <SettingsView {...props} email={email} />}
+          <Section>
+            {view === 'gastos' && <LazyExpenses.Component {...props} onAdd={() => setAdding(true)} />}
+            {view === 'saldo' && <LazyBalance.Component {...props} />}
+            {view === 'compra' && <LazyShopping.Component {...props} shopping={shopping} />}
+            {view === 'presupuesto' && <LazyBudget.Component {...props} />}
+            {view === 'graficos' && <LazyCharts.Component {...props} onAdd={() => setAdding(true)} />}
+            {view === 'personal' && <LazyPersonal.Component {...props} />}
+            {view === 'ajustes' && <LazySettings.Component {...props} email={email} />}
+          </Section>
         </div>
       </main>
 

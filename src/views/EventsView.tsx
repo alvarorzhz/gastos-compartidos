@@ -7,7 +7,7 @@ import { nameOf, partnerOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, TripEvent } from '../lib/types';
 import { Avatar, confirmAction, EmptyState, Notice, SectionHeader, Sheet, toast, type ViewProps } from './common';
-import ExpenseForm from './ExpenseForm';
+import { ExpenseForm } from './lazy';
 import { ExpenseRow } from './ExpenseRow';
 import { Icon } from './icons';
 
