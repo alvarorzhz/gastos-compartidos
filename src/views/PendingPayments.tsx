@@ -4,7 +4,7 @@ import { formatEuros } from '../lib/money';
 import { personalCategoryFor, prefillOf, takePaymentFromUrl, usePendingPayments, type PendingPayment } from '../lib/payments';
 import { errorMessage } from '../lib/supabase';
 import { Sheet, toast, type ViewProps } from './common';
-import ExpenseForm from './ExpenseForm';
+import { ExpenseForm } from './lazy';
 import { Icon } from './icons';
 import { PersonalForm } from './PersonalView';
 

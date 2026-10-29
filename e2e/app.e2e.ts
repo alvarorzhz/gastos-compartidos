@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ANA, BEA, openApp } from './fakeSupabase';
+import { ANA, BEA, openApp, sampleData } from './fakeSupabase';
 
 /** Fallos de JavaScript en la página: cualquiera hace fallar la prueba. */
 function watchErrors(page: Page): string[] {
@@ -258,4 +258,42 @@ test('nuevo gasto: el ticket del súper guarda sus productos en la compra', asyn
     expect.objectContaining({ name: 'Anacardo tost 0% sal', price_cents: 299, status: 'bought' }),
   ]);
   await expect.poll(() => fake.writes.find((w) => w.what === 'PATCH shopping_items')?.body).toMatchObject({ status: 'bought', price_cents: 89 });
+});
+
+test('Inicio: un gasto apuntado dos veces se une en uno', async ({ page }) => {
+  const tables = sampleData();
+  const first = tables.expenses[0];
+  tables.expenses.push({ ...first, id: 'e-dup', note: 'MERCADONA VALENCIA', paid_by: BEA, created_by: BEA });
+  const fake = await openApp(page, { tables });
+  const card = page.getByRole('region', { name: '¿Es el mismo gasto?' });
+  await expect(card).toBeVisible();
+  await expect(card.getByText(/Los dos habéis apuntado 54,20/)).toBeVisible();
+  if (process.env.CAPTURAS) await card.screenshot({ path: `${process.env.CAPTURAS}/1-repetidos.png` });
+  await card.getByRole('button', { name: 'Unir en uno' }).click();
+  await expect(card).toBeHidden();
+  await expect.poll(() => fake.writes.some((w) => w.what === 'DELETE expenses'), { timeout: 10_000 }).toBe(true);
+});
+
+test('Presupuesto: propone límites según los últimos 3 meses', async ({ page }) => {
+  const tables = sampleData();
+  const now = new Date();
+  for (const [back, cents] of [[1, 31000], [2, 29500], [3, 33000]]) {
+    const spent = new Date(now.getFullYear(), now.getMonth() - back, 10);
+    const spent_on = `${spent.getFullYear()}-${String(spent.getMonth() + 1).padStart(2, '0')}-10`;
+    tables.expenses.push({ ...tables.expenses[0], id: `e-old-${back}`, amount_cents: cents, spent_on, note: 'Súper' });
+  }
+  // La historia del mes pasado ya vista, para que no tape la pantalla.
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const seen = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-01`;
+  await page.addInitScript((m) => localStorage.setItem('gastos.cierreVisto', m), seen);
+  const fake = await openApp(page, { tables });
+  await tabs(page).getByRole('button', { name: 'Presupuesto', exact: true }).click();
+  const card = page.getByRole('region', { name: 'Límites a vuestra medida' });
+  await expect(card.getByText('Supermercado')).toBeVisible();
+  await expect(card.getByText('310,00 €', { exact: true })).toBeVisible();
+  if (process.env.CAPTURAS) await card.screenshot({ path: `${process.env.CAPTURAS}/2-limites.png` });
+  await card.getByRole('button', { name: 'Poner' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST budgets')?.body).toEqual([
+    expect.objectContaining({ category_id: 'c-super', amount_cents: 31000 }),
+  ]);
 });
