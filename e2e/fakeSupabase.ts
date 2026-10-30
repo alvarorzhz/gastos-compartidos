@@ -51,6 +51,7 @@ export function sampleData(): Tables {
     savings_contributions: [],
     events: [],
     expense_reactions: [],
+    challenges: [],
     shopping_items: [
       { id: 's-1', household_id: HOME, name: 'Leche', quantity: 2, unit: null, category: 'lacteos', important: false, estimated_cents: null,
         status: 'pending', bought_at: null, bought_by: null, cleared_at: null, price_cents: null, created_by: ANA, created_at: iso(now), updated_at: iso(now) },

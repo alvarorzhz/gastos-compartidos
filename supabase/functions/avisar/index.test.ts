@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addDaysIso, addMonth, balanceSentence, budgetAlertText, expenseMessage, field, joinList, madridDate, monthName, parseBody,
+  addDaysIso, addMonth, balanceSentence, budgetAlertText, challengeHalfway, challengeMessage, expenseMessage, field, joinList, madridDate, monthName, parseBody,
   type NewExpense,
 } from './index';
 
@@ -104,5 +104,22 @@ describe('fechas y textos', () => {
     expect(joinList([])).toBe('');
     expect(joinList(['Luz'])).toBe('Luz');
     expect(joinList(['Luz', 'Agua', 'Gas'])).toBe('Luz, Agua y Gas');
+  });
+});
+
+describe('retos de pareja', () => {
+  it('avisa a la pareja de la propuesta y a quien propuso de que se acepta', () => {
+    expect(challengeMessage('proposed', 'Una semana sin pedir comida a domicilio', 'Ana')).toMatchObject({
+      title: 'Ana te propone un reto', body: 'Una semana sin pedir comida a domicilio. Entra para aceptarlo.', url: '/#inicio',
+    });
+    expect(challengeMessage('accepted', 'Súper por debajo de 300 €', 'Bea').title).toBe('Bea acepta el reto 💪');
+    expect(challengeMessage('end', 'Reto').body).toBe('Reto. Entrad a ver si lo habéis conseguido.');
+  });
+  it('el aviso de mitad sale desde la mitad hasta el final, y no en retos cortos', () => {
+    expect(challengeHalfway('2026-11-01', '2026-11-30', '2026-11-15')).toBe(false);
+    expect(challengeHalfway('2026-11-01', '2026-11-30', '2026-11-16')).toBe(true);
+    expect(challengeHalfway('2026-11-01', '2026-11-30', '2026-12-01')).toBe(false);
+    expect(challengeHalfway('2026-10-29', '2026-11-04', '2026-11-01')).toBe(true);
+    expect(challengeHalfway('2026-10-29', '2026-10-31', '2026-10-31')).toBe(false);
   });
 });

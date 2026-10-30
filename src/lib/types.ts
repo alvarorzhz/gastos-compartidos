@@ -175,3 +175,24 @@ export interface PersonalRecurring {
   active: boolean;
   created_at: string;
 }
+
+export type ChallengeKind = 'cap' | 'without' | 'save';
+
+/** Reto de pareja: lo propone uno y lo acepta el otro (vacío hasta ejecutar la migración 0016). */
+export interface Challenge {
+  id: string;
+  household_id: string;
+  /** cap: gastar como mucho amount_cents en una categoría · without: no gastar en algo · save: meter dinero en una hucha. */
+  kind: ChallengeKind;
+  title: string;
+  category_id: string | null;
+  /** Para «without»: palabra del concepto (p. ej. «glovo»), además o en vez de la categoría. */
+  keyword: string | null;
+  goal_id: string | null;
+  amount_cents: number | null;
+  starts_on: string; // YYYY-MM-DD
+  ends_on: string;
+  proposed_by: string;
+  accepted_at: string | null;
+  created_at: string;
+}

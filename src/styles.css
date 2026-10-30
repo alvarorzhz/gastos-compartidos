@@ -1681,3 +1681,10 @@ span.cancel-check { display: inline-block; }
 /* Ajustes → Errores de la app */
 .error-message { overflow-wrap: anywhere; }
 .error-detail { margin: 0 var(--s3) var(--s3); padding: var(--s3); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
+
+/* Retos de pareja (Inicio) */
+.challenge { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s3); border-radius: var(--r-md); background: var(--surface-2); }
+.challenge-title { font-weight: 650; color: var(--text); }
+.challenge-won { background: var(--positive-soft); }
+.challenge-lost { background: var(--warning-soft); }
+.challenge-idea { white-space: normal; }

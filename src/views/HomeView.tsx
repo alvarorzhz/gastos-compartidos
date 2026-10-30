@@ -15,6 +15,7 @@ import type { Expense } from '../lib/types';
 import { BalanceText } from './BalanceView';
 import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, toast, type ViewProps, useMonth } from './common';
 import { ExpenseForm } from './lazy';
+import Challenges from './Challenges';
 import Duplicates from './Duplicates';
 import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
@@ -115,6 +116,8 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
           </div>
 
           <SharedGoal {...props} />
+
+          {isCurrent && <Challenges {...props} />}
 
           {partner && sum.spentCents > 0 && (
             <section className="card o-6" aria-labelledby="home-payers">
