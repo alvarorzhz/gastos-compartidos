@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.21.0',
+    date: '2026-11-01',
+    changes: [
+      { kind: 'nuevo', text: 'Personal → Tu coach: nota del mes del 0 al 100 según lo que ahorras, cuánto se llevan los fijos, si cumples tus límites y tu colchón, con 3 consejos concretos para mejorarla.' },
+      { kind: 'nuevo', text: 'Colchón de emergencia: con lo que te ha sobrado en los meses anteriores, la app calcula cuántos meses aguantarías sin ingresos y cuánto apartar para llegar a 3.' },
+      { kind: 'nuevo', text: 'Comparado con tu mes normal: si gastas más o menos que de costumbre (a mitad de mes, comparado con lo que solías llevar a ese día), frente a hace un año y en qué categorías se nota.' },
+    ],
+  },
+  {
     version: '3.20.0',
     date: '2026-10-29',
     changes: [
