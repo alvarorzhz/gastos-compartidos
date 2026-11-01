@@ -332,3 +332,30 @@ test('Inicio: aceptar el reto que propone la pareja y ver cómo vais', async ({ 
     await card.screenshot({ path: `${process.env.CAPTURAS}/2-en-marcha.png` });
   }
 });
+
+test('personal: el coach pone nota, calcula el colchón y compara con tu mes normal', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.clock.setFixedTime(new Date('2026-10-20T10:00:00'));
+  const tables = sampleData();
+  let n = 0;
+  const entry = (kind: string, amount_cents: number, entry_on: string, category: string) => ({
+    id: `p-${++n}`, user_id: ANA, kind, amount_cents, entry_on, category, note: null, recurring_id: null, created_at: '2026-01-01T00:00:00Z',
+  });
+  for (const m of ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09']) {
+    tables.personal_entries.push(entry('income', 200000, `${m}-01`, 'Nómina'), entry('expense', 120000, `${m}-10`, 'Supermercado'));
+  }
+  tables.personal_entries.push(entry('income', 200000, '2026-10-01', 'Nómina'), entry('expense', 60000, '2026-10-05', 'Supermercado'), entry('expense', 25000, '2026-10-12', 'Comida fuera'));
+  tables.personal_budgets.push({ user_id: ANA, category: 'Comida fuera', amount_cents: 15000, updated_at: '2026-01-01T00:00:00Z' });
+  await openApp(page, { tables });
+  await tabs(page).getByRole('button', { name: 'Personal', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: 'Tu coach' })).toBeVisible();
+  await expect(page.getByRole('img', { name: /Nota del mes: \d+ de 100/ })).toBeVisible();
+  await expect(page.getByText(/Te has pasado 100,00\s€ en Comida fuera/)).toBeVisible();
+  // 5 meses × 800 € que sobraron = 4.000 €; gastas 1.200 € al mes → 3,3 meses.
+  await expect(page.getByText('3,3 meses').first()).toBeVisible();
+  await expect(page.getByText('Comparado con tu mes normal')).toBeVisible();
+  await page.getByRole('heading', { name: 'Tu coach' }).scrollIntoViewIfNeeded();
+  await page.getByRole('region', { name: 'Tu coach' }).screenshot({ path: 'test-results/coach.png' });
+  expect(errors).toEqual([]);
+});

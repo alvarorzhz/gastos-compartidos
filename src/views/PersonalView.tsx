@@ -10,6 +10,7 @@ import { AmountField, capitalize, CategoryIcon, CountUp, confirmAction, EmptySta
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
 import { PersonalBudgetSection, PersonalTrends } from './PersonalBudget';
+import PersonalCoach from './PersonalCoach';
 import PersonalReviewSheet, { PersonalReviewCard, usePersonalReview } from './PersonalReview';
 import Recategorize from './Recategorize';
 import { deleteWithUndo } from './undo';
@@ -77,6 +78,8 @@ export default function PersonalView(props: ViewProps) {
           {proposals.length === 1 ? 'Un gasto en «Otros» parece' : `${proposals.length} gastos en «Otros» parecen`} de otra categoría, como Supermercado o Electrónica.
         </Notice>
       )}
+
+      <PersonalCoach {...props} month={month} />
 
       <PersonalReviewCard review={review} onOpen={() => setReviewing(true)} />
 
