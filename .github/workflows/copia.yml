@@ -1,0 +1,112 @@
+name: Copia fuera de Supabase
+
+# Cada lunes descarga una copia completa de la base de datos de Supabase, comprueba que se
+# puede volver a cargar en un Postgres vacío y la guarda cifrada aquí, en GitHub (pestaña
+# Actions → esta ejecución → Artifacts), durante 90 días. Así, aunque se perdiera el proyecto
+# de Supabase entero, los datos siguen a salvo.
+#
+# Necesita dos secretos del repositorio (Settings → Secrets and variables → Actions):
+# - SUPABASE_DB_URL: la dirección «Session pooler» de Supabase (botón Connect), con la
+#   contraseña de la base de datos puesta en lugar de [YOUR-PASSWORD].
+# - BACKUP_PASSPHRASE: una frase larga que solo sabéis vosotros. Sin ella la copia no se abre.
+# Sin esos secretos, el trabajo avisa y no hace nada.
+#
+# Gasta alrededor de 1 minuto de GitHub Actions a la semana. Cómo recuperar: README.md.
+on:
+  schedule:
+    - cron: '30 3 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: copia
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  copia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      # Un Postgres vacío para comprobar que la copia se puede cargar de verdad.
+      prueba:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      PRUEBA_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - name: Comprobar los secretos
+        id: secretos
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::warning::Faltan los secretos SUPABASE_DB_URL y BACKUP_PASSPHRASE: no se hace la copia."
+            echo "listo=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "listo=si" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secretos.outputs.listo == 'si'
+
+      - name: Descargar la copia
+        if: steps.secretos.outputs.listo == 'si'
+        run: |
+          set -euo pipefail
+          mkdir copia
+          pg() { docker run --rm --network host -e PGCONNECT_TIMEOUT=20 postgres:17-alpine "$@"; }
+          # Lo de la app (tablas, datos, funciones y permisos) y el registro de migraciones.
+          pg pg_dump "$SUPABASE_DB_URL" --schema=public --schema=supabase_migrations \
+            --no-owner --no-privileges --no-publications --no-subscriptions > copia/app.sql
+          # Las dos cuentas (sin ellas, los gastos no tendrían a quién pertenecer).
+          pg pg_dump "$SUPABASE_DB_URL" --data-only --table=auth.users --table=auth.identities > copia/cuentas.sql
+          # Cuántas filas de cada tabla lleva la copia (contadas en la propia copia).
+          awk '/^COPY public\./ { t = substr($2, 8); n = 0; next } t != "" && $0 == "\\." { print t, n; t = ""; next } t != "" { n++ }' \
+            copia/app.sql | sort > copia/filas.txt
+          grep -q '^expenses [1-9]' copia/filas.txt
+          echo "Filas por tabla:"; cat copia/filas.txt
+
+      - name: Comprobar que la copia se puede cargar
+        if: steps.secretos.outputs.listo == 'si'
+        run: |
+          set -euo pipefail
+          pg() { docker run --rm -i --network host postgres:17-alpine "$@"; }
+          # Lo mínimo que trae Supabase (roles y schema auth) y luego la copia.
+          # Algún paso propio de Supabase (pg_net, Realtime) falla en un Postgres normal: no importa.
+          pg psql "$PRUEBA_URL" -q < supabase/tests/00_stub_supabase.sql
+          pg psql "$PRUEBA_URL" -q < copia/app.sql > /dev/null 2> errores.txt || true
+          cut -d' ' -f1 copia/filas.txt | while read -r t; do
+            echo "$t $(pg psql "$PRUEBA_URL" -Atc "select count(*) from public.\"$t\"" < /dev/null)"
+          done > cargadas.txt
+          if ! diff copia/filas.txt cargadas.txt; then
+            echo "::error::La copia no se carga entera (arriba, las tablas que no cuadran)."
+            # Solo el mensaje de cada error, sin las filas de datos que lo acompañan.
+            grep -m40 'ERROR' errores.txt | cut -c1-200 || true
+            exit 1
+          fi
+          echo "La copia se carga entera: todas las tablas tienen las mismas filas."
+
+      - name: Cifrar
+        if: steps.secretos.outputs.listo == 'si'
+        run: |
+          set -euo pipefail
+          name="copia-$(date -u +%F)"
+          tar -czf "$name.tar.gz" copia
+          gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            -o "$name.tar.gz.gpg" "$name.tar.gz" <<< "$BACKUP_PASSPHRASE"
+          rm -rf copia "$name.tar.gz"
+          echo "NOMBRE=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.secretos.outputs.listo == 'si'
+        with:
+          name: ${{ env.NOMBRE }}
+          path: ${{ env.NOMBRE }}.tar.gz.gpg
+          retention-days: 90
+          if-no-files-found: error

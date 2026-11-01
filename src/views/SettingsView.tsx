@@ -414,7 +414,7 @@ function DangerZone({ data, reload }: ViewProps) {
   async function deleteHousehold() {
     const ok = await confirmAction({
       title: '¿Borrar el espacio?',
-      message: `Esto borra para siempre "${data.household.name}" con todos sus gastos, reembolsos y presupuestos, para las dos personas. Te recomendamos exportar antes.`,
+      message: `Esto borra para siempre "${data.household.name}" con todos sus gastos, reembolsos y presupuestos, para las dos personas. Las copias de seguridad se guardan 30 días más por si fue un error y luego se borran solas. Te recomendamos exportar antes.`,
       confirmLabel: 'Borrar para siempre',
       danger: true,
       typeToConfirm: 'BORRAR',
@@ -430,7 +430,7 @@ function DangerZone({ data, reload }: ViewProps) {
   async function deleteAccount() {
     const ok = await confirmAction({
       title: '¿Borrar tu cuenta?',
-      message: 'Esto borra tu cuenta y te saca del espacio. Si eres la última persona, el espacio y todos sus datos se borran también. Te recomendamos exportar antes.',
+      message: 'Esto borra tu cuenta y te saca del espacio. Si eres la última persona, el espacio y todos sus datos se borran también. Las copias de seguridad se guardan 30 días más por si fue un error y luego se borran solas. Te recomendamos exportar antes.',
       confirmLabel: 'Borrar mi cuenta',
       danger: true,
       typeToConfirm: 'BORRAR',
