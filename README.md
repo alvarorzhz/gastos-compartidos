@@ -44,7 +44,7 @@ La barra de abajo tiene **Inicio · Gastos · Compra · + · Presupuesto · Pers
 - **Avisos en el móvil**: cuando la pareja apunta un gasto, cuando un presupuesto llega a su aviso, los fijos de cada mañana y los resúmenes de la semana (lunes) y del mes (día 1). En iPhone solo con la app instalada.
 - **Apuntar al pagar con Apple Pay**: guía para crear el atajo de Cartera en el iPhone.
 - **Instalar en el móvil**, **Lo que la app hace sola**, **Ver novedades**, exportar todo (Excel con una hoja por tabla, o JSON) y borrar el espacio o la cuenta.
-- **Tus datos**: copias de seguridad semanales, historial de cambios de los gastos y **errores de la app** (lo que ha fallado en el móvil de alguno de los dos en los últimos 90 días).
+- **Tus datos**: copias de seguridad diarias, historial de cambios de los gastos y **errores de la app** (lo que ha fallado en el móvil de alguno de los dos en los últimos 90 días).
 
 Además: tiempo real entre los dos móviles, modo oscuro automático, se instala como app (PWA) y se abre sin conexión con los datos de la última vez. Moneda: EUR.
 
@@ -87,6 +87,8 @@ Cada archivo de [`supabase/migrations/`](supabase/migrations/) se ejecuta **una 
 | `0013_pareja.sql` | Perfil (color y emoji) y reacciones a los gastos | 3.12.0 |
 | `0014_copias_e_historial.sql` | Copias semanales, historial de cambios, retoques del asesor y registro de migraciones | 3.13.0 |
 | `0015_errores.sql` | Errores de la app, que se ven en Ajustes → Tus datos | 3.16.0 |
+| `0016_retos.sql` | Retos de pareja | 3.20.0 |
+| `0017_copias_seguras.sql` | Copias diarias y completas, que sobreviven 30 días a un borrado | 3.22.0 |
 
 ## Puesta en marcha (desde cero)
 
@@ -162,3 +164,25 @@ El lector (Tesseract compilado a WebAssembly y el modelo de español, unos 6 MB)
 - **Borrar mi cuenta**: elimina tu cuenta, tus datos personales y te saca del espacio. Si eras la última persona, el espacio se borra entero. Si no, la otra persona conserva el historial (tus gastos aparecen como “Cuenta borrada”).
 
 Exporta antes desde **Ajustes → Tus datos** si quieres guardar una copia.
+
+Las copias de seguridad del espacio o de la cuenta borrados se guardan 30 días más (nadie las ve desde la app) por si fue un error, y luego se borran solas.
+
+## Copias de seguridad y cómo recuperar
+
+Hay dos copias, en sitios distintos:
+
+1. **Dentro de Supabase, cada noche** (`run_backup`, migraciones `0014` y `0017`): una foto en JSON de lo común de cada espacio y de lo personal de cada persona, en la tabla `backups`. Se quedan las 14 últimas y la de cada lunes de las 8 últimas semanas. Se descargan desde **Ajustes → Copias de seguridad**.
+2. **Fuera de Supabase, cada lunes** ([`.github/workflows/copia.yml`](.github/workflows/copia.yml)): GitHub descarga la base de datos entera con `pg_dump`, comprueba que se carga en un Postgres vacío con las mismas filas y la guarda cifrada 90 días en **Actions → Copia fuera de Supabase → Artifacts**. Necesita los secretos `SUPABASE_DB_URL` (dirección *Session pooler* del botón **Connect** de Supabase, con la contraseña de la base de datos) y `BACKUP_PASSPHRASE` (una frase larga que no se guarda en ningún otro sitio). Se puede lanzar a mano con **Run workflow**.
+
+**Recuperar una copia de GitHub** (si se perdiera el proyecto de Supabase):
+
+```bash
+gpg -d copia-AAAA-MM-DD.tar.gz.gpg | tar -xz     # pide la frase BACKUP_PASSPHRASE
+# En un proyecto de Supabase nuevo, con su dirección en $DB:
+psql "$DB" -f copia/cuentas.sql                  # primero las cuentas
+psql "$DB" -f copia/app.sql                      # luego tablas, datos y funciones
+```
+
+Después, desplegar `avisar` y volver a programar los trabajos de `0010` y `0017` (sus bloques `cron.schedule`). `copia/filas.txt` dice cuántas filas tenía cada tabla.
+
+**Recuperar desde la tabla `backups`** (algo borrado por error): en el SQL Editor, `select taken_at, data from backups where household_id = '…' order by taken_at desc` da la copia en JSON, y cada tabla se puede volver a meter con `jsonb_populate_recordset`.

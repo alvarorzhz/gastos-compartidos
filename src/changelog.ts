@@ -18,6 +18,17 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.22.0',
+    date: '2026-11-01',
+    changes: [
+      { kind: 'mejora', text: 'Copias de seguridad cada noche en vez de cada lunes: se quedan las de las dos últimas semanas y la de cada lunes de los dos últimos meses.' },
+      { kind: 'mejora', text: 'Las copias ahora también guardan los retos, el historial de cambios y los pagos de Apple Pay sin confirmar.' },
+      { kind: 'mejora', text: 'Si se borra el espacio o una cuenta, sus copias se guardan 30 días más por si fue un error, y luego se borran solas.' },
+      { kind: 'nuevo', text: 'Copia semanal cifrada fuera de Supabase (en GitHub), por si algún día se pierde todo el servidor.' },
+      { kind: 'mejora', text: 'La web pide al navegador más protecciones: no se puede meter dentro de otra página y solo carga código de la propia app.' },
+    ],
+  },
+  {
     version: '3.21.0',
     date: '2026-11-01',
     changes: [

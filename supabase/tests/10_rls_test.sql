@@ -418,9 +418,22 @@ select pg_temp.check((select count(*) from backups where user_id = '00000000-000
 select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
 select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 0, 'C no ve copias ajenas');
 reset role;
-do $$ begin for i in 1..9 loop perform public.run_backup(); end loop; end $$;
-select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 8, 'se guardan solo las 8 últimas copias');
-select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 16, 'migraciones registradas');
+do $$ begin for i in 1..20 loop perform public.run_backup(); end loop; end $$;
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 14, 'se guardan las 14 últimas copias');
+-- Además de las 14 últimas, se queda la del lunes de las 8 últimas semanas (0017).
+delete from backups where household_id = :'rhid';
+insert into backups (household_id, taken_at, data)
+select :'rhid', now() - make_interval(days => n), '{}' from generate_series(1, 100) n;
+select public.run_backup();
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') =
+  14 + 8 - (select count(*) from (select taken_at from backups where household_id = :'rhid' order by taken_at desc limit 14) r
+            where extract(isodow from taken_at at time zone 'UTC') = 1),
+  'se guardan las 14 últimas y los 8 últimos lunes');
+select pg_temp.check((select count(*) from backups where household_id = :'rhid' and extract(isodow from taken_at at time zone 'UTC') = 1
+  and taken_at < now() - interval '14 days') between 5 and 6, 'los lunes viejos se quedan');
+select pg_temp.check((select min(taken_at) from backups where household_id = :'rhid') > now() - interval '57 days', 'lo de hace más de 8 semanas se borra');
+select pg_temp.check((select data ? 'challenges' and data ? 'expense_changes' from backups where household_id = :'rhid' order by taken_at desc limit 1), 'la copia lleva retos e historial');
+select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 17, 'migraciones registradas');
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
@@ -481,6 +494,16 @@ select pg_temp.check((select count(*) from households) = 1, 'solo queda el espac
 select pg_temp.check((select count(*) from personal_entries) = 5, 'borrar el espacio no toca lo personal');
 select pg_temp.check((select count(*) from savings_goals) = 0, 'huchas borradas con el espacio');
 select pg_temp.check((select count(*) from shopping_items) = 0, 'lista de la compra borrada con el espacio');
+-- Las copias del espacio borrado no se borran con él: se guardan 30 días y luego se van (0017).
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') > 0, 'las copias sobreviven al borrado del espacio');
+select public.run_backup();
+select pg_temp.check((select bool_and(orphaned_at is not null) from backups where household_id = :'rhid'), 'las copias del espacio borrado quedan apuntadas');
+update backups set orphaned_at = now() - interval '29 days' where household_id = :'rhid';
+select public.run_backup();
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') > 0, 'siguen ahí antes de los 30 días');
+update backups set orphaned_at = now() - interval '31 days' where household_id = :'rhid';
+select public.run_backup();
+select pg_temp.check((select count(*) from backups where household_id = :'rhid') = 0, 'a los 30 días se borran solas');
 
 -- Borrar cuenta: C era la única, su espacio desaparece con ella.
 set role authenticated;

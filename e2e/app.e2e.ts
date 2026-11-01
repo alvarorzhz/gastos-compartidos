@@ -8,6 +8,19 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
+// En todas las pruebas: nada puede quedar bloqueado por las cabeceras de seguridad (vercel.json).
+const blocked = new WeakMap<Page, string[]>();
+test.beforeEach(({ page }) => {
+  const list: string[] = [];
+  blocked.set(page, list);
+  page.on('console', (m) => {
+    if (/Content Security Policy/i.test(m.text())) list.push(m.text());
+  });
+});
+test.afterEach(({ page }) => {
+  expect(blocked.get(page) ?? []).toEqual([]);
+});
+
 const tabs = (page: Page) => page.getByRole('navigation', { name: 'Secciones' });
 
 test('sin sesión se ve la pantalla para entrar', async ({ page }) => {
@@ -34,6 +47,15 @@ test('todas las secciones se abren sin fallos', async ({ page }) => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(heading);
   }
   expect(errors).toEqual([]);
+});
+
+test('la web manda las cabeceras de seguridad de vercel.json', async ({ page }) => {
+  const response = await page.goto('/');
+  const headers = response?.headers() ?? {};
+  expect(headers['content-security-policy']).toContain("frame-ancestors 'none'");
+  expect(headers['content-security-policy']).toContain('connect-src');
+  expect(headers['x-frame-options']).toBe('DENY');
+  expect(headers['x-content-type-options']).toBe('nosniff');
 });
 
 test('Gastos enseña los movimientos y el saldo', async ({ page }) => {

@@ -90,7 +90,7 @@ interface Backup {
   taken_at: string;
 }
 
-/** Ajustes → Copias de seguridad: las que guarda el servidor cada lunes, para descargarlas. */
+/** Ajustes → Copias de seguridad: las que guarda el servidor cada noche, para descargarlas. */
 export function Backups() {
   const [backups, setBackups] = useState<Backup[] | null | undefined>(undefined);
   const [busy, setBusy] = useState<number | null>(null);
@@ -123,7 +123,7 @@ export function Backups() {
     <section className="settings-group" aria-labelledby="set-backups">
       <h2 id="set-backups">Copias de seguridad</h2>
       {backups === null && <Notice icon="clock">Se activarán en cuanto se actualice el servidor.</Notice>}
-      {backups && backups.length === 0 && <Notice icon="clock">La primera copia se hará el lunes de madrugada.</Notice>}
+      {backups && backups.length === 0 && <Notice icon="clock">La primera copia se hará esta noche.</Notice>}
       {backups && backups.length > 0 && (
         <ul className="list with-icons">
           {backups.map((b) => (
@@ -142,7 +142,7 @@ export function Backups() {
           ))}
         </ul>
       )}
-      <p className="note">Cada lunes el servidor guarda una copia de todo y se quedan las 8 últimas (dos meses). Si algún día se borra algo por error, se puede recuperar desde aquí.</p>
+      <p className="note">Cada noche el servidor guarda una copia de todo. Se quedan las de las dos últimas semanas y la de cada lunes de los dos últimos meses. Si algún día se borra algo por error, se puede recuperar.</p>
     </section>
   );
 }

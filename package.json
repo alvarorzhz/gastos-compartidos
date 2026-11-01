@@ -1,7 +1,7 @@
 {
   "name": "gastos-compartidos",
   "private": true,
-  "version": "3.21.0",
+  "version": "3.22.0",
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-ocr.mjs",
@@ -22,18 +22,21 @@
     "tesseract.js": "^5.1.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@tesseract.js-data/spa": "^1.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "eslint": "^9.39.5",
+    "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "typescript": "~5.9",
     "typescript-eslint": "^8.72.1",
     "vite": "^7.3.7",
     "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "minimatch": "^11.0.3"
   }
 }
