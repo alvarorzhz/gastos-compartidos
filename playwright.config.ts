@@ -17,7 +17,8 @@ export default defineConfig({
     ...devices['Pixel 7'],
   },
   webServer: {
-    command: 'npm run build && npx vite preview --port 4173 --strictPort',
+    // En CI ya se ha compilado antes (SKIP_BUILD=1) y no se repite.
+    command: `${process.env.SKIP_BUILD ? '' : 'npm run build && '}npx vite preview --port 4173 --strictPort`,
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

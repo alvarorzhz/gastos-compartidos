@@ -21,7 +21,7 @@ App web privada (PWA) para que una pareja apunte gastos comunes y lleve un presu
 - Migraciones: archivo nuevo en `supabase/migrations/` (nunca editar uno ya aplicado). Las aplica el dueño a mano en el SQL Editor de Supabase antes de fusionar la PR.
 - Toda tabla nueva lleva RLS con `is_member(...)` (o solo el dueño en lo personal) y sus pruebas en `10_rls_test.sql`. Un espacio tiene como máximo 2 miembros.
 - Nunca guardar claves en el repo.
-- Antes de subir: `npm run lint`, `npm test`, `npm run build` y `npm run test:screens`. CI (`.github/workflows/ci.yml`) repite eso, `deno check` de la función y las pruebas de base de datos. Con CI en verde, se puede fusionar la PR (squash).
+- Antes de subir: `npm run lint`, `npm test`, `npm run build` y `npm run test:screens`. CI (`.github/workflows/ci.yml`) repite eso, `deno check` de la función y las pruebas de base de datos, en un solo trabajo y solo en las PR (no al fusionar, ni si la PR solo toca `.md` o `.claude/`) para gastar pocos minutos: no partirlo en varios trabajos, porque GitHub redondea cada uno al minuto. Con CI en verde, se puede fusionar la PR (squash).
 
 ## Reparto del trabajo entre modelos
 
