@@ -1,58 +1,28 @@
 name: CI
 
+# Para gastar pocos minutos de GitHub Actions:
+# - Todo va en un solo trabajo: GitHub cobra cada trabajo redondeando al minuto
+#   de arriba, así que cuatro trabajos de 20 s costaban 4 minutos y uno de 2 min, 2.
+# - Solo corre en las PR (que ya prueban la versión unida con main). Al fusionar
+#   no se repite; si hace falta, se lanza a mano desde la pestaña Actions.
+# - Si subes otro cambio a la misma PR, la ejecución anterior se cancela.
+# - Los cambios que solo tocan documentación no lanzan pruebas.
 on:
   pull_request:
-  push:
-    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.claude/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  app:
+  pruebas:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-placeholder
-
-  # La función avisar corre en Deno (Supabase): se comprueban sus tipos con Deno.
-  funcion:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-      - run: deno check --no-lock --node-modules-dir=none supabase/functions/avisar/index.ts
-
-  screens:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Navegador para las pruebas de pantallas
-        run: npx playwright install --with-deps chromium
-      - run: npm run test:screens
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: pruebas-de-pantallas
-          path: test-results
-          retention-days: 7
-
-  database:
-    runs-on: ubuntu-latest
+    # Si algo se queda colgado, se corta a los 10 min en vez de gastar hasta 6 h.
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:16
@@ -60,9 +30,39 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_ANON_KEY: pruebas
     steps:
       - uses: actions/checkout@v4
-      - run: scripts/test-db.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # La misma compilación sirve para comprobar que compila y para las pruebas de pantallas.
+      - run: npm run build
+      # La función avisar corre en Deno (Supabase): se comprueban sus tipos con Deno.
+      - name: Tipos de la función avisar
+        run: deno check --no-lock --node-modules-dir=none supabase/functions/avisar/index.ts
+      - name: Pruebas de permisos de la base de datos
+        run: scripts/test-db.sh
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      - name: Navegador para las pruebas de pantallas
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:screens
+        env:
+          SKIP_BUILD: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: pruebas-de-pantallas
+          path: test-results
+          retention-days: 7
