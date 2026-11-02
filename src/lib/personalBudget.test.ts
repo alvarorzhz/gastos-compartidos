@@ -53,6 +53,15 @@ describe('trend', () => {
     expect(trend([200000, 201000, 199500])!.direction).toBe('flat');
   });
 
+  it('dice qué tal de fiable es', () => {
+    expect(trend([10000, 12000, 14000])).toMatchObject({ reliability: 'low', averageCents: 12000, slopeCents: 2000 });
+    expect(trend([10000, 10100, 9900, 10000, 10050, 9950])).toMatchObject({ reliability: 'good', caveats: [] });
+    const jumpy = trend([5000, 30000, 4000, 28000, 6000])!;
+    expect(jumpy.reliability).toBe('low');
+    expect(jumpy.caveats[0]).toContain('cambian mucho');
+    expect(jumpy).toMatchObject({ minCents: 4000, maxCents: 30000 });
+  });
+
   it('no baja de cero', () => {
     expect(trend([3000, 2000, 1000])!.next).toEqual([0, 0, 0]);
   });

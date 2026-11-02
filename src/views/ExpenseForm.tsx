@@ -7,7 +7,7 @@ import { choiceOf, formatPercent, HALF, owedFromSplit, simpleSplit, splitForChoi
 import { errorMessage, supabase } from '../lib/supabase';
 import type { Expense, Frequency, RecurringExpense } from '../lib/types';
 import { ReactionPicker } from './Reactions';
-import { AmountField, Avatar, CategoryIcon, confirmAction, Notice, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { AmountField, Avatar, CategoryIcon, confirmAction, DoubtHint, Notice, Segmented, Sheet, toast, type ViewProps  } from './common';
 import { addedText } from './ExpenseRow';
 import { Icon } from './icons';
 import ScanReceipt from './ScanReceipt';
@@ -21,6 +21,7 @@ import { currentBought, formatQuantity } from '../lib/shopping';
 import { matchTicket, prettyTicketName, ticketNewItems } from '../lib/shoppingPrices';
 import { ShoppingContext, ShoppingItemsContext } from '../lib/useShopping';
 import { TicketItems } from './shopping/TicketItems';
+import { doubtCount, receiptDoubts, type ReceiptDoubts } from '../lib/receiptDoubts';
 import { suggestForNote } from '../lib/suggest';
 import type { PaymentPrefill } from '../lib/payments';
 
@@ -64,6 +65,9 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const [moreOpen, setMoreOpen] = useState((source != null && split.mode !== 'equal') || frequency !== '');
 
   const [scanned, setScanned] = useState<string | null>(null);
+  /** Lo dudoso del ticket escaneado; cada aviso se quita al tocar su campo (ya se ha revisado). */
+  const [doubts, setDoubts] = useState<ReceiptDoubts | null>(null);
+  const clearDoubt = (field: 'total' | 'date' | 'merchant') => setDoubts((d) => (d && d[field] ? { ...d, [field]: null } : d));
   // Productos del ticket escaneado: se guardan en la compra con su precio (los de la lista y los nuevos).
   const shopping = useContext(ShoppingContext);
   const [ticketLines, setTicketLines] = useState<ReceiptLine[]>([]);
@@ -82,8 +86,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const ticketMatches = shopping ? matchTicket(listItems, ticketLines, shopping.items) : [];
   const ticketFresh = shopping ? ticketNewItems(ticketLines, new Set(ticketMatches.map((m) => m.line)), shopping.items) : [];
   const ticketRows = [
-    ...ticketMatches.map((m) => ({ key: m.line, name: prettyTicketName(ticketLines[m.line].name), cents: ticketLines[m.line].cents, listName: listItems.find((i) => i.id === m.itemId)?.name })),
-    ...ticketFresh.map((f) => ({ key: f.line, name: f.name, cents: f.cents })),
+    ...ticketMatches.map((m) => ({ key: m.line, name: prettyTicketName(ticketLines[m.line].name), cents: ticketLines[m.line].cents, listName: listItems.find((i) => i.id === m.itemId)?.name, doubt: doubts?.lines.get(m.line) })),
+    ...ticketFresh.map((f) => ({ key: f.line, name: f.name, cents: f.cents, doubt: doubts?.lines.get(f.line) })),
   ].sort((a, b) => a.key - b.key);
   const ticketCount = ticketRows.filter((r) => !ticketSkipped.has(r.key)).length;
   // Lo que se elige a mano no lo vuelve a cambiar la propuesta del concepto.
@@ -160,7 +164,12 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     }
     // Si esa tienda ya se apuntó otras veces, manda lo de otras veces.
     if (g.merchant && !note.trim()) suggestFrom(g.merchant);
-    setScanned(`He rellenado: ${filled.join(', ')}. Revísalo antes de guardar.`);
+    const d = receiptDoubts(g, today());
+    // La tienda solo es dudosa si se ha puesto como concepto.
+    if (!(g.merchant && !note.trim())) d.merchant = null;
+    setDoubts(d);
+    const n = doubtCount(d);
+    setScanned(`He rellenado: ${filled.join(', ') || 'nada'}. ${n ? `Hay ${n === 1 ? 'una cosa' : `${n} cosas`} que conviene mirar: te las marco en amarillo.` : 'Revísalo antes de guardar.'}`);
     // Los productos van a la compra si es un súper o si trae cosas de la lista.
     const lines = g.lines.filter((l) => l.cents > 0);
     setTicketLines(g.lines);
@@ -380,7 +389,10 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
           <Notice icon="card">Pago con Apple Pay{prefill.amountCents == null ? '. No se ha entendido el importe: escríbelo tú.' : '. Revisa los datos y guárdalo.'}</Notice>
         )}
 
-        <AmountField label="Importe" value={amount} onChange={(v) => { setAmount(v); setBadAmount(false); }} invalid={badAmount} autoFocus={!source && (!prefill || prefill.amountCents == null)} />
+        <div className={doubts?.total ? 'doubtful' : undefined}>
+          <AmountField label="Importe" value={amount} onChange={(v) => { setAmount(v); setBadAmount(false); clearDoubt('total'); }} invalid={badAmount} autoFocus={!source && (!prefill || prefill.amountCents == null)} />
+          {doubts?.total && <DoubtHint>{doubts.total}</DoubtHint>}
+        </div>
 
         {quick.length > 0 && (
           <div className="stack-sm">
@@ -400,7 +412,7 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
         )}
 
         {!source && <ScanReceipt onResult={applyScan} />}
-        {scanned && <Notice kind="success">{scanned}</Notice>}
+        {scanned && <Notice kind={doubts && doubtCount(doubts) > 0 ? 'warn' : 'success'}>{scanned}</Notice>}
         {!source && !frequency && shopping && ticketRows.length > 0 && (
           <div className="card stack-sm">
             <label className="check-line">
@@ -433,9 +445,11 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
             maxLength={200}
             enterKeyHint="done"
             value={note}
-            onChange={(e) => changeNote(e.target.value)}
+            onChange={(e) => { changeNote(e.target.value); clearDoubt('merchant'); }}
             placeholder={frequency ? 'Ej.: alquiler' : 'Ej.: compra semanal'}
+            className={doubts?.merchant ? 'doubtful-input' : undefined}
           />
+          {doubts?.merchant && <DoubtHint>{doubts.merchant}</DoubtHint>}
           {suggested && <p className="field-hint suggest-hint"><Icon name="sparkles" size={14} /><span>{suggested} Puedes cambiarlo.</span></p>}
         </div>
 
@@ -473,14 +487,15 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
         <div className="field">
           <label className="field-label" htmlFor={formId + '-date'}>{template ? 'Próxima vez' : frequency ? 'Primera vez' : 'Fecha'}</label>
           <div className="row">
-            <input id={formId + '-date'} className="grow" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
+            <input id={formId + '-date'} className={'grow' + (doubts?.date ? ' doubtful-input' : '')} type="date" required value={date} onChange={(e) => { setDate(e.target.value); clearDoubt('date'); }} />
             {!template && (
               <div className="chips" role="group" aria-label="Fechas rápidas">
-                <button type="button" className={'chip' + (date === today() ? ' selected' : '')} onClick={() => setDate(today())}>Hoy</button>
-                <button type="button" className={'chip' + (date === addDays(today(), -1) ? ' selected' : '')} onClick={() => setDate(addDays(today(), -1))}>Ayer</button>
+                <button type="button" className={'chip' + (date === today() ? ' selected' : '')} onClick={() => { setDate(today()); clearDoubt('date'); }}>Hoy</button>
+                <button type="button" className={'chip' + (date === addDays(today(), -1) ? ' selected' : '')} onClick={() => { setDate(addDays(today(), -1)); clearDoubt('date'); }}>Ayer</button>
               </div>
             )}
           </div>
+          {doubts?.date && <DoubtHint>{doubts.date}</DoubtHint>}
         </div>
 
         {events.length > 0 && !frequency && (

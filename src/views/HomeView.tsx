@@ -23,6 +23,7 @@ import { ExpenseRow } from './ExpenseRow';
 import { useListMotion } from './motion';
 import { Icon, type IconName } from './icons';
 import { hasStory, MonthRecap } from './MonthStory';
+import { ForecastInfo } from './ForecastInfo';
 
 const go = (view: string) => () => {
   location.hash = '#' + view;
@@ -413,23 +414,50 @@ function CategoryBreakdown({ rows, total }: { rows: ReturnType<typeof monthlySum
   );
 }
 
-/** "A este ritmo, acabaréis el mes en unos 1.350 €", comparado con el presupuesto si lo hay. */
+/** "A este ritmo, acabaréis el mes en unos 1.350 €", comparado con el presupuesto si lo hay, con su porqué. */
 function ForecastLine({ forecast, budget, budgetedShare }: { forecast: Forecast; budget: number; budgetedShare: number }) {
   const rounded = Math.round(forecast.cents / 1000) * 1000; // a decenas de euros: es una estimación
   // Con el límite solo se compara la parte de las categorías que tienen presupuesto.
   const diff = budget - Math.round((forecast.cents * budgetedShare) / 1000) * 1000;
+  const f = forecast;
+  const perDay = f.variableCents / f.day;
+  const shownFixed = f.pendingFixed.slice(0, 4);
   return (
-    <p className="forecast">
+    <div className="forecast">
       <Icon name="chart" size={16} />
-      <span>
-        A este ritmo acabaréis el mes en unos <strong>{formatEuros(rounded)}</strong>
-        {budget > 0 && Math.abs(diff) >= 1000 && (
-          diff > 0 ? <>: os sobrarían unos {formatEuros(diff)}.</> : <>: <span className="negative">os pasaríais unos {formatEuros(-diff)}</span>.</>
-        )}
-        {(budget <= 0 || Math.abs(diff) < 1000) && '.'}
-        {forecast.pendingFixedCents > 0 && <span className="muted"> Incluye {formatEuros(forecast.pendingFixedCents)} de gastos fijos que aún faltan.</span>}
-      </span>
-    </p>
+      <div className="grow">
+        <span className="forecast-text">
+          A este ritmo acabaréis el mes en unos <strong>{formatEuros(rounded)}</strong>
+          {budget > 0 && Math.abs(diff) >= 1000 && (
+            diff > 0 ? <>: os sobrarían unos {formatEuros(diff)}.</> : <>: <span className="negative">os pasaríais unos {formatEuros(-diff)}</span>.</>
+          )}
+          {(budget <= 0 || Math.abs(diff) < 1000) && '.'}
+          {f.pendingFixedCents > 0 && <span className="muted"> Incluye {formatEuros(f.pendingFixedCents)} de gastos fijos que aún faltan.</span>}
+        </span>
+        <ForecastInfo
+          reliability={f.reliability}
+          caveats={f.caveats}
+          assumptions={<>Que seguiréis gastando en el día a día al mismo ritmo que hasta hoy y que los fijos llegan por lo de siempre. No sabe de gastos grandes que estén por venir. Se redondea a decenas de euros.</>}
+        >
+          <li>
+            Día a día: <strong>{formatEuros(f.variableCents)}</strong> en {f.variableCount} {f.variableCount === 1 ? 'gasto' : 'gastos'} durante {f.day} días, unos {formatEuros(perDay)} al día.
+            {' '}Por {f.daysInMonth} días salen unos <strong>{formatEuros(perDay * f.daysInMonth)}</strong>.
+          </li>
+          {f.knownCents > 0 && <li>Fijos ya apuntados y gastos con fecha más adelante: <strong>{formatEuros(f.knownCents)}</strong>. Cuentan tal cual, sin estirarlos.</li>}
+          {shownFixed.length > 0 && (
+            <li>
+              Fijos que faltan: {shownFixed.map((x, i) => (
+                <span key={x.note + x.date}>{i > 0 && ', '}{x.note} el {Number(x.date.slice(8))} ({formatEuros(x.cents)})</span>
+              ))}
+              {f.pendingFixed.length > shownFixed.length && ` y ${f.pendingFixed.length - shownFixed.length} más`}.
+            </li>
+          )}
+          {budget > 0 && budgetedShare < 0.995 && (
+            <li>Con el presupuesto solo se compara la parte de categorías con límite: el {Math.round(budgetedShare * 100)} % de lo gastado.</li>
+          )}
+        </ForecastInfo>
+      </div>
+    </div>
   );
 }
 

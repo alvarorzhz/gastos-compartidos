@@ -7,6 +7,7 @@ import { budgetAlerts, budgetRows, monthlyFlows, suggestedLimit, trend, type Mon
 import { errorMessage, supabase } from '../lib/supabase';
 import { CategoryIcon, EmptyState, Notice, Progress, SectionHeader, Sheet, toast, type ViewProps } from './common';
 import { Icon } from './icons';
+import { ForecastInfo } from './ForecastInfo';
 
 /** «En qué has gastado» con el límite de cada categoría y su aviso. */
 export function PersonalBudgetSection(props: ViewProps & { month: string }) {
@@ -195,13 +196,13 @@ export function PersonalTrends({ data }: ViewProps) {
           <li><span className="dot fill-forecast" /> Previsión</li>
           {limit != null && <li><span className="dash-mark" /> Tu límite</li>}
         </ul>
-        <TrendText income={income} expense={expense} category={category} limit={limit} />
+        <TrendText income={income} expense={expense} category={category} limit={limit} complete={complete} />
       </div>
     </section>
   );
 }
 
-function TrendText({ income, expense, category, limit }: { income: Trend | null; expense: Trend | null; category: string; limit: number | null }) {
+function TrendText({ income, expense, category, limit, complete }: { income: Trend | null; expense: Trend | null; category: string; limit: number | null; complete: MonthFlow[] }) {
   if (!expense && !income) {
     return <p className="muted small">Para calcular la tendencia hacen falta al menos 3 meses completos con movimientos.</p>;
   }
@@ -221,8 +222,38 @@ function TrendText({ income, expense, category, limit }: { income: Trend | null;
           {expense && <> Te quedarían unos <strong className={avg(income) - avg(expense) < 0 ? 'negative' : 'positive'}>{formatEuros(avg(income) - avg(expense))}</strong> al mes.</>}
         </p>
       )}
-      <p className="muted small">Es una previsión con tus últimos {Math.max(expense?.months ?? 0, income?.months ?? 0)} meses completos, no un dato seguro.</p>
+      <TrendInfo income={income} expense={expense} category={category} complete={complete} />
     </div>
+  );
+}
+
+const LEVEL = { low: 0, medium: 1, good: 2 } as const;
+
+/** De dónde sale la tendencia: qué meses usa, cómo se calcula y si son pocos datos. */
+function TrendInfo({ income, expense, category, complete }: { income: Trend | null; expense: Trend | null; category: string; complete: MonthFlow[] }) {
+  const months = Math.max(expense?.months ?? 0, income?.months ?? 0);
+  const used = complete.slice(-months);
+  const range = used.length ? `${formatMonth(used[0].month).toLowerCase()} a ${formatMonth(used[used.length - 1].month).toLowerCase()}` : '';
+  const trends = [expense, income].filter((t): t is Trend => t != null);
+  // Manda la menos fiable de las dos.
+  const reliability = trends.reduce<Trend['reliability']>((r, t) => (LEVEL[t.reliability] < LEVEL[r] ? t.reliability : r), 'good');
+  const caveats = [...new Set(trends.flatMap((t) => t.caveats))];
+  const line = (t: Trend, what: string) => (
+    <li>
+      {what}: de media <strong>{formatEuros(t.averageCents)}</strong> al mes (entre {formatEuros(t.minCents)} y {formatEuros(t.maxCents)}).
+      {' '}{t.direction === 'flat' ? 'Casi no cambia de un mes a otro.' : <>La línea {t.slopeCents > 0 ? 'sube' : 'baja'} unos <strong>{formatEuros(Math.abs(t.slopeCents))}</strong> cada mes.</>}
+    </li>
+  );
+  return (
+    <ForecastInfo
+      reliability={reliability}
+      caveats={caveats}
+      assumptions={<>Que lo que ha pasado estos meses sigue igual: traza una línea recta por ellos y la alarga {AHEAD} meses, sin bajar de cero. No sabe de pagas extra, vacaciones ni gastos puntuales que vengan.</>}
+    >
+      <li>Tus {months} últimos meses completos, de {range}. El mes en curso no cuenta porque aún no ha acabado.</li>
+      {expense && line(expense, category ? `Gastos de ${category}` : 'Gastos')}
+      {income && line(income, 'Ingresos')}
+    </ForecastInfo>
   );
 }
 

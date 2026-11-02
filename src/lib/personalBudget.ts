@@ -1,3 +1,4 @@
+import type { Reliability } from './forecast';
 import { addMonths, monthOf } from './dates';
 import type { PersonalBudget, PersonalEntry } from './types';
 
@@ -78,6 +79,14 @@ export interface Trend {
   direction: 'up' | 'down' | 'flat';
   /** Meses completos usados para calcularla. */
   months: number;
+  /** Media de esos meses, cuánto sube (o baja) la recta cada mes, y el mes más bajo y más alto. */
+  averageCents: number;
+  slopeCents: number;
+  minCents: number;
+  maxCents: number;
+  reliability: Reliability;
+  /** Por qué no es del todo fiable (vacío si lo es). */
+  caveats: string[];
 }
 
 /**
@@ -101,5 +110,22 @@ export function trend(values: number[], ahead = 3): Trend | null {
   const slope = den ? num / den : 0;
   const next = Array.from({ length: ahead }, (_, k) => Math.max(0, Math.round(meanY + slope * (n - meanX + k))));
   const direction = Math.abs(slope) < meanY * 0.03 ? 'flat' : slope > 0 ? 'up' : 'down';
-  return { next, direction, months: n };
+  // Cuánto se separan los meses de la recta, comparado con la media (0 = todos encima de la recta).
+  const residual = Math.sqrt(series.reduce((s, v, i) => s + (v - (meanY + slope * (i - meanX))) ** 2, 0) / n);
+  const spread = meanY > 0 ? residual / meanY : 0;
+  const caveats: string[] = [];
+  if (n < 4) caveats.push(`Solo hay ${n} meses completos: con tan pocos, la tendencia puede cambiar mucho el mes que viene.`);
+  if (spread > 0.3) caveats.push('Tus meses cambian mucho de uno a otro: la previsión es solo orientativa.');
+  const reliability: Reliability = n < 4 || spread > 0.5 ? 'low' : caveats.length > 0 || n < 6 ? 'medium' : 'good';
+  return {
+    next,
+    direction,
+    months: n,
+    averageCents: Math.round(meanY),
+    slopeCents: Math.round(slope),
+    minCents: Math.min(...series),
+    maxCents: Math.max(...series),
+    reliability,
+    caveats,
+  };
 }

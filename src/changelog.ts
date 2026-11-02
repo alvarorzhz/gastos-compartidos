@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.25.0',
+    date: '2026-11-02',
+    changes: [
+      { kind: 'nuevo', text: 'Resumen del mes en PDF: el gasto del mes, cada categoría con lo del mes anterior y la media, una gráfica de los últimos 6 meses, quién pagó, el saldo y los gastos más grandes. Está en Presupuesto («Resumen en PDF»), en el resumen del mes y en Ajustes → Tus datos, donde puedes elegir el mes. Se hace en el móvil y no se sube a ningún sitio.' },
+      { kind: 'mejora', text: 'Al escanear un ticket, lo que puede estar mal leído sale en amarillo con su porqué: el total si no cuadra con los productos, la fecha si no se ha leído o es muy antigua, la tienda si no es una conocida y los productos con nombre o precio raros. El aviso se quita al tocar el campo.' },
+      { kind: 'mejora', text: 'Las previsiones se explican: en Inicio y en Personal → Tendencia dicen si hay pocos datos todavía, si son orientativas o bastante fiables, y con «¿De dónde sale?» ves qué gastos y meses usan, qué suponen y por qué podrían fallar.' },
+    ],
+  },
+  {
     version: '3.24.0',
     date: '2026-11-02',
     changes: [

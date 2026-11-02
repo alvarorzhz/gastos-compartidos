@@ -1,5 +1,6 @@
 import { formatEuros } from '../../lib/money';
 import { MAX_NAME } from '../../lib/shopping';
+import { Icon } from '../icons';
 
 /*
  * Productos de un ticket escaneado para revisar antes de guardar: cada uno con su precio, una
@@ -12,6 +13,8 @@ export interface TicketRow {
   cents: number;
   /** Nombre del producto de la lista con el que se ha emparejado; sin él, es nuevo. */
   listName?: string;
+  /** Por qué conviene revisar esta línea (la lectura del ticket parece dudosa). */
+  doubt?: string;
 }
 
 export function TicketItems({ rows, skipped, names, onToggle, onRename }: {
@@ -27,7 +30,7 @@ export function TicketItems({ rows, skipped, names, onToggle, onRename }: {
         const on = !skipped.has(r.key);
         const name = names[r.key] ?? r.name;
         return (
-          <li key={r.key} className={'ticket-item' + (on ? '' : ' off')}>
+          <li key={r.key} className={'ticket-item' + (on ? '' : ' off') + (r.doubt ? ' doubtful' : '')}>
             <input type="checkbox" checked={on} onChange={() => onToggle(r.key)} aria-label={`Guardar ${r.listName ?? name}`} />
             {r.listName ? (
               <span className="row-main">
@@ -45,6 +48,11 @@ export function TicketItems({ rows, skipped, names, onToggle, onRename }: {
               />
             )}
             <span className="ticket-item-price">{formatEuros(r.cents)}</span>
+            {r.doubt && (
+              <span className="ticket-item-doubt">
+                <Icon name="alert" size={13} /> {r.doubt}
+              </span>
+            )}
           </li>
         );
       })}

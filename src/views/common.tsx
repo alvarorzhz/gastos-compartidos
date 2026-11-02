@@ -337,6 +337,16 @@ export function Notice({ kind = 'info', icon, children, action }: {
   );
 }
 
+/** Aviso amarillo bajo un campo leído de un ticket que conviene revisar. */
+export function DoubtHint({ children }: { children: ReactNode }) {
+  return (
+    <p className="field-hint doubt-hint">
+      <Icon name="alert" size={14} />
+      <span>{children}</span>
+    </p>
+  );
+}
+
 export function Spinner({ label }: { label?: string }) {
   return (
     <span className="spinner-wrap" role="status">
