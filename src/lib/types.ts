@@ -196,3 +196,31 @@ export interface Challenge {
   accepted_at: string | null;
   created_at: string;
 }
+
+/** wish: algo grande para lo que ahorrar (un sofá, un viaje) · treat: un capricho. */
+export type WishKind = 'wish' | 'treat';
+
+/** Deseo o capricho de la pareja (vacío hasta ejecutar la migración 0018). */
+export interface Wish {
+  id: string;
+  household_id: string;
+  kind: WishKind;
+  name: string;
+  price_cents: number | null;
+  note: string | null;
+  created_by: string;
+  /** Cuándo os lo disteis (o lo conseguisteis); null mientras sigue en la lista. */
+  done_at: string | null;
+  /** Hucha creada para este deseo, si la hay. */
+  goal_id: string | null;
+  created_at: string;
+}
+
+/** Lo que le apetece a cada uno: 0 paso, 1 me apetece, 2 mucho, 3 muchísimo. */
+export interface WishVote {
+  wish_id: string;
+  household_id: string;
+  user_id: string;
+  score: number;
+  updated_at: string;
+}

@@ -381,3 +381,46 @@ test('personal: el coach pone nota, calcula el colchón y compara con tu mes nor
   await page.getByRole('region', { name: 'Tu coach' }).screenshot({ path: 'test-results/coach.png' });
   expect(errors).toEqual([]);
 });
+
+test('Gastos → Calendario: el mes día a día y los gastos del día que se toca', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Gastos', exact: true }).click();
+  await page.locator('label', { hasText: /^Calendario$/ }).click();
+  await expect(page).toHaveURL(/#calendario/);
+  const calendar = page.getByRole('region', { name: 'Calendario de gastos' });
+  await expect(calendar).toBeVisible();
+  await calendar.getByRole('button', { name: /54,20\s€ en 1 gasto/ }).click();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Mercadona' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Deseos: apuntar un capricho, votar y que salga el elegido', async ({ page }) => {
+  const errors = watchErrors(page);
+  const tables = sampleData();
+  tables.wishes.push({ id: 'w-1', household_id: tables.households[0].id, kind: 'treat', name: 'Tarde de spa', price_cents: 9000, note: null, created_by: BEA, done_at: null, goal_id: null, created_at: '2026-11-01T10:00:00Z' });
+  tables.wish_votes.push({ wish_id: 'w-1', household_id: tables.households[0].id, user_id: BEA, score: 3, updated_at: '2026-11-01T10:00:00Z' });
+  const fake = await openApp(page, { tables });
+
+  // En Inicio, el widget avisa de que falta tu voto.
+  await expect(page.getByRole('button', { name: /Caprichos/ })).toContainText('espera tu voto');
+  await page.getByRole('button', { name: /Caprichos/ }).click();
+  await expect(page).toHaveURL(/#deseos/);
+  await expect(page.getByText('Falta tu voto')).toBeVisible();
+  await page.getByRole('group', { name: /Tarde de spa/ }).getByRole('button', { name: '¡Me apetece muchísimo!' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST wish_votes')?.body).toMatchObject({ wish_id: 'w-1', user_id: ANA, score: 3 });
+  const chosen = page.getByRole('region', { name: 'El capricho elegido' });
+  await expect(chosen).toContainText('Tarde de spa');
+
+  await page.getByRole('button', { name: 'Añadir capricho' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Añadir capricho' });
+  await sheet.getByLabel('¿Qué os apetece?').fill('Cena en el japonés');
+  await sheet.getByLabel(/Precio/).fill('60');
+  await sheet.getByRole('button', { name: 'Guardar' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST wishes')?.body).toMatchObject({ kind: 'treat', name: 'Cena en el japonés', price_cents: 6000 });
+  await expect(page.getByText('Cena en el japonés')).toBeVisible();
+
+  await chosen.getByRole('button', { name: 'Ya nos lo dimos' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'PATCH wishes')?.body).toMatchObject({ done_at: expect.any(String) });
+  expect(errors).toEqual([]);
+});

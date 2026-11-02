@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { alertText, budgetAlerts } from '../lib/alerts';
-import { balanceFor } from '../lib/balance';
+import { balanceFor, roundBalance } from '../lib/balance';
+import { calendarStats, dayTotals, heatLevel, monthGrid, upcomingFixed } from '../lib/calendar';
 import { monthlySummary, totals } from '../lib/budget';
 import { addMonths, formatMonth, monthOf, today } from '../lib/dates';
 import { formatEuros } from '../lib/money';
@@ -11,22 +12,26 @@ import { budgetStreak, partnerActivity, timeAgo } from '../lib/couple';
 import { saveReaction } from '../lib/reactions';
 import { goalProgress } from '../lib/savings';
 import { monthForecast, type Forecast } from '../lib/forecast';
-import type { Expense } from '../lib/types';
-import { BalanceText } from './BalanceView';
-import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Progress, SectionHeader, toast, type ViewProps, useMonth } from './common';
+import type { Expense, SavingsGoal } from '../lib/types';
+import { chosenOne, moodText, rankWishes, waitingForMe } from '../lib/wishes';
+import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Ring, SectionHeader, toast, type ViewProps, useMonth } from './common';
 import { ExpenseForm } from './lazy';
 import Challenges from './Challenges';
 import Duplicates from './Duplicates';
 import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
-import { Icon } from './icons';
+import { Icon, type IconName } from './icons';
 import { hasStory, MonthRecap } from './MonthStory';
 
 const go = (view: string) => () => {
   location.hash = '#' + view;
 };
 
-/** Pantalla de inicio: cuánto lleváis gastado, cuánto queda, en qué y los últimos gastos. */
+/*
+ * Pantalla de inicio (rediseñada en la 3.23.0 con aire de iPhone): arriba lo del mes con su
+ * anillo, luego los avisos que piden algo, una rejilla de «widgets» (saldo, hucha, quién paga,
+ * caprichos y calendario) y, al final, los últimos movimientos y en qué se os va.
+ */
 export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?: boolean }) {
   const { data, me, onAdd, quiet = false } = props;
   const [month, setMonth] = useMonth();
@@ -41,18 +46,21 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
   const rows = monthlySummary(month, data.categories, data.expenses, data.budgets);
   const sum = totals(rows);
   const partner = partnerOf(data.members, me);
-  const balance = balanceFor(me, data.expenses, data.settlements);
   const alerts = isCurrent ? budgetAlerts(month, data.categories, data.expenses, data.budgets) : [];
-  const topCategories = rows.filter((r) => r.spentCents > 0).slice(0, 4);
-  const byPayer = breakdown(data.expenses, month, (e) => e.paid_by);
   const recent = monthExpenses.slice(0, 5);
   const streak = budgetStreak(today(), data.categories, data.expenses, data.budgets);
 
+  // Widgets pequeños de dos en dos; si quedan impares, el último ocupa toda la fila.
+  const small: { key: string; node: ReactNode }[] = [];
+  if (partner) small.push({ key: 'saldo', node: <BalanceWidget {...props} partnerId={partner.user_id} /> });
+  const goal = latestGoal(data);
+  if (goal) small.push({ key: 'hucha', node: <GoalWidget {...props} goal={goal} /> });
+  if (partner && sum.spentCents > 0) small.push({ key: 'pagos', node: <PayersWidget {...props} month={month} isCurrent={isCurrent} /> });
+  small.push({ key: 'deseos', node: <WishWidget {...props} /> });
+
   return (
     <>
-      {partner && <PartnerActivity {...props} partnerId={partner.user_id} onOpen={setEditing} />}
-
-      <MonthNav month={month} onChange={setMonth} />
+      <MonthNav month={month} onChange={setMonth} compact />
 
       <div className="home-grid">
         <div className="home-col">
@@ -62,86 +70,48 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
             budget={sum.budgetCents}
             count={monthExpenses.length}
             isCurrent={isCurrent}
+            month={month}
             forecast={isCurrent ? monthForecast(today(), data.expenses, data.recurring) : null}
             streak={isCurrent ? streak : 0}
           />
 
-          {isCurrent && <GoodMonth month={addMonths(month, -1)} streak={streak} quiet={quiet} />}
-
-          {alerts.length > 0 && (
-            <div className="stack-sm o-2" aria-label="Avisos de presupuesto">
-              {alerts.map((a) => (
-                <Notice key={a.category.id} kind={a.spentCents > a.budgetCents ? 'over' : 'warn'}>{alertText(a)}</Notice>
-              ))}
-            </div>
-          )}
-
-          {offerStory && (
-            <button className="story-card o-2" onClick={() => setStory(storyMonth)}>
-              <span className="story-card-icon"><Icon name="sparkles" /></span>
-              <span className="grow">
-                <strong>Vuestro {formatMonth(storyMonth).split(' ')[0].toLowerCase()}, en historia</strong>
-                <span>El mes contado en pantallas, con sus datos curiosos.</span>
-              </span>
-              <Icon name="play" />
-            </button>
-          )}
-
-          {isCurrent && <div className="o-3"><Duplicates {...props} onOpen={setEditing} /></div>}
-
-          {isCurrent && <div className="o-3"><FixedSuggestions {...props} /></div>}
-
-          <div className="o-3">
-          {!partner ? (
-            <Notice
-              icon="users"
-              action={<button className="sm tinted" onClick={go('ajustes')}>Invitar</button>}
-            >
-              Aún estás solo/a en este espacio. Invita a tu pareja desde Ajustes para compartir los gastos.
-            </Notice>
-          ) : (
-            <button className="card card-link balance-card" onClick={go('saldo')}>
-              <span className="avatar-pair">
-                <Avatar members={data.members} userId={me} />
-                <Avatar members={data.members} userId={partner.user_id} />
-              </span>
-              <span className="grow">
-                <span className="stat-label">Saldo entre los dos</span>
-                <br />
-                <BalanceText balance={balance} partnerName={partner.display_name} />
-              </span>
-              <Icon name="chevronRight" className="row-chevron" />
-            </button>
-          )}
+          <div className="home-feed">
+            {partner && <PartnerActivity {...props} partnerId={partner.user_id} onOpen={setEditing} />}
+            {isCurrent && <GoodMonth month={addMonths(month, -1)} streak={streak} quiet={quiet} />}
+            {alerts.map((a) => (
+              <Notice key={a.category.id} kind={a.spentCents > a.budgetCents ? 'over' : 'warn'}>{alertText(a)}</Notice>
+            ))}
+            {offerStory && (
+              <button className="story-card" onClick={() => setStory(storyMonth)}>
+                <span className="story-card-icon"><Icon name="sparkles" /></span>
+                <span className="grow">
+                  <strong>Vuestro {formatMonth(storyMonth).split(' ')[0].toLowerCase()}, en historia</strong>
+                  <span>El mes contado en pantallas, con sus datos curiosos.</span>
+                </span>
+                <Icon name="play" />
+              </button>
+            )}
+            {isCurrent && <Duplicates {...props} onOpen={setEditing} />}
+            {isCurrent && <FixedSuggestions {...props} />}
+            {!partner && (
+              <Notice icon="users" action={<button className="sm tinted" onClick={go('ajustes')}>Invitar</button>}>
+                Aún estás solo/a en este espacio. Invita a tu pareja desde Ajustes para compartir los gastos.
+              </Notice>
+            )}
           </div>
 
-          <SharedGoal {...props} />
+          <div className="widgets">
+            {small.map((w, i) => (
+              <div key={w.key} className={'widget-slot' + (small.length % 2 === 1 && i === small.length - 1 ? ' widget-wide' : '')}>{w.node}</div>
+            ))}
+            <div className="widget-slot widget-wide"><CalendarWidget {...props} month={month} /></div>
+          </div>
 
           {isCurrent && <Challenges {...props} />}
-
-          {partner && sum.spentCents > 0 && (
-            <section className="card o-6" aria-labelledby="home-payers">
-              <h2 id="home-payers" className="stat-label">Quién ha pagado {isCurrent ? 'este mes' : 'ese mes'}</h2>
-              <div className="split-track" aria-hidden>
-                {byPayer.map((s) => (
-                  <div key={s.id} className={'fill-person-' + personTone(data.members, s.id)} style={{ width: `${s.share * 100}%` }} />
-                ))}
-              </div>
-              <ul className="legend">
-                {byPayer.map((s) => (
-                  <li key={s.id}>
-                    <span className={'dot fill-person-' + personTone(data.members, s.id)} />
-                    {nameOf(data.members, s.id, me)} <span className="muted">· {Math.round(s.share * 100)} %</span>
-                    <span className="money">{formatEuros(s.cents)}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </div>
 
         <div className="home-col">
-          <section className="section o-4" aria-labelledby="home-recent">
+          <section className="section" aria-labelledby="home-recent">
             <SectionHeader
               id="home-recent"
               title="Últimos movimientos"
@@ -165,33 +135,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
             )}
           </section>
 
-          {topCategories.length > 0 && (
-            <section className="section o-5" aria-labelledby="home-categories">
-              <SectionHeader
-                id="home-categories"
-                title="En qué se os va"
-                action={<button className="link-btn small" onClick={go('presupuesto')}>Ver presupuesto</button>}
-              />
-              <div className="card">
-                <ul className="hbars">
-                  {topCategories.map((r) => (
-                    <li key={r.category.id} className="hbar-row">
-                      <CategoryIcon name={r.category.name} size="sm" />
-                      <div className="hbar-body">
-                        <div className="hbar-top">
-                          <span className="name">{r.category.name}</span>
-                          <span className="value">{formatEuros(r.spentCents)}</span>
-                        </div>
-                        <div className="hbar" aria-hidden>
-                          <div className={'tone-' + categoryStyle(r.category.name).tone + ' fill-tone'} style={{ width: `${(r.spentCents / topCategories[0].spentCents) * 100}%` }} />
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-          )}
+          <CategoryBreakdown rows={rows} total={sum.spentCents} />
         </div>
       </div>
 
@@ -201,49 +145,65 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
   );
 }
 
-/** Tarjeta principal: gasto del mes frente al presupuesto común. */
-export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurrent, forecast = null, streak = 0 }: {
+type BudgetStatus = 'ok' | 'warn' | 'over';
+
+/** Tarjeta principal: gasto del mes con un anillo del presupuesto, como los de Actividad. */
+export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurrent, month, forecast = null, streak = 0 }: {
   spent: number;
   /** Lo gastado en categorías con presupuesto: es lo único que se compara con él. */
   budgetedSpent?: number;
   budget: number;
   count: number;
   isCurrent: boolean;
+  month?: string;
   forecast?: Forecast | null;
   /** Meses seguidos dentro del presupuesto hasta el pasado. */
   streak?: number;
 }) {
   const left = budget - budgetedSpent;
   const ratio = budget > 0 ? budgetedSpent / budget : 0;
-  const status = budget <= 0 ? null : ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok';
+  const status: BudgetStatus | null = budget <= 0 ? null : ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok';
+  const monthName = month ? formatMonth(month).split(' ')[0].toLowerCase() : '';
 
   return (
-    <section className="card hero o-1" aria-label="Gasto del mes">
-      <div className="hero-top">
-        <div className="hero-label">
-          <p className="stat-label">{isCurrent ? 'Lo que lleváis este mes' : 'Lo que gastasteis ese mes'}</p>
-          {status && (
-          <span className={'status-pill status-' + status}>
-            <Icon name={status === 'ok' ? 'check' : 'alert'} size={15} />
-            {status === 'ok' ? (isCurrent ? 'Vais bien' : 'Bien hecho') : status === 'warn' ? (isCurrent ? 'Vais justos' : 'Muy justos') : 'Os habéis pasado'}
-          </span>
+    <section className="card hero" aria-label="Gasto del mes">
+      <div className="hero-main">
+        <div className="hero-text">
+          <p className="hero-kicker">{isCurrent ? 'Lleváis gastado' : `Gastasteis en ${monthName}`}</p>
+          <p className="stat-big"><CountUp cents={spent} /></p>
+          {status ? (
+            <span className={'status-pill status-' + status}>
+              <Icon name={status === 'ok' ? 'check' : 'alert'} size={15} />
+              {status === 'ok' ? (isCurrent ? 'Vais bien' : 'Bien hecho') : status === 'warn' ? (isCurrent ? 'Vais justos' : 'Muy justos') : 'Os habéis pasado'}
+            </span>
+          ) : (
+            <span className="hero-sub">{count === 0 ? 'Sin gastos todavía' : `${count} ${count === 1 ? 'gasto' : 'gastos'}`}</span>
           )}
         </div>
-        <p className="stat-big"><CountUp cents={spent} /></p>
+        {budget > 0 && (
+          <Ring ratio={ratio} size={104} stroke={13} tone={status ?? 'ok'} label={`Presupuesto gastado: ${Math.round(ratio * 100)} %`} className="hero-ring">
+            <strong>{Math.round(ratio * 100)}<small>%</small></strong>
+          </Ring>
+        )}
       </div>
       {budget > 0 ? (
-        <>
-          <Progress value={budgetedSpent} max={budget} label="Presupuesto gastado" />
-          <div className="hero-foot">
-            <span>
-              {left >= 0 ? <>Presupuesto restante <strong>{formatEuros(left)}</strong></> : <>Os habéis pasado <strong className="negative">{formatEuros(-left)}</strong></>}
-            </span>
-            <span><strong>{Math.round(ratio * 100)} %</strong> de {formatEuros(budget)}</span>
+        <dl className="hero-facts">
+          <div>
+            <dt>{left >= 0 ? 'Quedan' : 'Os pasáis'}</dt>
+            <dd className={left < 0 ? 'negative' : ''}>{formatEuros(Math.abs(left))}</dd>
           </div>
-        </>
+          <div>
+            <dt>Presupuesto</dt>
+            <dd>{formatEuros(budget)}</dd>
+          </div>
+          <div>
+            <dt>Gastos</dt>
+            <dd>{count}</dd>
+          </div>
+        </dl>
       ) : (
         <div className="hero-foot">
-          <span>{count === 0 ? 'Sin gastos todavía.' : `${count} ${count === 1 ? 'gasto' : 'gastos'}.`} No hay presupuesto para este mes.</span>
+          <span>No hay presupuesto para este mes.</span>
           <button className="link-btn small" onClick={go('presupuesto')}>Poner presupuesto</button>
         </div>
       )}
@@ -254,6 +214,199 @@ export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurre
           <span>{streak === 1 ? 'El mes pasado cumplisteis el presupuesto.' : `Lleváis ${streak} meses seguidos dentro del presupuesto.`} {status === 'over' ? '¡A recuperar la racha!' : '¡Seguid así!'}</span>
         </p>
       )}
+    </section>
+  );
+}
+
+/** Cabecera de un widget: icono de color y título, como en la pantalla de inicio del iPhone. */
+function WidgetHead({ icon, tone, title }: { icon: IconName; tone: string; title: string }) {
+  return (
+    <span className="widget-head">
+      <span className={'widget-glyph widget-glyph-' + tone}><Icon name={icon} size={14} /></span>
+      <span className="widget-title">{title}</span>
+    </span>
+  );
+}
+
+/** Saldo entre los dos, en grande. */
+function BalanceWidget({ data, me, partnerId }: ViewProps & { partnerId: string }) {
+  const balance = roundBalance(balanceFor(me, data.expenses, data.settlements));
+  const partnerName = nameOf(data.members, partnerId);
+  return (
+    <button className="widget" onClick={go('saldo')} aria-label={`Saldo entre los dos: ${balance === 0 ? 'estáis en paz' : balance > 0 ? `${partnerName} te pasa ${formatEuros(balance)}` : `le pasas ${formatEuros(-balance)} a ${partnerName}`}`}>
+      <WidgetHead icon="swap" tone="blue" title="Saldo" />
+      <span className="avatar-pair widget-avatars">
+        <Avatar members={data.members} userId={me} size="sm" />
+        <Avatar members={data.members} userId={partnerId} size="sm" />
+      </span>
+      <span className="widget-value">{balance === 0 ? 'En paz' : formatEuros(Math.abs(balance))}</span>
+      <span className="widget-caption">{balance === 0 ? 'No os debéis nada 🤍' : balance > 0 ? `${partnerName} te pasa` : `Le pasas a ${partnerName}`}</span>
+    </button>
+  );
+}
+
+/** La hucha en la que más recientemente se ha puesto dinero. */
+function latestGoal(data: ViewProps['data']): SavingsGoal | null {
+  const active = data.goals.filter((g) => !g.archived);
+  if (active.length === 0) return null;
+  const lastMove = (id: string) => data.contributions.find((c) => c.goal_id === id)?.created_at ?? '';
+  return [...active].sort((a, b) => (lastMove(b.id) || b.created_at).localeCompare(lastMove(a.id) || a.created_at))[0];
+}
+
+/** Hucha común con un anillo de lo que lleva cada uno. */
+function GoalWidget({ data, goal }: ViewProps & { goal: SavingsGoal }) {
+  const p = goalProgress(goal, data.contributions);
+  const left = goal.target_cents - p.savedCents;
+  const pct = Math.min(100, Math.round(p.ratio * 100));
+  const segments = data.members.map((m) => ({
+    share: Math.max(0, p.byUser.get(m.user_id) ?? 0) / goal.target_cents,
+    className: 'stroke-person-' + personTone(data.members, m.user_id),
+  }));
+  return (
+    <button className="widget" onClick={go('presupuesto')} aria-label={`Hucha ${goal.name}: ${pct} %`}>
+      <WidgetHead icon="piggy" tone="pink" title="Hucha" />
+      <span className="widget-row">
+        <Ring segments={segments} size={54} stroke={7} label={`${pct} % de ${goal.name}`}>
+          <strong className="widget-ring-pct">{pct}%</strong>
+        </Ring>
+        <span className="widget-name">{goal.name}</span>
+      </span>
+      <span className="widget-caption">
+        {left > 0 ? `Faltan ${formatEuros(left)}` : '¡Conseguido! 🎉'}
+      </span>
+    </button>
+  );
+}
+
+/** Quién ha pagado más este mes, en un anillo de dos colores. */
+function PayersWidget({ data, me, month, isCurrent }: ViewProps & { month: string; isCurrent: boolean }) {
+  const byPayer = breakdown(data.expenses, month, (e) => e.paid_by);
+  const top = byPayer[0];
+  return (
+    <button className="widget" onClick={go('gastos')} aria-label={`Quién ha pagado ${isCurrent ? 'este mes' : 'ese mes'}: ${byPayer.map((s) => `${nameOf(data.members, s.id, me)} ${Math.round(s.share * 100)} %`).join(', ')}`}>
+      <WidgetHead icon="users" tone="green" title="Quién paga" />
+      <span className="widget-row">
+        <Ring segments={byPayer.map((s) => ({ share: s.share, className: 'stroke-person-' + personTone(data.members, s.id) }))} size={54} stroke={7} label="Reparto de lo pagado">
+          {top && <Avatar members={data.members} userId={top.id} size="sm" />}
+        </Ring>
+        <span className="widget-legend">
+          {byPayer.map((s) => (
+            <span key={s.id}>
+              <span className={'dot fill-person-' + personTone(data.members, s.id)} />
+              {nameOf(data.members, s.id, me)} <strong>{Math.round(s.share * 100)}%</strong>
+            </span>
+          ))}
+        </span>
+      </span>
+      <span className="widget-caption">{top ? `${nameOf(data.members, top.id, me)} ${top.id === me ? 'has' : 'ha'} pagado ${formatEuros(top.cents)}` : ''}</span>
+    </button>
+  );
+}
+
+/** Caprichos: el elegido por los dos o los que esperan tu voto. */
+function WishWidget({ data, me }: ViewProps) {
+  const memberIds = data.members.map((m) => m.user_id);
+  const chosen = chosenOne(rankWishes(data.wishes, data.wishVotes, memberIds, 'treat'));
+  const waiting = waitingForMe(data.wishes, data.wishVotes, me).length;
+  const open = data.wishes.filter((w) => !w.done_at).length;
+  return (
+    <button className="widget" onClick={go('deseos')}>
+      <WidgetHead icon="sparkles" tone="purple" title="Caprichos" />
+      {chosen ? (
+        <>
+          <span className="widget-kicker">El elegido</span>
+          <span className="widget-name widget-name-lg">{chosen.wish.name}</span>
+          <span className="widget-caption">{waiting > 0 ? `y ${waiting} por votar` : moodText(chosen)}</span>
+        </>
+      ) : waiting > 0 ? (
+        <>
+          <span className="widget-value">{waiting}</span>
+          <span className="widget-caption">{waiting === 1 ? 'espera tu voto' : 'esperan tu voto'}</span>
+        </>
+      ) : open > 0 ? (
+        <>
+          <span className="widget-value">{open}</span>
+          <span className="widget-caption">{open === 1 ? 'en la lista' : 'en la lista'} · votad para elegir</span>
+        </>
+      ) : (
+        <>
+          <span className="widget-name">¿Qué os apetece?</span>
+          <span className="widget-caption">Apuntad caprichos y deseos y votadlos</span>
+        </>
+      )}
+    </button>
+  );
+}
+
+/** El mes en puntos de colores (más intenso, más gasto) que abre el calendario. */
+function CalendarWidget({ data, month }: ViewProps & { month: string }) {
+  const todayIso = today();
+  const totals = dayTotals(data.expenses, month);
+  const max = Math.max(0, ...[...totals.values()].map((t) => t.cents));
+  const stats = calendarStats(totals, month, todayIso);
+  const fixed = upcomingFixed(data.recurring, month, todayIso);
+  const isCurrent = month === monthOf(todayIso);
+  const todayCents = totals.get(todayIso)?.cents ?? 0;
+  return (
+    <button className="widget widget-calendar" onClick={go('calendario')} aria-label={`Calendario de ${formatMonth(month)}: ${stats.quietDays} días sin gastar`}>
+      <span className="widget-cal-side">
+        <WidgetHead icon="calendar" tone="red" title="Calendario" />
+        <span className="widget-value">{stats.quietDays}<small> {stats.quietDays === 1 ? 'día' : 'días'}</small></span>
+        <span className="widget-caption">
+          sin gastar{isCurrent ? ` · hoy ${todayCents > 0 ? formatEuros(todayCents) : 'nada'}` : ''}
+          {fixed.size > 0 && <><br />{fixed.size === 1 ? '1 fijo por llegar' : `${[...fixed.values()].flat().length} fijos por llegar`}</>}
+        </span>
+      </span>
+      <span className="widget-cal-grid" aria-hidden>
+        {monthGrid(month).flat().map((d) => (
+          monthOf(d) !== month
+            ? <span key={d} className="widget-cal-dot cal-out" />
+            : <span key={d} className={'widget-cal-dot cal-level-' + heatLevel(totals.get(d)?.cents ?? 0, max) + (d === todayIso ? ' cal-today' : '') + (fixed.has(d) ? ' cal-has-fixed' : '')} />
+        ))}
+      </span>
+    </button>
+  );
+}
+
+/** En qué se os va: una barra de colores como la del almacenamiento del iPhone y la lista. */
+function CategoryBreakdown({ rows, total }: { rows: ReturnType<typeof monthlySummary>; total: number }) {
+  const spent = rows.filter((r) => r.spentCents > 0);
+  if (spent.length === 0 || total <= 0) return null;
+  const top = spent.slice(0, 5);
+  const rest = spent.slice(5).reduce((a, r) => a + r.spentCents, 0);
+  return (
+    <section className="section" aria-labelledby="home-categories">
+      <SectionHeader
+        id="home-categories"
+        title="En qué se os va"
+        action={<button className="link-btn small" onClick={go('presupuesto')}>Ver presupuesto</button>}
+      />
+      <div className="card storage">
+        <div className="storage-bar" aria-hidden>
+          {top.map((r) => (
+            <span key={r.category.id} className={'tone-' + categoryStyle(r.category.name).tone + ' fill-tone'} style={{ flexGrow: r.spentCents }} />
+          ))}
+          {rest > 0 && <span className="storage-rest" style={{ flexGrow: rest }} />}
+        </div>
+        <ul className="storage-list">
+          {top.map((r) => (
+            <li key={r.category.id}>
+              <CategoryIcon name={r.category.name} size="sm" />
+              <span className="grow ellipsis">{r.category.name}</span>
+              <span className="muted small">{Math.round((r.spentCents / total) * 100)} %</span>
+              <span className="money">{formatEuros(r.spentCents)}</span>
+            </li>
+          ))}
+          {rest > 0 && (
+            <li>
+              <span className="storage-rest-dot" aria-hidden />
+              <span className="grow">Otras</span>
+              <span className="muted small">{Math.round((rest / total) * 100)} %</span>
+              <span className="money">{formatEuros(rest)}</span>
+            </li>
+          )}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -314,44 +467,6 @@ function PartnerActivity({ data, me, reload, partnerId, onOpen }: ViewProps & { 
   );
 }
 
-/** La hucha común en la que más recientemente se ha puesto dinero, con lo que lleva cada uno. */
-function SharedGoal({ data, me }: ViewProps) {
-  const active = data.goals.filter((g) => !g.archived);
-  if (active.length === 0) return null;
-  const lastMove = (id: string) => data.contributions.find((c) => c.goal_id === id)?.created_at ?? '';
-  const goal = [...active].sort((a, b) => (lastMove(b.id) || b.created_at).localeCompare(lastMove(a.id) || a.created_at))[0];
-  const p = goalProgress(goal, data.contributions);
-  const left = goal.target_cents - p.savedCents;
-  const people = data.members.map((m) => ({ id: m.user_id, cents: Math.max(0, p.byUser.get(m.user_id) ?? 0) }));
-
-  return (
-    <button className="card card-link shared-goal o-3" onClick={go('presupuesto')} aria-label={`Hucha ${goal.name}: ${Math.round(p.ratio * 100)} %`}>
-      <span className="shared-goal-top">
-        <span className="stat-label">Vuestro objetivo</span>
-        <strong>{Math.min(100, Math.round(p.ratio * 100))} %</strong>
-      </span>
-      <span className="shared-goal-name">{goal.name}</span>
-      <span className="split-track shared-goal-track" aria-hidden>
-        {people.map((x) => (
-          <span key={x.id} className={'fill-person-' + personTone(data.members, x.id)} style={{ width: `${Math.min(1, x.cents / goal.target_cents) * 100}%` }} />
-        ))}
-      </span>
-      <span className="legend">
-        {people.map((x) => (
-          <span key={x.id} className="legend-item">
-            <span className={'dot fill-person-' + personTone(data.members, x.id)} />
-            {nameOf(data.members, x.id, me)}
-            <span className="money">{formatEuros(x.cents)}</span>
-          </span>
-        ))}
-      </span>
-      <span className="muted small">
-        {left > 0 ? `Juntos lleváis ${formatEuros(p.savedCents)} de ${formatEuros(goal.target_cents)}. Faltan ${formatEuros(left)}.` : `¡Lo habéis conseguido! ${formatEuros(p.savedCents)} ahorrados juntos.`}
-      </span>
-    </button>
-  );
-}
-
 const PARTY_KEY = 'gastos.fiestaMes';
 
 /** Los primeros días del mes, si el anterior acabó dentro del presupuesto, se celebra (una vez). */
@@ -376,7 +491,7 @@ function GoodMonth({ month, streak, quiet }: { month: string; streak: number; qu
     setSeen(true);
   };
   return (
-    <div className="good-month o-2">
+    <div className="good-month">
       <span className="good-month-emoji" aria-hidden>🎉</span>
       <span className="grow">
         <strong>¡{formatMonth(month).split(' ')[0]} dentro del presupuesto!</strong>

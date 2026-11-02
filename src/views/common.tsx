@@ -109,10 +109,10 @@ export function Sheet({ title, onClose, children, footer, subtitle }: {
 
 /* ───────────── Cambio de mes ───────────── */
 
-export function MonthNav({ month, onChange }: { month: string; onChange: (m: string) => void }) {
+export function MonthNav({ month, onChange, compact = false }: { month: string; onChange: (m: string) => void; compact?: boolean }) {
   const current = monthOf(today());
   return (
-    <div className="month-nav">
+    <div className={'month-nav' + (compact ? ' month-nav-compact' : '')}>
       <button type="button" className="icon-btn" onClick={() => onChange(addMonths(month, -1))} aria-label="Mes anterior">
         <Icon name="chevronLeft" />
       </button>
@@ -203,6 +203,70 @@ export function Progress({ value, max, label, tone }: { value: number; max: numb
       aria-valuetext={`${percent} %`}
     >
       <div style={{ width: `${Math.max(0, Math.min(ratio, 1)) * 100}%` }} />
+    </div>
+  );
+}
+
+/* ───────────── Anillo de progreso (como los de Actividad del iPhone) ───────────── */
+
+/**
+ * Anillo que se llena hasta `ratio` (0–1; más de 1 da otra vuelta encima, como en Actividad).
+ * `segments` dibuja varios tramos de colores seguidos (p. ej. lo que ha pagado cada uno).
+ */
+export function Ring({ ratio = 0, size = 88, stroke = 10, tone = 'ok', segments, label, children, className = '' }: {
+  ratio?: number;
+  size?: number;
+  stroke?: number;
+  tone?: 'ok' | 'warn' | 'over' | 'saving' | 'accent';
+  segments?: { share: number; className: string }[];
+  label: string;
+  children?: ReactNode;
+  className?: string;
+}) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const arcs = segments ?? [{ share: Math.min(Math.max(ratio, 0), 1), className: 'ring-' + tone }];
+  let offset = 0;
+  return (
+    <div className={'ring ' + className} style={{ width: size, height: size }} role="img" aria-label={label}>
+      <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden>
+        <circle className="ring-track" cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} fill="none" />
+        {arcs.map((a, i) => {
+          const len = Math.max(0, Math.min(1, a.share)) * c;
+          // Un hueco pequeño entre tramos para que se distingan.
+          const gap = arcs.length > 1 && len > stroke ? stroke * 0.35 : 0;
+          const el = (
+            <circle
+              key={i}
+              className={'ring-arc ' + a.className}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              strokeWidth={stroke}
+              fill="none"
+              strokeLinecap="round"
+              style={{ strokeDasharray: `${Math.max(0, len - gap)} ${c}`, strokeDashoffset: -offset }}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          );
+          offset += len;
+          return el;
+        })}
+        {!segments && ratio > 1 && (
+          <circle
+            className="ring-arc ring-over ring-lap"
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            strokeWidth={stroke}
+            fill="none"
+            strokeLinecap="round"
+            style={{ strokeDasharray: `${Math.min(ratio - 1, 1) * c} ${c}` }}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        )}
+      </svg>
+      {children && <div className="ring-center">{children}</div>}
     </div>
   );
 }

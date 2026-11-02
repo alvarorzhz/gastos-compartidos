@@ -18,6 +18,7 @@ La barra de abajo tiene **Inicio · Gastos · Compra · + · Presupuesto · Pers
 - **Saldo** y **reembolsos** (Bizum, transferencia…): solo se anotan, la app no mueve dinero.
 - **Gastos fijos** semanales, mensuales o anuales, que se apuntan solos cada mañana. Si algo se repite cada mes, la app propone hacerlo fijo.
 - **Viajes y eventos**: agrupan los gastos de unas fechas con su total y su saldo.
+- **Calendario** del mes: lo gastado cada día en colores, los días sin gastar y los fijos que vienen.
 - **Buscador** por texto, importe y categoría, y **Deshacer** tras borrar.
 - **Escanear tickets** con la cámara, desde una foto del carrete o desde el **PDF** de la tienda. Se lee en el propio móvil; la foto no se sube.
 - La app **rellena sola** categoría, pagador y reparto según el concepto, y ofrece los **gastos habituales** con un toque.
@@ -32,6 +33,7 @@ La barra de abajo tiene **Inicio · Gastos · Compra · + · Presupuesto · Pers
 - Límite mensual por categoría, que se mantiene entre meses, con aviso al 80, 90 o 100 %.
 - **Huchas** comunes (objetivos de ahorro), que se pueden archivar y recuperar.
 - **Gráficos** de los últimos 12 meses, por categoría, por persona y fijos frente a variables.
+- **Deseos y caprichos**: cada uno vota cuánto le apetece y lo más votado sube arriba; el capricho más votado es «el elegido» y un deseo se convierte en hucha.
 
 **Personal** (solo lo ve quien lo apunta, ni la pareja)
 - Gastos e ingresos propios, fijos personales e **importación del extracto del banco** (Excel de BBVA).
@@ -89,6 +91,7 @@ Cada archivo de [`supabase/migrations/`](supabase/migrations/) se ejecuta **una 
 | `0015_errores.sql` | Errores de la app, que se ven en Ajustes → Tus datos | 3.16.0 |
 | `0016_retos.sql` | Retos de pareja | 3.20.0 |
 | `0017_copias_seguras.sql` | Copias diarias y completas, que sobreviven 30 días a un borrado | 3.22.0 |
+| `0018_deseos.sql` | Deseos y caprichos con los votos de cada uno | 3.23.0 |
 
 ## Puesta en marcha (desde cero)
 

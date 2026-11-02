@@ -76,7 +76,7 @@ export default function Challenges(props: ViewProps) {
   }
 
   return (
-    <section className="card stack-sm challenges o-3" aria-labelledby="challenges-title">
+    <section className={"card stack-sm challenges" + (live.length === 0 && results.length === 0 ? " challenges-idle" : "")} aria-labelledby="challenges-title">
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h2 id="challenges-title" className="row stat-label"><Icon name="target" size={16} /> Retos de pareja</h2>
         {(live.length > 0 || results.length > 0) && (
@@ -88,10 +88,10 @@ export default function Challenges(props: ViewProps) {
       {live.map((x) => <Live key={x.c.id} {...props} {...x} todayIso={todayIso} />)}
 
       {live.length === 0 && results.length === 0 && (
-        <>
-          <p className="muted small">Proponed un reto pequeño (un tope en el súper, una semana sin pedir a domicilio…) y la app irá contando cómo vais.</p>
-          <button className="secondary" onClick={() => setProposing(true)}><Icon name="target" size={18} /> Proponer un reto</button>
-        </>
+        <div className="challenges-idle-row">
+          <p className="muted small grow">Un tope en el súper, una semana sin pedir a domicilio… La app cuenta cómo vais.</p>
+          <button className="sm tinted" onClick={() => setProposing(true)}>Proponer un reto</button>
+        </div>
       )}
 
       {proposing && <ProposeSheet {...props} onClose={() => setProposing(false)} />}

@@ -432,8 +432,8 @@ select pg_temp.check((select count(*) from backups where household_id = :'rhid')
 select pg_temp.check((select count(*) from backups where household_id = :'rhid' and extract(isodow from taken_at at time zone 'UTC') = 1
   and taken_at < now() - interval '14 days') between 5 and 6, 'los lunes viejos se quedan');
 select pg_temp.check((select min(taken_at) from backups where household_id = :'rhid') > now() - interval '57 days', 'lo de hace más de 8 semanas se borra');
-select pg_temp.check((select data ? 'challenges' and data ? 'expense_changes' from backups where household_id = :'rhid' order by taken_at desc limit 1), 'la copia lleva retos e historial');
-select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 17, 'migraciones registradas');
+select pg_temp.check((select data ? 'challenges' and data ? 'expense_changes' and data ? 'wishes' and data ? 'wish_votes' from backups where household_id = :'rhid' order by taken_at desc limit 1), 'la copia lleva retos, historial y deseos');
+select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 18, 'migraciones registradas');
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 
@@ -485,6 +485,45 @@ select pg_temp.check((select count(*) from challenges) = 1, 'C no borra retos aj
 select pg_temp.expect_error(format($$ insert into challenges (household_id, kind, title, category_id, amount_cents, starts_on, ends_on) values (%L, 'cap', 'Categoría ajena', %L, 100, current_date, current_date) $$, :'rhid', :'ccat'));
 delete from challenges;
 select pg_temp.check((select count(*) from challenges) = 0, 'A retira el reto');
+
+-- Deseos y caprichos (0018): los ven y los votan los dos, cada uno solo su voto, y nadie más.
+insert into wishes (household_id, kind, name, price_cents) values (:'rhid', 'treat', 'Cena en el japonés', 6000) returning id as rwish \gset
+select pg_temp.check((select created_by from wishes) = auth.uid(), 'el deseo queda a nombre de quien lo apunta');
+select pg_temp.expect_error(format($$ insert into wishes (household_id, kind, name, created_by) values (%L, 'wish', 'En nombre de B', '00000000-0000-0000-0000-00000000000b') $$, :'rhid'));
+select pg_temp.expect_error(format($$ insert into wishes (household_id, kind, name) values (%L, 'otro', 'Tipo raro') $$, :'rhid'));
+select pg_temp.expect_error(format($$ insert into wishes (household_id, kind, name) values (%L, 'wish', '   ') $$, :'rhid'));
+insert into wish_votes (wish_id, household_id, score) values (:'rwish', :'rhid', 3);
+insert into savings_goals (household_id, name, target_cents) values (:'rhid', 'Para el deseo', 10000) returning id as rgoal \gset
+update wishes set goal_id = :'rgoal' where id = :'rwish';
+select pg_temp.check((select goal_id from wishes where id = :'rwish') = :'rgoal', 'el deseo se une a su hucha');
+select pg_temp.expect_error(format($$ insert into wish_votes (wish_id, household_id, user_id, score) values (%L, %L, '00000000-0000-0000-0000-00000000000b', 3) $$, :'rwish', :'rhid'));
+select pg_temp.expect_error(format($$ insert into wish_votes (wish_id, household_id, score) values (%L, %L, 5) $$, :'rwish', :'rhid'));
+select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
+select pg_temp.check((select count(*) from wish_votes) = 1, 'B ve el voto de A');
+insert into wish_votes (wish_id, household_id, score) values (:'rwish', :'rhid', 1)
+on conflict (wish_id, user_id) do update set score = excluded.score, updated_at = now();
+insert into wish_votes (wish_id, household_id, score) values (:'rwish', :'rhid', 2)
+on conflict (wish_id, user_id) do update set score = excluded.score, updated_at = now();
+select pg_temp.check((select score from wish_votes where user_id = auth.uid()) = 2, 'B cambia su voto');
+update wish_votes set score = 0 where user_id = '00000000-0000-0000-0000-00000000000a';
+delete from wish_votes where user_id = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.check((select score from wish_votes where user_id = '00000000-0000-0000-0000-00000000000a') = 3, 'B no toca el voto de A');
+update wishes set done_at = now();
+select pg_temp.check((select done_at is not null from wishes), 'B marca el capricho como cumplido');
+select pg_temp.expect_error($$ update wishes set created_by = '00000000-0000-0000-0000-00000000000b' $$);
+select pg_temp.login('00000000-0000-0000-0000-00000000000c', 'c@example.com');
+select pg_temp.check((select count(*) from wishes) + (select count(*) from wish_votes) = 0, 'C no ve deseos ni votos ajenos');
+select pg_temp.expect_error(format($$ insert into wishes (household_id, kind, name) values (%L, 'treat', 'Colándose') $$, :'rhid'));
+select pg_temp.expect_error(format($$ insert into wish_votes (wish_id, household_id, score) values (%L, %L, 3) $$, :'rwish', :'rhid'));
+insert into wishes (household_id, kind, name) select household_id, 'wish', 'Deseo de C' from members where user_id = auth.uid() returning id as cwish \gset
+select pg_temp.expect_error(format($$ insert into wish_votes (wish_id, household_id, score) values (%L, (select household_id from members where user_id = auth.uid()), 3) $$, :'rwish'));
+select pg_temp.expect_error(format($$ update wishes set goal_id = %L $$, :'rgoal'));
+delete from wishes;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
+select pg_temp.check((select count(*) from wishes) = 1, 'C no borra deseos ajenos');
+select pg_temp.expect_error(format($$ insert into wish_votes (wish_id, household_id, score) values (%L, %L, 1) $$, :'cwish', :'rhid'));
+delete from wishes;
+select pg_temp.check((select count(*) from wish_votes) = 0, 'al borrar el deseo se van sus votos');
 
 -- Borrado del espacio: se va todo.
 select public.delete_household();

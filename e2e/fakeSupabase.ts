@@ -52,6 +52,8 @@ export function sampleData(): Tables {
     events: [],
     expense_reactions: [],
     challenges: [],
+    wishes: [],
+    wish_votes: [],
     shopping_items: [
       { id: 's-1', household_id: HOME, name: 'Leche', quantity: 2, unit: null, category: 'lacteos', important: false, estimated_cents: null,
         status: 'pending', bought_at: null, bought_by: null, cleared_at: null, price_cents: null, created_by: ANA, created_at: iso(now), updated_at: iso(now) },
@@ -130,6 +132,18 @@ async function handleRest(route: Route, fake: Fake) {
   }
   const body = req.postDataJSON() as Row | Row[] | null;
   fake.writes.push({ what: `${method} ${path}`, body });
+  if (method === 'POST' && url.searchParams.get('on_conflict')) {
+    // upsert: sustituye la fila que tenga las mismas columnas clave.
+    const keys = url.searchParams.get('on_conflict')!.split(',');
+    const saved = (Array.isArray(body) ? body : [body ?? {}]).map((r) => {
+      const old = rows.find((x) => keys.every((k) => String(x[k]) === String(r[k])));
+      if (old) return Object.assign(old, r);
+      const row = { created_at: iso(new Date()), ...r };
+      rows.push(row);
+      return row;
+    });
+    return json(wantsObject ? saved[0] : saved, 201);
+  }
   if (method === 'POST') {
     const added = (Array.isArray(body) ? body : [body ?? {}]).map((r) => ({
       id: `nuevo-${fake.writes.length}`, household_id: HOME, user_id: ANA, created_at: iso(new Date()), updated_at: iso(new Date()), created_by: ANA, ...r,

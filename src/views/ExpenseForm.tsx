@@ -33,12 +33,14 @@ interface Props extends ViewProps {
   startAsFixed?: boolean;
   /** Gasto nuevo con los datos de un pago con Apple Pay. */
   prefill?: PaymentPrefill;
+  /** Aviso sobre de dónde vienen los datos ya puestos (por defecto, Apple Pay). */
+  prefillNotice?: string;
   /** Se llama cuando el gasto nuevo se ha guardado (antes de cerrar). */
   onSaved?: () => void;
   onClose: () => void;
 }
 
-export default function ExpenseForm({ data, me, reload, expense, template, startAsFixed, prefill, onSaved, onClose }: Props) {
+export default function ExpenseForm({ data, me, reload, expense, template, startAsFixed, prefill, prefillNotice, onSaved, onClose }: Props) {
   const formId = useId();
   const source = template ?? expense;
   const activeCategories = data.categories.filter((c) => !c.archived || c.id === source?.category_id);
@@ -373,7 +375,8 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
           </details>
         )}
 
-        {prefill && (
+        {prefill && prefillNotice && <Notice icon="heart">{prefillNotice}</Notice>}
+        {prefill && !prefillNotice && (
           <Notice icon="card">Pago con Apple Pay{prefill.amountCents == null ? '. No se ha entendido el importe: escríbelo tú.' : '. Revisa los datos y guárdalo.'}</Notice>
         )}
 
