@@ -9,7 +9,8 @@ import { currentBought, formatQuantity } from '../lib/shopping';
 import { lastPrice, matchTicket, prettyTicketName, shoppingCategory, ticketNewItems } from '../lib/shoppingPrices';
 import { errorMessage, supabase } from '../lib/supabase';
 import type { ListItem, Shopping } from '../lib/useShopping';
-import { AmountField, Avatar, Notice, Segmented, Sheet, toast, type ViewProps } from './common';
+import { AmountField, Avatar, DoubtHint, Notice, Segmented, Sheet, toast, type ViewProps } from './common';
+import { doubtCount, receiptDoubts, type ReceiptDoubts } from '../lib/receiptDoubts';
 import { Icon } from './icons';
 import ScanReceipt from './ScanReceipt';
 import { TicketItems } from './shopping/TicketItems';
@@ -37,6 +38,9 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
   const pendingCount = pending.length - pending.filter((i) => extra.includes(i.id)).length;
   const activeCategories = data.categories.filter((c) => !c.archived);
   const [guess, setGuess] = useState<ReceiptGuess | null>(null);
+  /** Lo dudoso del ticket; cada aviso se quita al tocar su campo. */
+  const [doubts, setDoubts] = useState<ReceiptDoubts | null>(null);
+  const clearDoubt = (field: 'total' | 'date' | 'merchant') => setDoubts((d) => (d && d[field] ? { ...d, [field]: null } : d));
   const [total, setTotal] = useState('');
   const [badTotal, setBadTotal] = useState(false);
   const [date, setDate] = useState(today());
@@ -67,6 +71,9 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
 
   function applyScan(g: ReceiptGuess) {
     setGuess(g);
+    const d = receiptDoubts(g, today());
+    if (g.date && g.date < addDays(today(), -14)) d.date = `La fecha leída (${formatShortDay(g.date)}) es antigua y he dejado la de hoy: cámbiala si la compra fue otro día.`;
+    setDoubts(d);
     if (g.amountCents != null) {
       setTotal(centsToInput(g.amountCents));
       setBadTotal(false);
@@ -201,6 +208,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
         : guess.lines.length > 0
           ? ' La suma no cuadra con el total: revisa el total y los precios antes de guardar.'
           : ' Revisa el total antes de guardar.'}
+      {doubts && doubtCount(doubts) > 0 && ` Te marco en amarillo ${doubtCount(doubts) === 1 ? 'una cosa' : `${doubtCount(doubts)} cosas`} que conviene mirar.`}
     </Notice>
   );
 
@@ -227,7 +235,10 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
         <ScanReceipt onResult={applyScan} primary={!guess} label={guess ? 'Escanear otra vez' : 'Escanear el ticket'} />
         {summary}
 
-        <AmountField label="Total de la compra" value={total} onChange={(v) => { setTotal(v); setBadTotal(false); }} invalid={badTotal} />
+        <div className={doubts?.total ? 'doubtful' : undefined}>
+          <AmountField label="Total de la compra" value={total} onChange={(v) => { setTotal(v); setBadTotal(false); clearDoubt('total'); }} invalid={badTotal} />
+          {doubts?.total && <DoubtHint>{doubts.total}</DoubtHint>}
+        </div>
         {!guess && pricedCount > 0 && pricedCount === bought.length && !total.trim() && (
           <button type="button" className="chip" onClick={() => setTotal(centsToInput(pricedSum))}>Usar la suma de los precios: {formatEuros(pricedSum)}</button>
         )}
@@ -250,13 +261,15 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
           </div>
           <div className="field">
             <label className="field-label" htmlFor={formId + '-date'}>Fecha</label>
-            <input id={formId + '-date'} type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
+            <input id={formId + '-date'} className={doubts?.date ? 'doubtful-input' : undefined} type="date" value={date} max={today()} onChange={(e) => { setDate(e.target.value); clearDoubt('date'); }} />
           </div>
         </div>
+        {doubts?.date && <DoubtHint>{doubts.date}</DoubtHint>}
 
         <div className="field">
           <label className="field-label" htmlFor={formId + '-note'}>Concepto</label>
-          <input id={formId + '-note'} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
+          <input id={formId + '-note'} className={doubts?.merchant ? 'doubtful-input' : undefined} maxLength={200} value={note} onChange={(e) => { setNote(e.target.value); clearDoubt('merchant'); }} />
+          {doubts?.merchant && <DoubtHint>{doubts.merchant}</DoubtHint>}
         </div>
 
         {pending.length > 0 && (
@@ -291,8 +304,9 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
               {bought.map((i) => {
                 const last = lastPrice(i.name, items.filter((x) => x.id !== i.id));
                 const line = lineOf[i.id] ?? -1;
+                const doubt = line >= 0 ? doubts?.lines.get(line) : undefined;
                 return (
-                  <li key={i.id} className="finish-price-row">
+                  <li key={i.id} className={'finish-price-row' + (doubt ? ' doubtful' : '')}>
                     <div className="row">
                       <span className="row-main">
                         <span className="row-title">{i.name}</span>
@@ -320,6 +334,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
                         ))}
                       </select>
                     )}
+                    {doubt && <DoubtHint>En el ticket: {doubt.charAt(0).toLowerCase() + doubt.slice(1)}</DoubtHint>}
                   </li>
                 );
               })}
@@ -329,7 +344,7 @@ export default function FinishTripSheet({ data, me, reload, shopping, items, onC
                 <span className="field-label">En el ticket, pero no en la lista ({fresh.length})</span>
                 <p className="field-hint">Se guardan como comprados con su precio, para saber lo que cuestan la próxima vez. Puedes cambiarles el nombre o quitar la marca de lo que no quieras guardar.</p>
                 <TicketItems
-                  rows={fresh.map((f) => ({ key: f.line, name: f.name, cents: f.cents }))}
+                  rows={fresh.map((f) => ({ key: f.line, name: f.name, cents: f.cents, doubt: doubts?.lines.get(f.line) }))}
                   skipped={skipped}
                   names={newNames}
                   onToggle={toggleNew}

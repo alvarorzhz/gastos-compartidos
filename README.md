@@ -1,6 +1,6 @@
 # Gastos compartidos
 
-App web privada, pensada para el móvil, para que dos personas apunten sus gastos comunes, vean quién debe a quién y comparen cada mes lo gastado con lo presupuestado. Versión actual: **3.11.0** (el historial completo está en [`src/changelog.ts`](src/changelog.ts) y en la app, **Ajustes → Ver novedades**).
+App web privada, pensada para el móvil, para que dos personas apunten sus gastos comunes, vean quién debe a quién y comparen cada mes lo gastado con lo presupuestado. Versión actual: **3.25.0** (el historial completo está en [`src/changelog.ts`](src/changelog.ts) y en la app, **Ajustes → Ver novedades**).
 
 En producción: <https://gastos-compartidos-eight.vercel.app>
 
@@ -9,46 +9,50 @@ En producción: <https://gastos-compartidos-eight.vercel.app>
 La barra de abajo tiene **Inicio · Gastos · Compra · + · Presupuesto · Personal · Ajustes**.
 
 **Inicio**
-- Cómo va el mes, el saldo entre los dos y la **previsión de fin de mes** (desde el día 5, contando los fijos que faltan).
-- **Pagos por confirmar** que han llegado desde Apple Pay.
+- Cómo va el mes con un anillo del presupuesto, la racha de meses cumpliéndolo y la **previsión de fin de mes** (desde el día 5, contando los fijos que faltan). La previsión dice si hay pocos datos todavía, si es orientativa o bastante fiable, y con «¿De dónde sale?» enseña qué gastos usa, qué supone y por qué podría fallar.
+- Lo que pide algo: lo último que ha hecho la pareja (con un 🤍 rápido), avisos de presupuesto, **pagos por confirmar** de Apple Pay, **gastos repetidos** para unir en uno y gastos que conviene hacer fijos.
+- Widgets con el saldo, la hucha, quién paga, los caprichos y el calendario. **Retos de pareja** («súper por debajo de 300 €», «una semana sin pedir a domicilio»): uno propone, el otro acepta y la app va contando.
 - **Historia del mes**: el mes contado en pantallas a pantalla completa, al estilo de los resúmenes de fin de año de la música. Sale el día 1 y se puede abrir los 10 primeros días del mes.
 
 **Gastos**
 - Importe, fecha, categoría, quién pagó y nota. Reparto con tres opciones: «A medias» (por defecto), «Todo de» uno o «Todo de» la otra persona. Los gastos antiguos con otro porcentaje se conservan tal cual.
-- **Saldo** y **reembolsos** (Bizum, transferencia…): solo se anotan, la app no mueve dinero.
+- **Saldo** y **reembolsos** (Bizum, transferencia…): solo se anotan, la app no mueve dinero. Confeti al quedar en paz.
+- **Reacciones**: un emoji o un comentario corto en cada gasto, que le llega a la pareja.
 - **Gastos fijos** semanales, mensuales o anuales, que se apuntan solos cada mañana. Si algo se repite cada mes, la app propone hacerlo fijo.
 - **Viajes y eventos**: agrupan los gastos de unas fechas con su total y su saldo.
 - **Calendario** del mes: lo gastado cada día en colores, los días sin gastar y los fijos que vienen.
 - **Buscador** por texto, importe y categoría, y **Deshacer** tras borrar.
-- **Escanear tickets** con la cámara, desde una foto del carrete o desde el **PDF** de la tienda. Se lee en el propio móvil; la foto no se sube.
+- **Escanear tickets** con la cámara, desde una foto del carrete o desde el **PDF** de la tienda. Se lee en el propio móvil; la foto no se sube. Antes de guardar, lo que puede estar mal leído sale **en amarillo** con su porqué: el total si no cuadra con los productos, la fecha si falta o es muy antigua, la tienda si no es una conocida y los productos con nombre o precio raros.
 - La app **rellena sola** categoría, pagador y reparto según el concepto, y ofrece los **gastos habituales** con un toque.
 - **Sin conexión** también se apunta: queda como «Sin subir» y se sube al volver la cobertura.
 
 **Compra**
 - **Lista de la compra compartida** en tiempo real: cantidades, pasillos, recientes, habituales e historial.
-- **Terminar compra** (aunque falten cosas por marcar) con el ticket: se apunta como gasto común y la app recuerda el precio de cada producto.
+- **Terminar compra** (aunque falten cosas por marcar) con el ticket: se apunta como gasto común y se guardan todos los productos del ticket con su precio, también los que no estaban en la lista.
 - **Dónde sale más barato**: compara los precios de cada tienda de los últimos 6 meses.
 
 **Presupuesto**
-- Límite mensual por categoría, que se mantiene entre meses, con aviso al 80, 90 o 100 %.
+- Límite mensual por categoría, que se mantiene entre meses, con aviso al 80, 90 o 100 %. La app **propone límites** según lo gastado los últimos 3 meses.
+- **Resumen del mes** en pantalla y **en PDF** para descargar: gasto del mes, cada categoría frente al mes anterior y a la media, gráfica de los últimos 6 meses, quién pagó, el saldo y los gastos más grandes. Se hace en el móvil (con [pdf-lib](https://pdf-lib.js.org)) y no se sube a ningún sitio.
 - **Huchas** comunes (objetivos de ahorro), que se pueden archivar y recuperar.
 - **Gráficos** de los últimos 12 meses, por categoría, por persona y fijos frente a variables.
 - **Deseos y caprichos**: cada uno vota cuánto le apetece y lo más votado sube arriba; el capricho más votado es «el elegido» y un deseo se convierte en hucha.
 
 **Personal** (solo lo ve quien lo apunta, ni la pareja)
 - Gastos e ingresos propios, fijos personales e **importación del extracto del banco** (Excel de BBVA).
-- **Límites por categoría** y **tendencia** con previsión de 3 meses.
+- **Tu coach**: nota del mes del 0 al 100, colchón de emergencia y comparación con tu mes normal.
+- **Límites por categoría** y **tendencia** con previsión de 3 meses, que también explica con qué meses se calcula y cuándo son pocos datos para fiarse.
 - **Lo que se repite**: suscripciones con su coste al mes y al año, cobros duplicados, renovaciones anuales, gastos hormiga y un simulador de ahorro. **Ordenar «Otros»** propone la categoría que falta.
 
 **Ajustes**
-- Invitar a la pareja, nombre del espacio y categorías.
+- **Tu perfil** (color y emoji), invitar a la pareja, nombre del espacio y categorías.
 - **Contraseña** (necesaria en iPhone para entrar desde la app instalada; también se puede entrar con el enlace del correo).
-- **Avisos en el móvil**: cuando la pareja apunta un gasto, cuando un presupuesto llega a su aviso, los fijos de cada mañana y los resúmenes de la semana (lunes) y del mes (día 1). En iPhone solo con la app instalada.
+- **Avisos en el móvil**: cuando la pareja apunta un gasto o reacciona, cuando un presupuesto llega a su aviso, los retos, los fijos de cada mañana y los resúmenes de la semana (lunes) y del mes (día 1). En iPhone solo con la app instalada.
 - **Apuntar al pagar con Apple Pay**: guía para crear el atajo de Cartera en el iPhone.
-- **Instalar en el móvil**, **Lo que la app hace sola**, **Ver novedades**, exportar todo (Excel con una hoja por tabla, o JSON) y borrar el espacio o la cuenta.
-- **Tus datos**: copias de seguridad diarias, historial de cambios de los gastos y **errores de la app** (lo que ha fallado en el móvil de alguno de los dos en los últimos 90 días).
+- **Instalar en el móvil**, **Lo que la app hace sola**, **Ver novedades** y borrar el espacio o la cuenta.
+- **Tus datos**: resumen del mes en PDF (eligiendo el mes), exportar todo (Excel con una hoja por tabla, o JSON), copias de seguridad diarias, historial de cambios de los gastos (con «Recuperar» para lo borrado) y **errores de la app** (lo que ha fallado en el móvil de alguno de los dos en los últimos 90 días).
 
-Además: tiempo real entre los dos móviles, modo oscuro automático, se instala como app (PWA) y se abre sin conexión con los datos de la última vez. Moneda: EUR.
+Además: tiempo real entre los dos móviles, tema «Jardín» con modo oscuro automático, animaciones suaves cuando pasa algo, carga por secciones (con buena cobertura se bajan todas al entrar), se instala como app (PWA) y se abre sin conexión con los datos de la última vez. Moneda: EUR.
 
 ## Cómo está hecha
 
@@ -60,6 +64,7 @@ Además: tiempo real entre los dos móviles, modo oscuro automático, se instala
 | Trabajo de cada mañana | `pg_cron` + `pg_net` en Supabase | Apunta fijos y manda avisos aunque nadie abra la app |
 | Alojamiento | [Vercel](https://vercel.com) (plan gratuito) | Publica solo cada cambio que llega a `main` |
 | Lector de tickets | [Tesseract](https://github.com/naptha/tesseract.js) y [pdf.js](https://mozilla.github.io/pdf.js/) | Se ejecutan en el móvil, sin servicios externos |
+| Resumen en PDF | [pdf-lib](https://pdf-lib.js.org) | Dibuja el PDF en el móvil; solo se descarga al pulsar el botón |
 
 La lógica de permisos empieza en [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) y cada migración añade las políticas de sus tablas:
 
@@ -159,7 +164,7 @@ Cada gasto pagado por una persona hace que la otra le deba su parte: la mitad po
 
 ## Escaneo de tickets
 
-El lector (Tesseract compilado a WebAssembly y el modelo de español, unos 6 MB) se copia a `public/ocr/` al ejecutar `npm run dev` o `npm run build` (`scripts/copy-ocr.mjs`) y se sirve desde la propia web, sin CDNs externos. Solo se descarga la primera vez que alguien escanea. Antes de leer una foto se recorta el papel del ticket ([`src/lib/ocr.ts`](src/lib/ocr.ts)); los PDF se leen directamente como texto con pdf.js ([`src/lib/pdfText.ts`](src/lib/pdfText.ts)). El texto se interpreta en [`src/lib/receipt.ts`](src/lib/receipt.ts): total, fecha, tienda, categoría y cada producto con su precio (con formatos propios para tiendas como E.Leclerc).
+El lector (Tesseract compilado a WebAssembly y el modelo de español, unos 6 MB) se copia a `public/ocr/` al ejecutar `npm run dev` o `npm run build` (`scripts/copy-ocr.mjs`) y se sirve desde la propia web, sin CDNs externos. Solo se descarga la primera vez que alguien escanea. Antes de leer una foto se recorta el papel del ticket ([`src/lib/ocr.ts`](src/lib/ocr.ts)); los PDF se leen directamente como texto con pdf.js ([`src/lib/pdfText.ts`](src/lib/pdfText.ts)). El texto se interpreta en [`src/lib/receipt.ts`](src/lib/receipt.ts): total, fecha, tienda, categoría y cada producto con su precio (con formatos propios para tiendas como E.Leclerc y Carrefour). [`src/lib/receiptDoubts.ts`](src/lib/receiptDoubts.ts) decide qué conviene revisar antes de guardar (lo que el formulario marca en amarillo).
 
 ## Borrado de datos
 

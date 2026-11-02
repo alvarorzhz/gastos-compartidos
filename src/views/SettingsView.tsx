@@ -13,6 +13,7 @@ import AutomationStatus from './AutomationStatus';
 import ApplePaySettings from './ApplePaySettings';
 import { AppErrors, Backups, ChangeHistory } from './DataSafety';
 import { VersionCard } from './WhatsNew';
+import { MonthReportPicker } from './ReportButton';
 
 type SettingsPage = 'vosotros' | 'avisos' | 'datos' | 'cuenta';
 
@@ -160,7 +161,8 @@ function DataPage(props: ViewProps) {
             </button>
           </li>
         </ul>
-        <p className="note">El Excel trae una hoja para gastos, reembolsos, presupuestos, huchas, sus movimientos y tus movimientos personales. El JSON es una copia completa de todo.</p>
+        <MonthReportPicker data={data} />
+        <p className="note">El resumen en PDF trae el gasto del mes, las categorías, quién pagó, el saldo y cómo va frente a los meses anteriores. El Excel trae una hoja para gastos, reembolsos, presupuestos, huchas, sus movimientos y tus movimientos personales. El JSON es una copia completa de todo.</p>
       </section>
 
       <Backups />

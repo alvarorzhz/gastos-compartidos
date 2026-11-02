@@ -2029,3 +2029,35 @@ span.cancel-check { display: inline-block; }
 .wish-chosen-new .wish-crown { animation: crown-drop 650ms 380ms var(--ease-spring) backwards; }
 @keyframes chosen-rise { from { opacity: 0; transform: translateY(28px) scale(0.97); } }
 @keyframes crown-drop { 0% { opacity: 0; transform: translateY(-14px) rotate(-25deg) scale(0.6); } 70% { opacity: 1; transform: translateY(1px) rotate(6deg) scale(1.15); } 100% { transform: none; } }
+
+/* Resumen del mes en PDF (Ajustes → Tus datos) */
+.report-picker { margin-top: var(--s3); }
+.report-picker select { flex: 1; min-width: 0; }
+.report-picker button { flex: none; }
+
+/* Previsiones explicadas: lo fiable que es y de dónde sale (3.25.0) */
+.reliability { display: inline-flex; align-items: center; padding: 2px var(--s2); border-radius: var(--r-full); font-size: var(--fs-xs); font-weight: 600; }
+.reliability-low { background: var(--warning-soft); color: var(--warning); }
+.reliability-medium { background: var(--surface-3); color: var(--text-2); }
+.reliability-good { background: var(--positive-soft); color: var(--positive); }
+.forecast-info { margin-top: var(--s2); }
+.forecast-info-head { gap: var(--s2); flex-wrap: wrap; }
+.forecast-info-body { margin-top: var(--s2); padding: var(--s3); border-radius: var(--r-md, 12px); background: var(--surface-2); font-size: var(--fs-sm); color: var(--text-2); animation: fade-in 200ms ease both; }
+.forecast-info-body p { margin: 0; }
+.forecast-info-body ul { margin: var(--s1) 0 var(--s3); padding-left: 1.1em; display: grid; gap: var(--s1); }
+.forecast-info-body strong { color: var(--text); }
+.forecast-info-body p + .forecast-info-title { margin-top: var(--s3); }
+.forecast-info-title { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-3); margin-bottom: var(--s1) !important; }
+.forecast-info-body ul.forecast-caveats { list-style: none; padding: 0; margin-bottom: 0; }
+.forecast-caveats li { display: flex; gap: var(--s2); align-items: flex-start; color: var(--warning); }
+.forecast-caveats .icon { flex: none; margin-top: 2px; }
+.forecast .forecast-text { display: block; }
+
+/* Tickets escaneados: lo dudoso en amarillo para revisarlo antes de guardar (3.25.0) */
+.doubt-hint { display: flex; gap: var(--s1); align-items: flex-start; color: var(--warning); font-weight: 500; }
+.doubt-hint .icon { flex: none; margin-top: 2px; }
+input.doubtful-input { border-color: var(--warning-fill) !important; box-shadow: 0 0 0 3px var(--warning-soft); }
+.doubtful .amount-underline { background: var(--warning-fill) !important; transform: none !important; opacity: 1 !important; }
+.ticket-item.doubtful { flex-wrap: wrap; background: var(--warning-soft); margin: 2px calc(-1 * var(--s2)); padding: var(--s1) var(--s2); border-radius: 10px; border-bottom-color: transparent; }
+.ticket-item-doubt { flex-basis: 100%; display: flex; gap: 4px; align-items: center; padding-left: 30px; font-size: var(--fs-xs); color: var(--warning); font-weight: 600; }
+.finish-price-row.doubtful { background: var(--warning-soft); border-radius: 10px; padding-left: var(--s2); padding-right: var(--s2); }

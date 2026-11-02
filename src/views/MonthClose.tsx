@@ -5,6 +5,7 @@ import { monthClose } from '../lib/monthClose';
 import { nameOf, partnerOf } from '../lib/people';
 import { Avatar, CategoryIcon, Notice, SectionHeader, Sheet, type ViewProps } from './common';
 import { Icon } from './icons';
+import ReportButton from './ReportButton';
 
 const SEEN_KEY = 'gastos.cierreVisto';
 
@@ -49,7 +50,12 @@ export function MonthCloseSheet({ data, me, month, onClose }: ViewProps & { mont
       title={`Resumen de ${formatMonth(month).toLowerCase()}`}
       subtitle="Así fue el mes en pocas cifras."
       onClose={onClose}
-      footer={<button className="primary lg block" onClick={onClose}>Cerrar</button>}
+      footer={
+        <div className="row">
+          <ReportButton data={data} month={month} className="secondary" label="PDF" />
+          <button className="primary lg grow" onClick={onClose}>Cerrar</button>
+        </div>
+      }
     >
       <div className="stack">
         <div className="stat-grid">

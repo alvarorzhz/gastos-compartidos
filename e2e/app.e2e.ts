@@ -424,3 +424,86 @@ test('Deseos: apuntar un capricho, votar y que salga el elegido', async ({ page 
   await expect.poll(() => fake.writes.find((w) => w.what === 'PATCH wishes')?.body).toMatchObject({ done_at: expect.any(String) });
   expect(errors).toEqual([]);
 });
+
+test('Presupuesto: descargar el resumen del mes en PDF', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Presupuesto', exact: true }).click();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Resumen en PDF' }).click()]);
+  expect(download.suggestedFilename()).toMatch(/^resumen-\d{4}-\d{2}\.pdf$/);
+  const chunks: Buffer[] = [];
+  for await (const c of (await download.createReadStream())!) chunks.push(c as Buffer);
+  expect(Buffer.concat(chunks).subarray(0, 5).toString()).toBe('%PDF-');
+  await expect(page.getByText('Resumen en PDF listo')).toBeVisible();
+  // También desde Ajustes → Tus datos, eligiendo el mes.
+  await page.goto('/#ajustes');
+  await page.getByRole('button', { name: /Tus datos/ }).click();
+  await expect(page.getByLabel('Mes del resumen')).toBeVisible();
+  if (process.env.CAPTURAS) await page.locator('.report-picker').screenshot({ path: `${process.env.CAPTURAS}/3-ajustes-pdf.png` });
+  expect(errors).toEqual([]);
+});
+
+test('Inicio: la previsión dice de dónde sale y si hay pocos datos', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.clock.setFixedTime(new Date('2026-10-20T10:00:00'));
+  const tables = sampleData();
+  const base = tables.expenses[0];
+  tables.expenses = [3, 5, 8, 11, 14, 17].map((d, i) => ({ ...base, id: `e-v${i}`, amount_cents: 3000 + i * 250, spent_on: `2026-10-${String(d).padStart(2, '0')}`, note: 'Súper' }));
+  tables.expenses.push({ ...base, id: 'e-alq', amount_cents: 70000, spent_on: '2026-10-01', note: 'Alquiler', recurring_id: 'r-1' });
+  await openApp(page, { tables });
+  const forecast = page.locator('.forecast');
+  await expect(forecast).toContainText('A este ritmo acabaréis el mes');
+  await expect(forecast.getByText('Bastante fiable')).toBeVisible();
+  await forecast.getByRole('button', { name: '¿De dónde sale?' }).click();
+  await expect(forecast).toContainText('en 6 gastos durante 20 días');
+  await expect(forecast).toContainText('Fijos ya apuntados');
+  await expect(forecast).toContainText('Qué supone');
+  if (process.env.CAPTURAS) await page.getByRole('region', { name: 'Gasto del mes' }).screenshot({ path: `${process.env.CAPTURAS}/4-prevision-inicio.png` });
+  expect(errors).toEqual([]);
+});
+
+test('Personal: la tendencia explica con qué meses se calcula', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.clock.setFixedTime(new Date('2026-10-20T10:00:00'));
+  const tables = sampleData();
+  let n = 0;
+  const entry = (kind: string, amount_cents: number, entry_on: string, category: string) => ({
+    id: `p-${++n}`, user_id: ANA, kind, amount_cents, entry_on, category, note: null, recurring_id: null, created_at: '2026-01-01T00:00:00Z',
+  });
+  for (const [m, cents] of [['2026-07', 110000], ['2026-08', 125000], ['2026-09', 118000]] as const) {
+    tables.personal_entries.push(entry('income', 200000, `${m}-01`, 'Nómina'), entry('expense', cents, `${m}-10`, 'Supermercado'));
+  }
+  await openApp(page, { tables });
+  await tabs(page).getByRole('button', { name: 'Personal', exact: true }).click();
+  const trend = page.getByRole('region', { name: 'Tendencia' });
+  await expect(trend.getByText('Pocos datos todavía')).toBeVisible();
+  await trend.getByRole('button', { name: '¿De dónde sale?' }).click();
+  await expect(trend).toContainText('Tus 3 últimos meses completos, de julio de 2026 a septiembre de 2026');
+  await expect(trend).toContainText('Solo hay 3 meses completos');
+  if (process.env.CAPTURAS) await trend.screenshot({ path: `${process.env.CAPTURAS}/5-tendencia-personal.png` });
+  expect(errors).toEqual([]);
+});
+
+test('nuevo gasto: lo dudoso del ticket sale en amarillo hasta tocarlo', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Añadir gasto' }).click();
+  // Sin fecha y con un total que no cuadra con los productos.
+  const pdf = ticketPdf([
+    ['E.Leclerc'], ['TOTAL', 'IVA'],
+    ['LECHE ENTERA 1L', '0.89', '1'], ['ANACARDO TOST 0% SAL', '2.99', '2'], ['JAMON SERRANO', '7.50', '2'],
+    ['Total 3 Articulos', '12.88'], ['Tarjeta', '12.88'],
+  ]);
+  await page.locator('input[type=file][accept*="pdf"]').setInputFiles({ name: 'ticket.pdf', mimeType: 'application/pdf', buffer: pdf });
+  await expect(page.getByLabel('Importe')).toHaveValue('12,88');
+  await expect(page.getByText(/conviene mirar/)).toBeVisible();
+  const totalDoubt = page.getByText(/Los productos suman 11,38\s€ y el total leído es 12,88\s€/);
+  await expect(totalDoubt).toBeVisible();
+  await expect(page.getByText(/No he leído la fecha/)).toBeVisible();
+  await expect(page.locator('.ticket-item.doubtful')).toHaveCount(1);
+  await expect(page.locator('.ticket-item.doubtful')).toContainText('Precio muy alto');
+  if (process.env.CAPTURAS) await page.locator('.sheet-body, [role=dialog]').first().screenshot({ path: `${process.env.CAPTURAS}/2-ticket-dudoso.png` });
+  await page.getByLabel('Importe').fill('11,38');
+  await expect(totalDoubt).toBeHidden();
+  expect(errors).toEqual([]);
+});

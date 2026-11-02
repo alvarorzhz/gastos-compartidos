@@ -9,6 +9,7 @@ import BudgetSuggestions from './BudgetSuggestions';
 import { AmountField, CategoryIcon, CountUp, MonthNav, Notice, Progress, SectionHeader, Segmented, Sheet, toast, type ViewProps, useMonth } from './common';
 import { Icon } from './icons';
 import { MonthCloseSheet } from './MonthClose';
+import ReportButton from './ReportButton';
 import { hasStory, MonthRecap } from './MonthStory';
 import Savings from './Savings';
 
@@ -78,6 +79,7 @@ export default function BudgetView(props: ViewProps) {
             <button className="pill" onClick={() => setShowStory(true)}><Icon name="sparkles" size={16} /> Historia del mes</button>
           )}
           <button className="pill" onClick={() => setShowClose(true)}><Icon name="list" size={16} /> Resumen del mes</button>
+          <ReportButton data={data} month={month} label="Resumen en PDF" />
           <button className="pill" onClick={() => (location.hash = '#graficos')}><Icon name="chart" size={16} /> Ver evolución</button>
         </div>
       </section>

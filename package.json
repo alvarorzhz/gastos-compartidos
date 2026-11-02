@@ -1,7 +1,7 @@
 {
   "name": "gastos-compartidos",
   "private": true,
-  "version": "3.24.0",
+  "version": "3.25.0",
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-ocr.mjs",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
