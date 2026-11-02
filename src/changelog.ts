@@ -18,6 +18,17 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.23.0',
+    date: '2026-11-02',
+    changes: [
+      { kind: 'mejora', text: 'Inicio renovado, con aire de iPhone: lo del mes arriba con un anillo del presupuesto, lo que pide algo (lo último de tu pareja, avisos, repetidos…) justo debajo, y una rejilla de widgets con el saldo, la hucha, quién paga, los caprichos y el calendario.' },
+      { kind: 'mejora', text: '«En qué se os va» es ahora una barra de colores, como la del almacenamiento del iPhone, con el porcentaje de cada categoría. Y los retos, si no hay ninguno en marcha, ocupan una sola fila.' },
+      { kind: 'nuevo', text: 'Gastos → Calendario: el mes día a día, con más color cuanto más gastasteis. Toca un día para ver sus gastos. También salen los fijos que están por llegar, los días sin gastar y el día que más.' },
+      { kind: 'nuevo', text: 'Presupuesto → Deseos: dos listas, caprichos y deseos. Cada uno vota cuánto le apetece (Paso, Vale, Mucho o ¡Top!) y lo más votado por los dos sube arriba. El capricho más votado es «el elegido»: con «¡Nos lo damos!» se apunta el gasto y se marca como cumplido.' },
+      { kind: 'nuevo', text: 'Un deseo (un sofá, un viaje…) se convierte en hucha con un toque, y veis en la lista cuánto lleváis ahorrado para él.' },
+    ],
+  },
+  {
     version: '3.22.0',
     date: '2026-11-01',
     changes: [

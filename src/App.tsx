@@ -9,7 +9,7 @@ import { isConfigured, storedSession, supabase } from './lib/supabase';
 import { useHousehold } from './lib/useHousehold';
 import { ShoppingContext, ShoppingItemsContext, useShopping } from './lib/useShopping';
 import HomeView from './views/HomeView';
-import { ExpenseForm, LazyBalance, LazyBudget, LazyCharts, LazyExpenses, LazyPersonal, LazySettings, LazyShopping, preloadSections, Section } from './views/lazy';
+import { ExpenseForm, LazyBalance, LazyBudget, LazyCalendar, LazyCharts, LazyExpenses, LazyPersonal, LazySettings, LazyShopping, LazyWishes, preloadSections, Section } from './views/lazy';
 import { Icon, type IconName } from './views/icons';
 import Login from './views/Login';
 import Onboarding from './views/Onboarding';
@@ -21,7 +21,7 @@ import { MonthRecap } from './views/MonthStory';
 import { flushPendingDeletes, useHiddenIds, withoutHidden } from './views/undo';
 import { Avatar, DialogHost, Notice, Segmented, Toaster } from './views/common';
 
-type View = 'inicio' | 'gastos' | 'saldo' | 'compra' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
+type View = 'inicio' | 'gastos' | 'calendario' | 'saldo' | 'deseos' | 'compra' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
 /*
  * Navegación: seis secciones abajo, tres a cada lado del botón central para añadir un gasto (Ajustes es la última).
@@ -30,9 +30,9 @@ type View = 'inicio' | 'gastos' | 'saldo' | 'compra' | 'presupuesto' | 'graficos
  */
 const SECTIONS: { id: string; label: string; short?: string; icon: IconName; views: { id: View; label: string }[] }[] = [
   { id: 'inicio', label: 'Inicio', icon: 'home', views: [{ id: 'inicio', label: 'Inicio' }] },
-  { id: 'gastos', label: 'Gastos', icon: 'receipt', views: [{ id: 'gastos', label: 'Movimientos' }, { id: 'saldo', label: 'Saldo' }] },
+  { id: 'gastos', label: 'Gastos', icon: 'receipt', views: [{ id: 'gastos', label: 'Movimientos' }, { id: 'calendario', label: 'Calendario' }, { id: 'saldo', label: 'Saldo' }] },
   { id: 'compra', label: 'Compra', icon: 'cart', views: [{ id: 'compra', label: 'Lista de la compra' }] },
-  { id: 'presupuesto', label: 'Presupuesto', short: 'Plan', icon: 'pie', views: [{ id: 'presupuesto', label: 'Presupuesto' }, { id: 'graficos', label: 'Gráficos' }] },
+  { id: 'presupuesto', label: 'Presupuesto', short: 'Plan', icon: 'pie', views: [{ id: 'presupuesto', label: 'Presupuesto' }, { id: 'graficos', label: 'Gráficos' }, { id: 'deseos', label: 'Deseos' }] },
   { id: 'personal', label: 'Personal', icon: 'user', views: [{ id: 'personal', label: 'Personal' }] },
   { id: 'ajustes', label: 'Ajustes', icon: 'settings', views: [{ id: 'ajustes', label: 'Ajustes' }] },
 ];
@@ -213,10 +213,12 @@ function Home({ userId, email }: { userId: string; email: string }) {
           {view === 'inicio' && <HomeView {...props} onAdd={() => setAdding(true)} quiet={closeMonth != null} />}
           <Section>
             {view === 'gastos' && <LazyExpenses.Component {...props} onAdd={() => setAdding(true)} />}
+            {view === 'calendario' && <LazyCalendar.Component {...props} />}
             {view === 'saldo' && <LazyBalance.Component {...props} />}
             {view === 'compra' && <LazyShopping.Component {...props} shopping={shopping} />}
             {view === 'presupuesto' && <LazyBudget.Component {...props} />}
             {view === 'graficos' && <LazyCharts.Component {...props} onAdd={() => setAdding(true)} />}
+            {view === 'deseos' && <LazyWishes.Component {...props} />}
             {view === 'personal' && <LazyPersonal.Component {...props} />}
             {view === 'ajustes' && <LazySettings.Component {...props} email={email} />}
           </Section>
