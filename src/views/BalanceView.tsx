@@ -4,7 +4,7 @@ import { formatDayHeading, today } from '../lib/dates';
 import { centsToInput, formatEuros, parseEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { errorMessage, supabase } from '../lib/supabase';
-import { AmountField, Avatar, celebrate, EmptyState, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
+import { AmountField, Avatar, CountUp, EmptyState, SectionHeader, Segmented, Sheet, toast, type ViewProps  } from './common';
 import { Icon } from './icons';
 import { deleteWithUndo } from './undo';
 
@@ -63,7 +63,7 @@ export default function BalanceView(props: ViewProps) {
             <>
               <span className="balance-kicker">Para quedar en paz</span>
               {rounded > 0 ? <>{partner.display_name} te pasa</> : <>Le pasas a {partner.display_name}</>}
-              <strong>{formatEuros(Math.abs(rounded))}</strong>
+              <strong><CountUp cents={Math.abs(rounded)} fromZero={false} /></strong>
             </>
           )}
         </p>
@@ -153,8 +153,8 @@ function SettlementForm({ data, me, reload, balance, partnerId, onClose }: ViewP
     if (error) return setError(errorMessage(error));
     await reload();
     const after = roundBalance(balance + (from === me ? cents : -cents));
-    if (after === 0) celebrate('¡Estáis en paz!');
-    else toast('Pago anotado');
+    // Si quedáis en paz, el confeti lo saca la app (EvenCelebration en App.tsx), también si lo anota tu pareja.
+    if (after !== 0) toast('Pago anotado');
     onClose();
   }
 

@@ -7,6 +7,7 @@ import { prefersReducedMotion, tweenCents } from '../lib/motion';
 import type { Member } from '../lib/types';
 import type { HouseholdData } from '../lib/useHousehold';
 import { Icon, type IconName } from './icons';
+import { useMonthSlide, useOnce } from './motion';
 
 /*
  * Piezas comunes de la interfaz: todas las pantallas se construyen con ellas para que
@@ -111,8 +112,10 @@ export function Sheet({ title, onClose, children, footer, subtitle }: {
 
 export function MonthNav({ month, onChange, compact = false }: { month: string; onChange: (m: string) => void; compact?: boolean }) {
   const current = monthOf(today());
+  // Al cambiar de mes, lo de debajo se desliza hacia ese lado.
+  const ref = useMonthSlide<HTMLDivElement>(month);
   return (
-    <div className={'month-nav' + (compact ? ' month-nav-compact' : '')}>
+    <div className={'month-nav' + (compact ? ' month-nav-compact' : '')} ref={ref}>
       <button type="button" className="icon-btn" onClick={() => onChange(addMonths(month, -1))} aria-label="Mes anterior">
         <Icon name="chevronLeft" />
       </button>
@@ -187,14 +190,18 @@ export function Avatar({ members, userId, size = 'md', className = '' }: { membe
 
 /* ───────────── Barras de progreso ───────────── */
 
-/** Barra de gasto frente a presupuesto: verde, ámbar al acercarse y coral si se pasa. */
-export function Progress({ value, max, label, tone }: { value: number; max: number; label: string; tone?: 'saving' }) {
+/**
+ * Barra de gasto frente a presupuesto: verde, ámbar al acercarse y coral si se pasa.
+ * Con `shakeKey`, la primera vez que se ve pasada (en este móvil) da un pequeño temblor.
+ */
+export function Progress({ value, max, label, tone, shakeKey }: { value: number; max: number; label: string; tone?: 'saving'; shakeKey?: string }) {
   const ratio = max > 0 ? value / max : 0;
   const level = tone ?? (ratio > 1 ? 'over' : ratio >= 0.85 ? 'warn' : 'ok');
   const percent = Math.round(ratio * 100);
+  const shake = useOnce(level === 'over' && shakeKey ? 'pasado:' + shakeKey : null);
   return (
     <div
-      className={'progress progress-' + level}
+      className={'progress progress-' + level + (shake ? ' progress-shake' : '')}
       role="progressbar"
       aria-label={label}
       aria-valuenow={Math.max(0, percent)}
@@ -275,10 +282,11 @@ export function Ring({ ratio = 0, size = 88, stroke = 10, tone = 'ok', segments,
 
 /**
  * Importe que «sube» hasta su valor al aparecer y al cambiar (de lo que había al nuevo).
+ * Con `fromZero={false}` sale ya con su valor y solo se mueve cuando cambia (para cifras pequeñas).
  * Con «reducir movimiento» en el móvil sale directamente.
  */
-export function CountUp({ cents, ms = 700 }: { cents: number; ms?: number }) {
-  const [shown, setShown] = useState(() => (prefersReducedMotion() ? cents : 0));
+export function CountUp({ cents, ms = 700, fromZero = true }: { cents: number; ms?: number; fromZero?: boolean }) {
+  const [shown, setShown] = useState(() => (prefersReducedMotion() || !fromZero ? cents : 0));
   const current = useRef(shown);
   current.current = shown;
   useEffect(() => {

@@ -18,6 +18,19 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.24.0',
+    date: '2026-11-02',
+    changes: [
+      { kind: 'mejora', text: 'Lo que acabáis de apuntar (tú o tu pareja) entra en la lista con un brillo suave que se apaga enseguida, para que veas dónde ha caído.' },
+      { kind: 'mejora', text: 'Al borrar un gasto, la fila se desvanece y el resto sube despacio a su sitio, sin saltos. Lo mismo al votar caprichos: cada uno se desliza a su puesto.' },
+      { kind: 'mejora', text: 'El saldo y lo que os queda del presupuesto se mueven hasta la cifra nueva cuando cambian, en vez de cambiar de golpe.' },
+      { kind: 'mejora', text: 'Cuando una categoría del presupuesto se pasa del límite, su barra hace un pequeño temblor la primera vez que la ves, y luego se queda quieta.' },
+      { kind: 'mejora', text: 'Confeti al quedar en paz también cuando es tu pareja quien anota lo que os habéis pasado, estés en la pantalla que estés.' },
+      { kind: 'mejora', text: 'Al cambiar de mes (Inicio, Gastos, Calendario, Presupuesto, Personal), la pantalla se desliza hacia ese lado.' },
+      { kind: 'mejora', text: 'En los caprichos, tu voto da un saltito, y cuando hay un elegido nuevo sube a su sitio y le cae una corona 👑.' },
+    ],
+  },
+  {
     version: '3.23.0',
     date: '2026-11-02',
     changes: [

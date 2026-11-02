@@ -20,6 +20,7 @@ import Challenges from './Challenges';
 import Duplicates from './Duplicates';
 import FixedSuggestions from './FixedSuggestions';
 import { ExpenseRow } from './ExpenseRow';
+import { useListMotion } from './motion';
 import { Icon, type IconName } from './icons';
 import { hasStory, MonthRecap } from './MonthStory';
 
@@ -35,6 +36,7 @@ const go = (view: string) => () => {
 export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?: boolean }) {
   const { data, me, onAdd, quiet = false } = props;
   const [month, setMonth] = useMonth();
+  const recentRef = useListMotion<HTMLUListElement>('li');
   const [editing, setEditing] = useState<Expense | null>(null);
   const [story, setStory] = useState<string | null>(null);
   const isCurrent = month === monthOf(today());
@@ -127,7 +129,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
                 />
               </div>
             ) : (
-              <ul className="list with-icons">
+              <ul className="list with-icons" ref={recentRef}>
                 {recent.map((e) => (
                   <ExpenseRow key={e.id} expense={e} data={data} me={me} onOpen={setEditing} showDate />
                 ))}
@@ -190,7 +192,7 @@ export function SpendCard({ spent, budgetedSpent = spent, budget, count, isCurre
         <dl className="hero-facts">
           <div>
             <dt>{left >= 0 ? 'Quedan' : 'Os pasáis'}</dt>
-            <dd className={left < 0 ? 'negative' : ''}>{formatEuros(Math.abs(left))}</dd>
+            <dd className={left < 0 ? 'negative' : ''}><CountUp cents={Math.abs(left)} fromZero={false} /></dd>
           </div>
           <div>
             <dt>Presupuesto</dt>
@@ -239,7 +241,7 @@ function BalanceWidget({ data, me, partnerId }: ViewProps & { partnerId: string 
         <Avatar members={data.members} userId={me} size="sm" />
         <Avatar members={data.members} userId={partnerId} size="sm" />
       </span>
-      <span className="widget-value">{balance === 0 ? 'En paz' : formatEuros(Math.abs(balance))}</span>
+      <span className="widget-value">{balance === 0 ? 'En paz' : <CountUp cents={Math.abs(balance)} fromZero={false} />}</span>
       <span className="widget-caption">{balance === 0 ? 'No os debéis nada 🤍' : balance > 0 ? `${partnerName} te pasa` : `Le pasas a ${partnerName}`}</span>
     </button>
   );

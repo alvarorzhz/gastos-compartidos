@@ -5,6 +5,7 @@ import { formatEuros } from '../lib/money';
 import type { Expense } from '../lib/types';
 import { CategoryIcon, MonthNav, type ViewProps, useMonth } from './common';
 import { ExpenseRow } from './ExpenseRow';
+import { useListMotion } from './motion';
 import { ExpenseForm } from './lazy';
 
 const WEEKDAYS = [
@@ -15,6 +16,7 @@ const WEEKDAYS = [
 export default function CalendarView(props: ViewProps) {
   const { data, me } = props;
   const [month, setMonth] = useMonth();
+  const dayListRef = useListMotion<HTMLUListElement>('li');
   const [picked, setPicked] = useState<string | null>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
   const todayIso = today();
@@ -99,7 +101,7 @@ export default function CalendarView(props: ViewProps) {
           {dayExpenses.length === 0 && dayFixed.length === 0 ? (
             <p className="card muted small cal-empty">{day > todayIso ? 'Nada previsto para ese día.' : 'Ese día no gastasteis nada 🌿'}</p>
           ) : (
-            <ul className="list with-icons">
+            <ul className="list with-icons" ref={dayListRef}>
               {dayExpenses.map((e) => <ExpenseRow key={e.id} expense={e} data={data} me={me} onOpen={setEditing} />)}
               {dayFixed.map((f) => (
                 <li key={f.id}>

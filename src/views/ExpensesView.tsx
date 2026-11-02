@@ -8,6 +8,7 @@ import type { Expense, RecurringExpense } from '../lib/types';
 import { capitalize, CategoryIcon, EmptyState, MonthNav, Sheet, type ViewProps, useMonth, useSticky } from './common';
 import { ExpenseForm } from './lazy';
 import { ExpenseRow, paidText } from './ExpenseRow';
+import { useListMotion } from './motion';
 import { Icon } from './icons';
 import ImportStatement from './ImportStatement';
 import FixedSuggestions from './FixedSuggestions';
@@ -18,6 +19,8 @@ type Editing = { kind: 'expense'; expense: Expense | null; fixed?: boolean } | {
 export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
   const { data, me, onAdd } = props;
   const [month, setMonth] = useMonth();
+  // Al borrar o apuntar, las filas se recolocan sin saltos.
+  const listRef = useListMotion<HTMLDivElement>('.day-group, li');
   const [editing, setEditing] = useState<Editing | null>(null);
   const [showFixed, setShowFixed] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -121,7 +124,8 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
           )}
         </div>
       ) : (
-        groups.map(([key, items]) => (
+        <div className="day-groups" ref={listRef}>
+        {groups.map(([key, items]) => (
           <section key={key} className="day-group" aria-label={allMonths ? formatMonth(key) : formatDayHeading(key)}>
             <div className="day-head">
               <span>{allMonths ? formatMonth(key) : formatDayHeading(key)}</span>
@@ -133,7 +137,8 @@ export default function ExpensesView(props: ViewProps & { onAdd: () => void }) {
               ))}
             </ul>
           </section>
-        ))
+        ))}
+        </div>
       )}
 
       {showFixed && !editing && (
