@@ -46,7 +46,7 @@ export default function BudgetView(props: ViewProps) {
           </div>
           <p className={'stat-big' + (hasBudget && left < 0 ? ' negative' : '')}><CountUp cents={hasBudget ? Math.abs(left) : sum.spentCents} /></p>
         </div>
-        {sum.budgetCents > 0 && <Progress value={sum.budgetedSpentCents} max={sum.budgetCents} label="Presupuesto gastado" />}
+        {sum.budgetCents > 0 && <Progress value={sum.budgetedSpentCents} max={sum.budgetCents} label="Presupuesto gastado" shakeKey={isCurrent ? `${month}:total` : undefined} />}
         {hasBudget && (
         <div className={'stat-grid' + (sum.budgetCents > 0 ? ' three' : '')}>
           <div className="stat-tile">
@@ -55,7 +55,7 @@ export default function BudgetView(props: ViewProps) {
           </div>
           <div className="stat-tile">
             <span className="stat-label">Gastado</span>
-            <strong>{formatEuros(sum.spentCents)}</strong>
+            <strong><CountUp cents={sum.spentCents} fromZero={false} /></strong>
           </div>
           {sum.budgetCents > 0 && (
             <div className="stat-tile">
@@ -96,7 +96,7 @@ export default function BudgetView(props: ViewProps) {
         <SectionHeader id="budget-categories" title="Por categoría" />
         <ul className="list with-icons">
           {rows.map((r) => (
-            <BudgetLine key={r.category.id + month} row={r} onOpen={() => setEditing(r)} />
+            <BudgetLine key={r.category.id + month} row={r} shakeKey={isCurrent ? `${month}:${r.category.id}` : undefined} onOpen={() => setEditing(r)} />
           ))}
         </ul>
         <p className="muted small" style={{ padding: '0 var(--s1)' }}>
@@ -113,7 +113,7 @@ export default function BudgetView(props: ViewProps) {
   );
 }
 
-function BudgetLine({ row, onOpen }: { row: BudgetRow; onOpen: () => void }) {
+function BudgetLine({ row, onOpen, shakeKey }: { row: BudgetRow; onOpen: () => void; shakeKey?: string }) {
   const budget = row.budgetCents;
   const left = budget != null ? budget - row.spentCents : 0;
   const pct = budget ? Math.round((row.spentCents * 100) / budget) : 0;
@@ -137,7 +137,7 @@ function BudgetLine({ row, onOpen }: { row: BudgetRow; onOpen: () => void }) {
         </span>
         {budget != null && budget > 0 && (
           <>
-            <Progress value={row.spentCents} max={budget} label={`Presupuesto de ${row.category.name}`} />
+            <Progress value={row.spentCents} max={budget} label={`Presupuesto de ${row.category.name}`} shakeKey={shakeKey} />
             <span className="budget-foot">
               <span className={left < 0 ? 'negative' : ''}>{left >= 0 ? `Quedan ${formatEuros(left)}` : `Os habéis pasado ${formatEuros(-left)}`}</span>
               <span>{row.category.alert_percent ? `Aviso al ${row.category.alert_percent} %` : 'Sin aviso'}</span>

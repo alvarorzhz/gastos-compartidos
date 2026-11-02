@@ -1993,3 +1993,39 @@ span.cancel-check { display: inline-block; }
 .wish-goal .progress { width: 100%; }
 .wish-done-icon { font-size: 1.4rem; width: 40px; text-align: center; flex: none; }
 .sheet .wish-choices { margin-top: var(--s1); }
+
+/* ───────────── Animaciones de lo que pasa (views/motion.tsx) ─────────────
+   Cortas y una sola vez; con «reducir movimiento» las corta la regla general de arriba. */
+
+/* Gasto recién apuntado (tuyo o de tu pareja): entra y brilla un momento */
+.list > li.row-fresh { animation: fresh-in 420ms var(--ease) backwards; }
+.row-fresh > .row-item { animation: fresh-glow 1.8s 150ms ease-out backwards; }
+@keyframes fresh-in { from { opacity: 0; transform: translateY(-8px) scale(0.98); } }
+@keyframes fresh-glow {
+  0%, 35% { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  100% { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+}
+
+/* Lista de gastos agrupada por días: los días se recolocan sin saltos al borrar */
+.day-groups { display: flex; flex-direction: column; gap: var(--s5); }
+
+/* Barra que se acaba de pasar del límite: tiembla una vez cuando termina de llenarse */
+.progress-shake { animation: limit-shake 520ms 950ms var(--ease) both; }
+@keyframes limit-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+/* Votar un capricho: el emoji da un saltito */
+.wish-choice.just-voted > span:first-child { display: inline-block; animation: vote-pop 420ms var(--ease-spring); }
+@keyframes vote-pop { 0% { transform: scale(0.7); } 55% { transform: scale(1.35) rotate(-8deg); } 100% { transform: none; } }
+
+/* El capricho elegido nuevo sube a su sitio y le cae la corona */
+.wish-crown { display: inline-block; }
+.wish-chosen-new { animation: chosen-rise 520ms var(--ease) backwards; }
+.wish-chosen-new .wish-crown { animation: crown-drop 650ms 380ms var(--ease-spring) backwards; }
+@keyframes chosen-rise { from { opacity: 0; transform: translateY(28px) scale(0.97); } }
+@keyframes crown-drop { 0% { opacity: 0; transform: translateY(-14px) rotate(-25deg) scale(0.6); } 70% { opacity: 1; transform: translateY(1px) rotate(6deg) scale(1.15); } 100% { transform: none; } }

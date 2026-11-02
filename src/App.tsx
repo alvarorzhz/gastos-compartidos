@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { balanceFor, roundBalance } from './lib/balance';
 import { greeting } from './lib/couple';
 import type { Member } from './lib/types';
 import { setErrorContext } from './lib/errorLog';
@@ -19,7 +20,9 @@ import { AlertsOnEntry } from './views/AlertsDialog';
 import { markCloseSeen, pendingClose } from './views/MonthClose';
 import { MonthRecap } from './views/MonthStory';
 import { flushPendingDeletes, useHiddenIds, withoutHidden } from './views/undo';
-import { Avatar, DialogHost, Notice, Segmented, Toaster } from './views/common';
+import { Avatar, celebrate, DialogHost, Notice, Segmented, Toaster } from './views/common';
+import { noteExpenses } from './views/motion';
+import type { HouseholdData } from './lib/useHousehold';
 
 type View = 'inicio' | 'gastos' | 'calendario' | 'saldo' | 'deseos' | 'compra' | 'presupuesto' | 'graficos' | 'personal' | 'ajustes';
 
@@ -168,6 +171,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
 
   const data = withQueued(withoutHidden(state.data, hiddenIds), userId);
   const props = { data, me: userId, reload };
+  noteExpenses(data.expenses.map((e) => e.id)); // para que lo recién apuntado brille un momento
   const section = sectionOf(view);
   const current = section.views.find((v) => v.id === view)!;
   const closeMonth = closeDismissed ? null : pendingClose(props);
@@ -248,6 +252,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
         <MonthRecap {...props} month={closeMonth} onClose={() => { markCloseSeen(closeMonth); setCloseDismissed(true); }} />
       )}
       <AlertsOnEntry data={data} waiting={closeMonth != null} />
+      <EvenCelebration data={data} me={userId} />
       <Toaster />
       <DialogHost />
     </div>
@@ -270,4 +275,20 @@ function TabButton({ section, active, onClick }: { section: (typeof SECTIONS)[nu
       {section.short && <span className="tab-label tab-label-short">{section.short}</span>}
     </button>
   );
+}
+
+/**
+ * Cuando el saldo llega a cero porque uno de los dos anota lo que se han pasado (tú o tu pareja,
+ * aunque estés en otra pantalla), sale el confeti. Al abrir la app, no.
+ */
+function EvenCelebration({ data, me }: { data: HouseholdData; me: string }) {
+  const balance = roundBalance(balanceFor(me, data.expenses, data.settlements));
+  const settlements = data.settlements.length;
+  const last = useRef<{ balance: number; settlements: number } | null>(null);
+  useEffect(() => {
+    const before = last.current;
+    last.current = { balance, settlements };
+    if (before && before.balance !== 0 && balance === 0 && settlements > before.settlements) celebrate('¡Estáis en paz!');
+  }, [balance, settlements]);
+  return null;
 }

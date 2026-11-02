@@ -7,6 +7,7 @@ import { nameOf, partnerOf } from '../lib/people';
 import type { Expense, Member } from '../lib/types';
 import type { HouseholdData } from '../lib/useHousehold';
 import { Avatar, CategoryIcon } from './common';
+import { isFresh } from './motion';
 import { ReactionChips } from './Reactions';
 import { Icon } from './icons';
 
@@ -56,7 +57,7 @@ export function ExpenseRow({ expense: e, data, me, onOpen, showDate, hideEvent }
   const reactions = reactionsOf(data.reactions, e.id, me);
 
   return (
-    <li>
+    <li className={isFresh(e.id) ? 'row-fresh' : undefined}>
       <button className="row-item" onClick={() => onOpen(e)}>
         {partner ? (
           <span className="payer-badge">

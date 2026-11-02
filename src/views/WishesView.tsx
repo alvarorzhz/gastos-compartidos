@@ -10,6 +10,7 @@ import { chosenOne, moodText, rankWishes, VOTES, type RankedWish } from '../lib/
 import { Avatar, celebrate, confirmAction, EmptyState, Progress, Segmented, Sheet, toast, type ViewProps, useSticky } from './common';
 import { Icon } from './icons';
 import { ExpenseForm } from './lazy';
+import { useListMotion, useOnce } from './motion';
 
 /*
  * Presupuesto → Deseos: dos listas, caprichos y deseos. Cada uno vota cuánto le apetece y los
@@ -40,6 +41,8 @@ export default function WishesView(props: ViewProps) {
   const [treating, setTreating] = useState<Wish | null>(null);
   const [showDone, setShowDone] = useState(false);
   const memberIds = data.members.map((m) => m.user_id);
+  // Al votar, cada uno sube o baja a su sitio deslizándose.
+  const listRef = useListMotion<HTMLUListElement>('li');
   const ranked = rankWishes(data.wishes, data.wishVotes, memberIds, kind);
   const chosen = kind === 'treat' ? chosenOne(ranked) : null;
   const rest = chosen ? ranked.slice(1) : ranked;
@@ -64,7 +67,7 @@ export default function WishesView(props: ViewProps) {
       />
       <p className="muted small wish-intro">{text.intro}</p>
 
-      {chosen && <ChosenCard {...props} r={chosen} onTreat={() => setTreating(chosen.wish)} onDone={() => markDone(chosen.wish, true)} />}
+      {chosen && <ChosenCard key={chosen.wish.id} {...props} r={chosen} onTreat={() => setTreating(chosen.wish)} onDone={() => markDone(chosen.wish, true)} />}
 
       {ranked.length === 0 ? (
         <div className="card">
@@ -78,7 +81,7 @@ export default function WishesView(props: ViewProps) {
       ) : (
         <section className="section" aria-label={kind === 'treat' ? 'Caprichos' : 'Deseos'}>
           {rest.length > 0 && (
-            <ul className="list wish-list">
+            <ul className="list wish-list" ref={listRef}>
               {rest.map((r, i) => (
                 <WishRow key={r.wish.id} {...props} r={r} rank={i + (chosen ? 2 : 1)} onOpen={() => setEditing(r.wish)} onDone={() => markDone(r.wish, true)} />
               ))}
@@ -128,9 +131,11 @@ export default function WishesView(props: ViewProps) {
 
 /** El capricho más votado por los dos, con el botón para dároslo. */
 function ChosenCard({ data, me, r, onTreat, onDone }: ViewProps & { r: RankedWish; onTreat: () => void; onDone: () => void }) {
+  // Cuando un capricho pasa a ser el elegido, sube a su sitio y le cae la corona (una vez).
+  const isNew = useOnce('elegido:' + r.wish.id);
   return (
-    <section className="card wish-chosen" aria-label="El capricho elegido">
-      <span className="wish-chosen-kicker"><Icon name="sparkles" size={15} /> El elegido</span>
+    <section className={'card wish-chosen' + (isNew ? ' wish-chosen-new' : '')} aria-label="El capricho elegido">
+      <span className="wish-chosen-kicker"><span className="wish-crown" aria-hidden>👑</span> El elegido</span>
       <h2 className="wish-chosen-name">{r.wish.name}</h2>
       <p className="wish-chosen-meta">
         {moodText(r)}{r.wish.price_cents ? ` · ${formatEuros(r.wish.price_cents)}` : ''}
@@ -166,6 +171,7 @@ function VotesOf({ data, me, r }: Pick<ViewProps, 'data' | 'me'> & { r: RankedWi
 function WishRow(props: ViewProps & { r: RankedWish; rank: number; onOpen: () => void; onDone: () => void }) {
   const { data, me, reload, r, rank, onOpen, onDone } = props;
   const [busy, setBusy] = useState(false);
+  const [justVoted, setJustVoted] = useState<number | null>(null);
   const w = r.wish;
   const mine = r.byUser.get(me);
   const partner = partnerOf(data.members, me);
@@ -182,6 +188,7 @@ function WishRow(props: ViewProps & { r: RankedWish; rank: number; onOpen: () =>
 
   async function vote(score: number) {
     if (score === mine) return;
+    setJustVoted(score);
     setBusy(true);
     const { error } = await supabase
       .from('wish_votes')
@@ -225,7 +232,7 @@ function WishRow(props: ViewProps & { r: RankedWish; rank: number; onOpen: () =>
       <div className="wish-voting">
         <div className="wish-choices" role="group" aria-label={`¿Cuánto te apetece ${w.name}?`}>
           {VOTES.map((v) => (
-            <button key={v.score} className={'wish-choice' + (mine === v.score ? ' selected' : '')} aria-pressed={mine === v.score} disabled={busy} onClick={() => vote(v.score)} title={v.label} aria-label={v.label}>
+            <button key={v.score} className={'wish-choice' + (mine === v.score ? ' selected' : '') + (mine === v.score && justVoted === v.score ? ' just-voted' : '')} aria-pressed={mine === v.score} disabled={busy} onClick={() => vote(v.score)} title={v.label} aria-label={v.label}>
               <span aria-hidden>{v.emoji}</span>
               <span className="wish-choice-label">{v.short}</span>
             </button>
