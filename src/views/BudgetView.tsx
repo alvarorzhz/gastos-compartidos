@@ -10,6 +10,7 @@ import { AmountField, CategoryIcon, CountUp, MonthNav, Notice, Progress, Section
 import { Icon } from './icons';
 import { MonthCloseSheet } from './MonthClose';
 import ReportButton from './ReportButton';
+import { ProposeChallengeButton } from './Challenges';
 import { hasStory, MonthRecap } from './MonthStory';
 import Savings from './Savings';
 
@@ -81,6 +82,7 @@ export default function BudgetView(props: ViewProps) {
           <button className="pill" onClick={() => setShowClose(true)}><Icon name="list" size={16} /> Resumen del mes</button>
           <ReportButton data={data} month={month} label="Resumen en PDF" />
           <button className="pill" onClick={() => (location.hash = '#graficos')}><Icon name="chart" size={16} /> Ver evolución</button>
+          {isCurrent && <ProposeChallengeButton {...props} />}
         </div>
       </section>
 

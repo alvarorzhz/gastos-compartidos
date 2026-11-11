@@ -18,6 +18,14 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.27.0',
+    date: '2026-11-11',
+    changes: [
+      { kind: 'mejora', text: 'Los retos de pareja solo salen en Inicio cuando hay uno propuesto, en marcha o recién terminado. Para proponer uno nuevo, en Presupuesto tenéis el botón «Proponer un reto».' },
+      { kind: 'mejora', text: '«En qué se os va», en Inicio, enseña solo las 3 categorías en las que más gastáis; el resto va junto en «Otras».' },
+    ],
+  },
+  {
     version: '3.26.0',
     date: '2026-11-11',
     changes: [

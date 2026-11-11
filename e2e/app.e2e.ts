@@ -320,16 +320,19 @@ test('Presupuesto: propone límites según los últimos 3 meses', async ({ page 
   ]);
 });
 
-test('Inicio: proponer un reto de pareja', async ({ page }) => {
+test('Presupuesto: proponer un reto de pareja y verlo en Inicio', async ({ page }) => {
   const fake = await openApp(page);
-  const card = page.getByRole('region', { name: 'Retos de pareja' });
-  await card.getByRole('button', { name: 'Proponer un reto' }).click();
+  // Sin retos, Inicio no enseña la tarjeta: se propone desde Presupuesto.
+  await expect(page.getByRole('region', { name: 'Retos de pareja' })).toHaveCount(0);
+  await page.goto('/#presupuesto');
+  await page.getByRole('button', { name: 'Proponer un reto' }).click();
   const sheet = page.getByRole('dialog', { name: 'Proponer un reto' });
   await expect(sheet.getByText('Una semana sin gastos de Ocio')).toBeVisible();
   if (process.env.CAPTURAS) await sheet.screenshot({ path: `${process.env.CAPTURAS}/1-proponer.png` });
   await sheet.getByRole('listitem').filter({ hasText: 'Una semana sin gastos de Ocio' }).getByRole('button', { name: 'Proponer' }).click();
   await expect.poll(() => fake.writes.find((w) => w.what === 'POST challenges')?.body).toMatchObject({ kind: 'without', category_id: 'c-ocio', title: 'Una semana sin gastos de Ocio' });
-  await expect(card.getByText('Esperando a que Bea lo acepte')).toBeVisible();
+  await page.goto('/#inicio');
+  await expect(page.getByRole('region', { name: 'Retos de pareja' }).getByText('Esperando a que Bea lo acepte')).toBeVisible();
 });
 
 test('Inicio: aceptar el reto que propone la pareja y ver cómo vais', async ({ page }) => {
