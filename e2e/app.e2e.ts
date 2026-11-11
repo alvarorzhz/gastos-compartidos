@@ -402,10 +402,9 @@ test('Deseos: apuntar un capricho, votar y que salga el elegido', async ({ page 
   tables.wish_votes.push({ wish_id: 'w-1', household_id: tables.households[0].id, user_id: BEA, score: 3, updated_at: '2026-11-01T10:00:00Z' });
   const fake = await openApp(page, { tables });
 
-  // En Inicio, el widget avisa de que falta tu voto.
-  await expect(page.getByRole('button', { name: /Caprichos/ })).toContainText('espera tu voto');
-  await page.getByRole('button', { name: /Caprichos/ }).click();
-  await expect(page).toHaveURL(/#deseos/);
+  // Desde la 3.26.0 los caprichos ya no salen en Inicio: se llega por Presupuesto → Deseos.
+  await expect(page.getByRole('button', { name: /Caprichos/ })).toHaveCount(0);
+  await page.goto('/#deseos');
   await expect(page.getByText('Falta tu voto')).toBeVisible();
   await page.getByRole('group', { name: /Tarde de spa/ }).getByRole('button', { name: '¡Me apetece muchísimo!' }).click();
   await expect.poll(() => fake.writes.find((w) => w.what === 'POST wish_votes')?.body).toMatchObject({ wish_id: 'w-1', user_id: ANA, score: 3 });

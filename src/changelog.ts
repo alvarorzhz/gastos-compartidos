@@ -18,6 +18,13 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.26.0',
+    date: '2026-11-11',
+    changes: [
+      { kind: 'mejora', text: 'Inicio más ligero: los últimos movimientos son solo los 2 más recientes (con «Ver todos» para el resto), y ya no salen ni la tarjeta de lo último que apuntó tu pareja ni los caprichos, que siguen en Presupuesto → Deseos.' },
+    ],
+  },
+  {
     version: '3.25.0',
     date: '2026-11-02',
     changes: [

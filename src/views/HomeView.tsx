@@ -8,13 +8,11 @@ import { formatEuros } from '../lib/money';
 import { nameOf, partnerOf } from '../lib/people';
 import { categoryStyle } from '../lib/categoryStyle';
 import { breakdown } from '../lib/stats';
-import { budgetStreak, partnerActivity, timeAgo } from '../lib/couple';
-import { saveReaction } from '../lib/reactions';
+import { budgetStreak } from '../lib/couple';
 import { goalProgress } from '../lib/savings';
 import { monthForecast, type Forecast } from '../lib/forecast';
 import type { Expense, SavingsGoal } from '../lib/types';
-import { chosenOne, moodText, rankWishes, waitingForMe } from '../lib/wishes';
-import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Ring, SectionHeader, toast, type ViewProps, useMonth } from './common';
+import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Ring, SectionHeader, type ViewProps, useMonth } from './common';
 import { ExpenseForm } from './lazy';
 import Challenges from './Challenges';
 import Duplicates from './Duplicates';
@@ -31,8 +29,9 @@ const go = (view: string) => () => {
 
 /*
  * Pantalla de inicio (rediseñada en la 3.23.0 con aire de iPhone): arriba lo del mes con su
- * anillo, luego los avisos que piden algo, una rejilla de «widgets» (saldo, hucha, quién paga,
- * caprichos y calendario) y, al final, los últimos movimientos y en qué se os va.
+ * anillo, luego los avisos que piden algo, una rejilla de «widgets» (saldo, hucha, quién paga
+ * y calendario) y, al final, los dos últimos movimientos y en qué se os va. En la 3.26.0 se
+ * aligeró: sin la tarjeta de lo último de la pareja ni el widget de caprichos.
  */
 export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?: boolean }) {
   const { data, me, onAdd, quiet = false } = props;
@@ -50,7 +49,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
   const sum = totals(rows);
   const partner = partnerOf(data.members, me);
   const alerts = isCurrent ? budgetAlerts(month, data.categories, data.expenses, data.budgets) : [];
-  const recent = monthExpenses.slice(0, 5);
+  const recent = monthExpenses.slice(0, 2);
   const streak = budgetStreak(today(), data.categories, data.expenses, data.budgets);
 
   // Widgets pequeños de dos en dos; si quedan impares, el último ocupa toda la fila.
@@ -59,7 +58,6 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
   const goal = latestGoal(data);
   if (goal) small.push({ key: 'hucha', node: <GoalWidget {...props} goal={goal} /> });
   if (partner && sum.spentCents > 0) small.push({ key: 'pagos', node: <PayersWidget {...props} month={month} isCurrent={isCurrent} /> });
-  small.push({ key: 'deseos', node: <WishWidget {...props} /> });
 
   return (
     <>
@@ -79,7 +77,6 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
           />
 
           <div className="home-feed">
-            {partner && <PartnerActivity {...props} partnerId={partner.user_id} onOpen={setEditing} />}
             {isCurrent && <GoodMonth month={addMonths(month, -1)} streak={streak} quiet={quiet} />}
             {alerts.map((a) => (
               <Notice key={a.category.id} kind={a.spentCents > a.budgetCents ? 'over' : 'warn'}>{alertText(a)}</Notice>
@@ -306,41 +303,6 @@ function PayersWidget({ data, me, month, isCurrent }: ViewProps & { month: strin
   );
 }
 
-/** Caprichos: el elegido por los dos o los que esperan tu voto. */
-function WishWidget({ data, me }: ViewProps) {
-  const memberIds = data.members.map((m) => m.user_id);
-  const chosen = chosenOne(rankWishes(data.wishes, data.wishVotes, memberIds, 'treat'));
-  const waiting = waitingForMe(data.wishes, data.wishVotes, me).length;
-  const open = data.wishes.filter((w) => !w.done_at).length;
-  return (
-    <button className="widget" onClick={go('deseos')}>
-      <WidgetHead icon="sparkles" tone="purple" title="Caprichos" />
-      {chosen ? (
-        <>
-          <span className="widget-kicker">El elegido</span>
-          <span className="widget-name widget-name-lg">{chosen.wish.name}</span>
-          <span className="widget-caption">{waiting > 0 ? `y ${waiting} por votar` : moodText(chosen)}</span>
-        </>
-      ) : waiting > 0 ? (
-        <>
-          <span className="widget-value">{waiting}</span>
-          <span className="widget-caption">{waiting === 1 ? 'espera tu voto' : 'esperan tu voto'}</span>
-        </>
-      ) : open > 0 ? (
-        <>
-          <span className="widget-value">{open}</span>
-          <span className="widget-caption">{open === 1 ? 'en la lista' : 'en la lista'} · votad para elegir</span>
-        </>
-      ) : (
-        <>
-          <span className="widget-name">¿Qué os apetece?</span>
-          <span className="widget-caption">Apuntad caprichos y deseos y votadlos</span>
-        </>
-      )}
-    </button>
-  );
-}
-
 /** El mes en puntos de colores (más intenso, más gasto) que abre el calendario. */
 function CalendarWidget({ data, month }: ViewProps & { month: string }) {
   const todayIso = today();
@@ -457,42 +419,6 @@ function ForecastLine({ forecast, budget, budgetedShare }: { forecast: Forecast;
           )}
         </ForecastInfo>
       </div>
-    </div>
-  );
-}
-
-/** Lo último que ha hecho tu pareja ("Marta apuntó Mercadona · hace 2 h"), con un ❤️ rápido. */
-function PartnerActivity({ data, me, reload, partnerId, onOpen }: ViewProps & { partnerId: string; onOpen: (e: Expense) => void }) {
-  const [busy, setBusy] = useState(false);
-  const activity = partnerActivity(data, partnerId, new Date());
-  if (!activity) return null;
-  const expense = activity.expenseId ? data.expenses.find((e) => e.id === activity.expenseId) : undefined;
-  const mine = expense ? data.reactions.find((r) => r.expense_id === expense.id && r.user_id === me) : undefined;
-  const loved = mine?.emoji === '❤️';
-
-  async function love() {
-    if (!expense) return;
-    setBusy(true);
-    const error = await saveReaction({ householdId: data.household.id, expenseId: expense.id, me, current: mine }, { emoji: loved ? null : '❤️' });
-    setBusy(false);
-    if (error) return toast(error, 'error');
-    await reload();
-  }
-
-  return (
-    <div className="activity-card">
-      <button className="activity-main" onClick={() => (expense ? onOpen(expense) : (location.hash = '#saldo'))}>
-        <Avatar members={data.members} userId={partnerId} />
-        <span className="grow">
-          <strong>{nameOf(data.members, partnerId)}</strong> {activity.text}
-          <span className="activity-when">{timeAgo(activity.at, new Date())}</span>
-        </span>
-      </button>
-      {expense && (
-        <button className={'activity-love' + (loved ? ' loved' : '')} onClick={love} disabled={busy} aria-pressed={loved} aria-label={loved ? 'Quitar el corazón' : 'Mandar un corazón'}>
-          {loved ? '❤️' : '🤍'}
-        </button>
-      )}
     </div>
   );
 }
