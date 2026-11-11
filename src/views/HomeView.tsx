@@ -107,7 +107,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
             <div className="widget-slot widget-wide"><CalendarWidget {...props} month={month} /></div>
           </div>
 
-          {isCurrent && <Challenges {...props} />}
+          {isCurrent && <Challenges {...props} hideIdle />}
         </div>
 
         <div className="home-col">
@@ -337,8 +337,9 @@ function CalendarWidget({ data, month }: ViewProps & { month: string }) {
 function CategoryBreakdown({ rows, total }: { rows: ReturnType<typeof monthlySummary>; total: number }) {
   const spent = rows.filter((r) => r.spentCents > 0);
   if (spent.length === 0 || total <= 0) return null;
-  const top = spent.slice(0, 5);
-  const rest = spent.slice(5).reduce((a, r) => a + r.spentCents, 0);
+  // Solo las 3 en las que más se gasta; el resto, juntas en «Otras».
+  const top = spent.slice(0, 3);
+  const rest = spent.slice(3).reduce((a, r) => a + r.spentCents, 0);
   return (
     <section className="section" aria-labelledby="home-categories">
       <SectionHeader

@@ -12,6 +12,8 @@ import { Icon } from './icons';
 /*
  * Retos de pareja en Inicio: la propuesta que espera respuesta, los retos en marcha con su
  * progreso y, al terminar, si lo habéis conseguido. Desde aquí se propone uno nuevo.
+ * Con `hideIdle` (Inicio, desde la 3.27.0) no se enseña nada si no hay ningún reto: entonces se
+ * propone desde Presupuesto (ProposeChallengeButton).
  */
 
 const SEEN_KEY = 'gastos.retosVistos';
@@ -44,8 +46,8 @@ interface Item {
   p: ChallengeProgress;
 }
 
-export default function Challenges(props: ViewProps) {
-  const { data, me } = props;
+export default function Challenges(props: ViewProps & { hideIdle?: boolean }) {
+  const { data, me, hideIdle = false } = props;
   const [seen, setSeen] = useState(seenResults);
   const [proposing, setProposing] = useState(false);
   const todayIso = today();
@@ -69,6 +71,7 @@ export default function Challenges(props: ViewProps) {
   }, [wonIds]);
 
   if (!partner && data.challenges.length === 0) return null;
+  if (hideIdle && live.length === 0 && results.length === 0) return null;
 
   function dismiss(id: string) {
     markSeen(id);
@@ -164,6 +167,18 @@ const DAYS = [
   { value: '14', label: '2 semanas', title: 'Dos semanas' },
   { value: '30', label: '1 mes', title: 'Un mes' },
 ] as const;
+
+/** Botón para proponer un reto donde no está la tarjeta de retos (Presupuesto). */
+export function ProposeChallengeButton(props: ViewProps) {
+  const [open, setOpen] = useState(false);
+  if (!partnerOf(props.data.members, props.me)) return null;
+  return (
+    <>
+      <button className="pill" onClick={() => setOpen(true)}><Icon name="target" size={16} /> Proponer un reto</button>
+      {open && <ProposeSheet {...props} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
 
 function ProposeSheet({ data, me, reload, onClose }: ViewProps & { onClose: () => void }) {
   const formId = useId();
