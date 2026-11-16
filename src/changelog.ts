@@ -18,6 +18,13 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.27.1',
+    date: '2026-11-16',
+    changes: [
+      { kind: 'mejora', text: 'Por dentro: herramientas y librerías al día (Vite 8, React, Supabase y el lector de PDF). No cambia nada de lo que ves, pero la app se prepara más rápido y sigue con soporte.' },
+    ],
+  },
+  {
     version: '3.27.0',
     date: '2026-11-11',
     changes: [
