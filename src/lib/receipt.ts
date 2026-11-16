@@ -20,6 +20,8 @@ export interface ReceiptLine {
   /** Importe de la línea (cantidad × precio). */
   cents: number;
   quantity: number;
+  /** La cantidad por el precio por unidad no da el importe de la línea: algo está mal leído. */
+  priceMismatch?: true;
 }
 
 // Tiendas habituales y la categoría por defecto que les corresponde.
@@ -37,10 +39,12 @@ const MERCHANTS: { match: RegExp; name: string; category: string }[] = [
   { match: /consum\b/, name: 'Consum', category: 'Supermercado' },
   { match: /hipercor/, name: 'Hipercor', category: 'Supermercado' },
   { match: /\bbonpreu\b/, name: 'Bonpreu', category: 'Supermercado' },
-  { match: /\bdia\b.*(retail|distribucion|%)|supermercados dia|\bdia s\.?a/, name: 'Dia', category: 'Supermercado' },
+  // Los de la app de Dia solo dicen «Productos vendidos por Dia» y «Total venta Dia».
+  { match: /\bdia\b.*(retail|distribucion|%)|supermercados dia|\bdia s\.?a|vendidos por dia|total venta dia|ref\.?\s?dia\b/, name: 'Dia', category: 'Supermercado' },
   { match: /ahorramas/, name: 'Ahorramás', category: 'Supermercado' },
-  // La lectura confunde la "l" de Leclerc con i, t o 1 ("E.Lecierc", "Leciterc").
-  { match: /e\s?\.?\s?le[cg][il1t]{1,2}e?r[ceo]|eleclerc|carbadis/, name: 'E.Leclerc', category: 'Supermercado' },
+  // La lectura confunde la "l" de Leclerc con i, t o 1 ("E.Lecierc", "Leciterc"). Detrás no puede
+  // seguir otra letra: "electrónica" o "electrodomésticos" no son Leclerc.
+  { match: /e\s?\.?\s?le[cg][il1t]{1,2}e?r[ceo](?![a-z])|eleclerc|carbadis/, name: 'E.Leclerc', category: 'Supermercado' },
   { match: /el corte ingles/, name: 'El Corte Inglés', category: 'Otros' },
   { match: /\bikea\b/, name: 'IKEA', category: 'Casa' },
   { match: /leroy merlin/, name: 'Leroy Merlin', category: 'Casa' },
@@ -71,11 +75,13 @@ function amountsIn(line: string): number[] {
   return out.filter((c) => c > 0 && c <= 100000000);
 }
 
-const SKIP = /subtotal|sub total|base imp|\biva\b|cuota|entregado|efectivo|cambio|devol|ahorro|descuento|puntos|promocion/;
+const SKIP = /subtotal|sub total|base imp|\biva\b|cuota|entregado|efectivo|\bcambio\b|devol|ahorro|descuento|puntos|promocion/;
 const STRONG = /total\s*(a\s*pagar|compra|ticket|eur|€|\(?e\)?)?|importe\s*total|a\s*pagar|total\s*\(?eur|\btot\b/;
 const PAYMENT = /tarjeta|visa|mastercard|importe|\beur\b|contactless/;
 /** Cabecera de columnas ("TOTAL IVA", "Descripción P. Unit Importe"): no es el total. */
 const COLUMNS = /^(?:(?:total|iva|importe|precio|descripcion|articulo|cant|uds?|eur|€|p\.?\s?unit)\s*){2,}$/;
+/** Fila del desglose del IVA: el tipo ("10%", "A 4%") y detrás base, cuota y a veces el total. */
+const VAT_ROW = /^(?:[a-z]\s+)?\d{1,2}(?:[,.]\d{1,2})?\s*%\s*[\d.,€\s]+$/;
 /** "Total 36 Articulos": cierra la lista de productos. */
 const ITEM_COUNT = /total\s*:?\s*\d+\s*art|total\s*art[a-z]*\s*:?\s*\d/;
 /** Títulos de sección (">> LIQUIDOS", "» FRUTERIA"): no son productos. */
@@ -94,7 +100,19 @@ function findTotal(lines: string[], itemsSum: number | null): { cents: number | 
   const norm = lines.map(normalize);
   const strong: number[] = [];
   const payment: number[] = [];
+  // Desglose del IVA ("10% 8,00 0,80 8,80"): base + cuota de cada tipo suman el total.
+  let vatSum = 0;
+  let vatRows = 0;
+  let vatBroken = false;
   for (let i = 0; i < lines.length; i++) {
+    if (VAT_ROW.test(norm[i])) {
+      const a = amountsIn(lines[i]);
+      if (a.length >= 2) {
+        vatSum += a.length >= 3 && a[0] + a[1] === a[2] ? a[2] : a[0] + a[1];
+        vatRows++;
+      } else if (letters(lines[i].replace(/^\s*[a-z]\s/i, '')) === 0) vatBroken = true; // una fila mal leída: la suma no vale
+      continue;
+    }
     if (SKIP.test(norm[i]) && !/tarjeta|importe:/.test(norm[i])) continue;
     if (COLUMNS.test(norm[i])) continue;
     // Leclerc: "Total 36 Articulos", una raya y el importe solo en la línea de abajo.
@@ -120,6 +138,7 @@ function findTotal(lines: string[], itemsSum: number | null): { cents: number | 
   strong.forEach((v) => vote(v, 3));
   payment.forEach((v) => vote(v, 2));
   if (itemsSum != null && itemsSum > 0) vote(itemsSum, 2);
+  if (vatRows && !vatBroken) vote(vatSum, 2);
   const agreed = [...votes.entries()].filter(([v]) => strong.includes(v) || payment.includes(v));
   // Coinciden dos fuentes distintas: casi seguro que es el total.
   const confirmed = agreed.filter(([v, w]) => w >= 4 || (v === itemsSum && w > 2)).sort((a, b) => b[1] - a[1]);
@@ -131,7 +150,7 @@ function findTotal(lines: string[], itemsSum: number | null): { cents: number | 
 }
 
 // Líneas que no son productos aunque lleven un importe.
-const NOT_ITEM = /total|tarjeta|bancaria|efectivo|cambio|entregado|\biva\b|base|cuota|subtotal|importe|telefono|tel[eé]f|c\.?i\.?f|n\.?i\.?f|factura|fecha|hora|operacion|documento|articulos|vendidos|saldo|puntos|visa|mastercard|contactless|aut\b|\barc\b|\baid\b|promocion|ahorro|cuenta|tarj\b|eur\b|pago/;
+const NOT_ITEM = /total|tarjeta|bancaria|efectivo|\bcambio\b|entregado|cupon|\biva\b|base|cuota|subtotal|importe|telefono|tel[eé]f|c\.?i\.?f|n\.?i\.?f|factura|fecha|hora|operacion|documento|articulos|vendidos|saldo|puntos|visa|mastercard|contactless|aut\b|\barc\b|\baid\b|promocion|ahorro|cuenta|tarj\b|eur\b|pago/;
 const HEADER = /articulo|descripcion|p\.?\s?unit|importe|\bimp\.|\bcant\b|\buds?\b/;
 
 /** Letras de verdad en una línea (no cuenta los números ni la basura de la lectura). */
@@ -157,7 +176,7 @@ function lineAmounts(line: string): { amounts: number[]; negative: boolean; rest
 }
 
 /** Quita la cantidad del principio, los restos de la lectura y espacios de sobra. */
-function cleanName(raw: string): { name: string; quantity: number } {
+function cleanName(raw: string, leadingQty = false): { name: string; quantity: number } {
   let s = raw.replace(/[|_—–=“”"'`´~^*¡!¿?<>{}[\]\\»«]+/g, ' ').replace(/\s+/g, ' ').trim();
   // Restos de la lectura delante del nombre: signos y "palabras" de una o dos letras ("A", "DL").
   s = s.replace(/^(?:[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+|[A-Za-zÁÉÍÓÚÑáéíóúñ]{1,2}[.,:]?\s+(?=\S))+/, '');
@@ -171,7 +190,9 @@ function cleanName(raw: string): { name: string; quantity: number } {
   // Códigos de oferta pegados al final ("CALDO CASERO POLLO 4T54", "GNOCCHI CON POLLO BD24").
   s = s.replace(/\s+(?:\d[A-Z]\d{2}|BD\d{2})$/, '');
   let quantity = 1;
-  const q = s.match(/^(\d{1,2})\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/);
+  // Con columna de cantidad delante ("Cnt."), el primer número es la cantidad aunque el nombre
+  // empiece también por un número ("1 40 B.MINI PAPELERA").
+  const q = s.match(leadingQty ? /^(\d{1,3})\s+(?=\S)/ : /^(\d{1,2})\s+(?=[A-Za-zÁÉÍÓÚÑáéíóúñ])/);
   if (q) {
     quantity = Number(q[1]) || 1;
     s = s.slice(q[0].length);
@@ -188,17 +209,31 @@ function cleanName(raw: string): { name: string; quantity: number } {
 function findLines(lines: string[]): ReceiptLine[] {
   const norm = lines.map(normalize);
   // La cabecera de columnas no lleva importes (si los lleva, es un producto con "UD" en el nombre).
-  let start = norm.findIndex((l, i) => COLUMNS.test(l) || (HEADER.test(l) && !NOT_ITEM.test(l.replace(/importe|\bimp\./g, '')) && !amountsIn(lines[i]).length));
+  // "DESCRIPCIÓN CANTIDAD PRECIO KG TOTAL" (Dia) también es cabecera, aunque diga "total".
+  let start = norm.findIndex(
+    (l, i) =>
+      COLUMNS.test(l) ||
+      (!amountsIn(lines[i]).length && ((HEADER.test(l) && !NOT_ITEM.test(l.replace(/importe|\bimp\./g, ''))) || (/descripcion/.test(l) && /cantidad|precio/.test(l)))),
+  );
+  // La cantidad va en la primera columna ("Cnt. Descripción", Mercadona).
+  const leadingQty = start >= 0 && /^\W*(?:cnt|cant|uds?)\b/.test(norm[start]);
+  // La cantidad va detrás del nombre ("6 ud", Dia): la cabecera tiene una columna "Cantidad" en medio.
+  const unitsColumn = start >= 0 && !leadingQty && /\bcantidad\b/.test(norm[start]);
   if (start < 0) start = norm.findIndex((l) => /factura simplificada|\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/.test(l));
-  const out = linesFrom(lines, norm, start);
+  const out = linesFrom(lines, norm, start, { leadingQty, unitsColumn });
   // Sin cabecera, la primera fecha puede estar al final (Carrefour): entonces se lee desde arriba.
-  return out.length === 0 && start >= 0 ? linesFrom(lines, norm, -1) : out;
+  return out.length === 0 && start >= 0 ? linesFrom(lines, norm, -1, { leadingQty: false, unitsColumn: false }) : out;
 }
 
 /** "2 x ( 1,99 )" entre el nombre y el importe de la línea (Carrefour): cantidad y precio por unidad. */
 const QTY_PAREN = /^\s*(\d{1,3})\s*[xX×*]\s*\(\s*\d+[,.]\d{2}\s*\)\s*$/;
 
-function linesFrom(lines: string[], norm: string[], start: number): ReceiptLine[] {
+/** "6 ud" detrás del nombre (Dia): la cantidad comprada. */
+const UNITS = /(?:^|\s)(\d{1,3})\s?(?:uds?|un)\.?\s*$/i;
+/** Lo que queda detrás del precio por unidad: el importe de la línea sin la coma ("0,69 € 414€ B"). */
+const LOST_COMMA = /[,.]\d{2}[^\d,.]+?(\d{2,6})\s*€?\s*[AB]?\s*$/;
+
+function linesFrom(lines: string[], norm: string[], start: number, { leadingQty, unitsColumn }: { leadingQty: boolean; unitsColumn: boolean }): ReceiptLine[] {
   const out: ReceiptLine[] = [];
   const qtyBelow = lines.some((l) => QTY_LINE.test(l));
   let pendingName: string | null = null;
@@ -224,11 +259,16 @@ function linesFrom(lines: string[], norm: string[], start: number): ReceiptLine[
       pendingQty = Number(paren[1]) || 1;
       continue;
     }
-    const { amounts, negative, rest } = lineAmounts(lines[i]);
-    const cleaned = cleanName(rest);
+    const { amounts, negative, rest: raw } = lineAmounts(lines[i]);
+    const units = unitsColumn ? raw.match(UNITS) : null;
+    const rest = units ? raw.slice(0, units.index) : raw;
+    const cleaned = cleanName(rest, leadingQty);
     const name = cleaned.name;
     // Si el ticket pone las cantidades debajo ("6 X 1.97€"), un número delante del nombre es una mancha del margen.
-    const quantity = qtyBelow ? 1 : cleaned.quantity;
+    // (Con la cantidad en la primera columna no hay duda: lo de "debajo" serían las filas del IVA, "10% 8,00".)
+    const quantity = units ? Number(units[1]) || 1 : qtyBelow && !leadingQty ? 1 : cleaned.quantity;
+    // La cantidad que dice el ticket en su columna (no la que se deduce).
+    const statedQty = units || leadingQty ? quantity : null;
     const qtyLine = rest.match(/^\s*-?\s*(\d+(?:[,.]\d+)?)\s*[xX×*%]\s*$/) || (letters(rest) < 3 && /[xX×*%]/.test(rest));
     if (amounts.length === 0) {
       // Nombre largo cuyo importe va en la línea siguiente (con "2 x 1,15").
@@ -247,11 +287,58 @@ function linesFrom(lines: string[], norm: string[], start: number): ReceiptLine[
     }
     pendingName = null;
     if (letters(name) < 3) continue;
+    if (statedQty != null && !negative) {
+      const checked = checkUnitPrice(lines[i], amounts, statedQty, units != null);
+      if (checked) {
+        out.push({ name, cents: checked.cents, quantity: statedQty, ...(checked.mismatch ? { priceMismatch: true as const } : {}) });
+        continue;
+      }
+    }
     // Con dos importes, el primero es el precio por unidad y el último el de la línea.
     const qty = amounts.length >= 2 && amounts[0] > 0 ? Math.max(quantity, Math.round(amounts[amounts.length - 1] / amounts[0])) : quantity;
     out.push({ name, cents, quantity: qty });
   }
   return out;
+}
+
+/**
+ * Cantidad × precio por unidad debe dar el importe de la línea. Sirve para recuperar un importe
+ * mal leído (sin coma, "414€", o con una cifra de más delante, "14,14") y, si no hay arreglo,
+ * para marcar la línea. Sin precio por unidad no hay nada que comprobar (null).
+ */
+function checkUnitPrice(line: string, amounts: number[], qty: number, unitsColumn: boolean): { cents: number; mismatch: boolean } | null {
+  if (amounts.length >= 2) {
+    const unit = amounts[0];
+    const last = amounts[amounts.length - 1];
+    const expected = qty * unit;
+    if (last === expected) return { cents: last, mismatch: false };
+    if (last > expected && String(last).endsWith(String(expected))) return { cents: expected, mismatch: false };
+    return { cents: last, mismatch: true };
+  }
+  // Un solo importe con la columna "6 ud": si detrás queda un número sin coma, ese importe es el
+  // precio por unidad y el número es el importe de la línea que perdió la coma.
+  const lost = unitsColumn && amounts.length === 1 ? line.match(LOST_COMMA) : null;
+  if (!lost) return null;
+  const expected = qty * amounts[0];
+  const digits = lost[1];
+  if (digits === String(expected) || digits.endsWith(String(expected))) return { cents: expected, mismatch: false };
+  return { cents: expected, mismatch: true };
+}
+
+/**
+ * Letras que la lectura confunde con números dentro de un importe: "1,2O" → "1,20", "l,85" → "1,85",
+ * "3,O5" → "3,05". Solo si el trozo ya tiene al menos dos cifras de verdad, para no tocar palabras.
+ */
+const LOOKALIKE: Record<string, string> = { O: '0', o: '0', D: '0', Q: '0', l: '1', I: '1', '|': '1', S: '5', B: '8' };
+const LOOKALIKE_AMOUNT = /(?<![A-Za-zÁÉÍÓÚÑáéíóúñ\d])([\dOoDQlI|SB]{1,4})([,.])([\dOoDQlI|SB]{2})(?![A-Za-zÁÉÍÓÚÑáéíóúñ\d])/g;
+
+export function fixLookalikeDigits(line: string): string {
+  return line.replace(LOOKALIKE_AMOUNT, (m, a: string, sep: string, b: string) => {
+    const digits = (a + b).replace(/\D/g, '').length;
+    if (digits < 2 || digits === a.length + b.length) return m;
+    const fix = (t: string) => t.replace(/[OoDQlI|SB]/g, (c) => LOOKALIKE[c]);
+    return fix(a) + sep + fix(b);
+  });
 }
 
 /** Primera fecha válida del ticket que no sea futura (dd/mm/aa, dd-mm-aaaa, dd.mm.aaaa, aaaa-mm-dd). */
@@ -302,7 +389,11 @@ function tidy(s: string): string {
 
 /** Saca importe total, fecha, comercio y productos del texto leído en un ticket. Todo es una sugerencia. */
 export function parseReceipt(text: string, todayIso: string): ReceiptGuess {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split(/\r?\n/)
+    // Los puntos de relleno ("Total a pagar.........4,14 €") pegados al importe no dejan verlo.
+    .map((l) => fixLookalikeDigits(l.replace(/[.·…—–_]{3,}[.·…—–_\s-]*/g, ' ').trim()))
+    .filter(Boolean);
   const merchant = findMerchant(lines);
   const items = findLines(lines);
   const sum = items.length >= 2 ? items.reduce((a, l) => a + l.cents, 0) : null;

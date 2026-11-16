@@ -69,10 +69,14 @@ export async function readPdf(file: File): Promise<{ text: string } | { image: B
     }
     const text = lines.join('\n');
     if (text.replace(/[^a-zA-Z0-9]/g, '').length >= 20) return { text };
-    // Sin texto: es un escaneo. La primera página como imagen, a buen tamaño.
+    // Sin texto: es un escaneo o un ticket hecho de imágenes. La primera página como imagen, a buen tamaño.
     const page = await doc.getPage(1);
     const base = page.getViewport({ scale: 1 });
-    const viewport = page.getViewport({ scale: Math.min(4, 2400 / Math.max(base.width, base.height)) });
+    // Un ticket largo y estrecho (los de la app de Dia) se pinta a 1600 puntos de ancho: por lo
+    // largo saldría tan estrecho que las comas de los precios se pierden.
+    const fit = Math.max(2400 / Math.max(base.width, base.height), 1600 / base.width);
+    const scale = Math.min(4, fit, Math.sqrt(12_000_000 / (base.width * base.height)));
+    const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(viewport.width);
     canvas.height = Math.round(viewport.height);

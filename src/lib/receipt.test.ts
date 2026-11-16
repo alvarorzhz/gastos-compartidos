@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { bestReading, parseReceipt, type ReceiptGuess } from './receipt';
 import { CARREFOUR_TEXT } from './receipt.carrefour.fixture';
+import { DIA_OCR_1, DIA_OCR_2 } from './receipt.dia.fixture';
 import { LECLERC_OCR, LECLERC_TEXT } from './receipt.leclerc.fixture';
+import { MERCADONA_TEXT_1, MERCADONA_TEXT_2 } from './receipt.mercadona.fixture';
 
 const TODAY = '2026-10-13';
 
@@ -192,5 +194,90 @@ describe('ticket de Carrefour en PDF', () => {
     expect(r.lines).toContainEqual({ name: 'FIDEO GARBANZO 250G', cents: 398, quantity: 2 });
     expect(r.lines).toContainEqual({ name: 'PALETA CEBO CAMPO', cents: 2877, quantity: 3 });
     expect(r.lines.filter((l) => l.cents < 0).map((l) => l.cents)).toEqual([-959, -280]);
+  });
+});
+
+describe('tickets de Mercadona en PDF', () => {
+  it('cuenta un «RECAMBIO» como producto y quita la cantidad aunque el nombre empiece por número', () => {
+    const r = parseReceipt(MERCADONA_TEXT_1, '2026-11-16');
+    expect(r).toMatchObject({ amountCents: 2045, date: '2026-10-13', merchant: 'Mercadona', linesMatchTotal: true });
+    expect(r.lines).toHaveLength(8);
+    expect(r.lines).toContainEqual({ name: 'RECAMBIO ANTIHUMEDAD', cents: 400, quantity: 2 });
+    expect(r.lines).toContainEqual({ name: '40 B.MINI PAPELERA', cents: 140, quantity: 1 });
+  });
+
+  it('lee la fruta a peso y los nombres con números', () => {
+    const r = parseReceipt(MERCADONA_TEXT_2, '2026-11-16');
+    expect(r).toMatchObject({ amountCents: 2220, date: '2026-11-10', merchant: 'Mercadona', linesMatchTotal: true });
+    expect(r.lines).toContainEqual({ name: '3 LECHES/DULCE LECHE', cents: 900, quantity: 1 });
+    expect(r.lines).toContainEqual({ name: 'POLLO 13% Y BECHAMEL', cents: 130, quantity: 1 });
+    expect(r.lines.at(-1)).toEqual({ name: 'GRANADA', cents: 108, quantity: 1 });
+  });
+});
+
+describe('tickets de Dia leídos con foto', () => {
+  it('reconoce Dia y recupera la coma perdida con cantidad × precio', () => {
+    const r = parseReceipt(DIA_OCR_1, '2026-11-16');
+    expect(r).toMatchObject({ amountCents: 414, date: '2026-11-12', merchant: 'Dia', categoryName: 'Supermercado', linesMatchTotal: true });
+    expect(r.lines).toEqual([
+      { name: 'LECHE ENTERA AST 1L', cents: 129, quantity: 1 },
+      { name: 'LECHE ENTE ASTURIANA', cents: -5, quantity: 1 },
+      { name: 'AGUA MINER. AQUABONA', cents: 414, quantity: 6 },
+      { name: '30% AQUABONA', cents: -124, quantity: 1 },
+    ]);
+  });
+
+  it('no confunde «Ofertas y cupones» con un producto', () => {
+    const r = parseReceipt(DIA_OCR_2, '2026-11-16');
+    expect(r).toMatchObject({ amountCents: 1408, date: '2026-03-26', merchant: 'Dia', linesMatchTotal: true });
+    expect(r.lines.map((l) => l.cents)).toEqual([828, -83, 829, -166]);
+    expect(r.lines[0]).toEqual({ name: 'LCH ENT S/LAC ASTU 1', cents: 828, quantity: 6 });
+  });
+});
+
+describe('lecturas difíciles', () => {
+  it('«electrónica» no es Leclerc', () => {
+    expect(parseReceipt('TIENDA PEPE\nFactura verificable en la sede electrónica\nTOTAL 3,00', '2026-11-16').merchant).not.toBe('E.Leclerc');
+    expect(parseReceipt('MEDIA MARKT\nELECTRODOMESTICOS\nTOTAL 3,00', '2026-11-16').merchant).not.toBe('E.Leclerc');
+    expect(parseReceipt('E.LECLERC SALAMANCA\nTOTAL 3,00', '2026-11-16').merchant).toBe('E.Leclerc');
+  });
+
+  it('corrige letras confundidas con números en los precios', () => {
+    const text = `BAR PACO
+Descripción Importe
+1 CAFE 1,2O
+1 TOSTADA l,85
+TOTAL 3,O5`;
+    const r = parseReceipt(text, '2026-11-16');
+    expect(r.amountCents).toBe(305);
+    expect(r.lines).toEqual([
+      { name: 'CAFE', cents: 120, quantity: 1 },
+      { name: 'TOSTADA', cents: 185, quantity: 1 },
+    ]);
+    expect(r.linesMatchTotal).toBe(true);
+  });
+
+  it('lee el importe pegado a los puntos de relleno', () => {
+    expect(parseReceipt('TIENDA PEPE\nTotal a pagar.............——.————4,14 €', '2026-11-16').amountCents).toBe(414);
+  });
+
+  it('confirma el total con la suma de base + IVA', () => {
+    const text = `TIENDA PEPE
+12/11/2026
+PRODUCTO RARO 9,99
+TOTAL 4,14
+A 4% 1,19 0,05
+B 10% 2,64 0,26`;
+    expect(parseReceipt(text, '2026-11-16')).toMatchObject({ amountCents: 414, totalCertainty: 3 });
+  });
+
+  it('marca la línea cuando cantidad × precio no da su importe', () => {
+    const text = `Cnt. Descripción P. Unit Importe
+3 YOGUR NATURAL 0,50 1,80
+1 PAN 1,00
+TOTAL 2,80`;
+    const r = parseReceipt(text, '2026-11-16');
+    expect(r.lines[0]).toMatchObject({ name: 'YOGUR NATURAL', cents: 180, quantity: 3, priceMismatch: true });
+    expect(r.lines[1].priceMismatch).toBeUndefined();
   });
 });

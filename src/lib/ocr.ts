@@ -9,22 +9,34 @@ import { bestReading, parseReceipt, type ReceiptGuess } from './receipt';
  * Una foto de un ticket arrugado, torcido o con lo de detrás transparentándose se lee
  * distinto según cómo se prepare. Antes de nada se recorta el papel: la mesa o la encimera de
  * alrededor, si tiene dibujo, se lee como letras y estropea cada línea. Primero se lee en grises; si la suma de los productos no
- * cuadra con el total, se vuelve a leer en blanco y negro puro y se queda la mejor lectura.
+ * cuadra con el total, se vuelve a leer diciéndole al lector que es un ticket (un solo bloque de
+ * líneas, sin columnas ni párrafos) y, si aún no cuadra, en blanco y negro puro. Se queda la mejor lectura.
+ * Los tickets de un PDF hecho de imágenes (la app de Dia) son limpios, de pantalla: el blanco y
+ * negro les estropea las letras finas, así que con ellos no se usa.
  */
+
+/** Cada repaso: cómo se prepara la foto y si se le dice al lector que es un ticket. */
+const PASSES = [
+  { mode: 'grey', ticket: false, label: 'Leyendo el ticket' },
+  { mode: 'grey', ticket: true, label: 'Repasando el ticket' },
+  { mode: 'blackWhite', ticket: false, label: 'Repasando el ticket otra vez' },
+] as const;
 
 type Status = (text: string) => void;
 
 export async function readReceipt(file: File | Blob, onStatus: Status): Promise<ReceiptGuess | null> {
+  let fromPdf = false;
   if (file instanceof File && isPdf(file)) {
     onStatus('Abriendo el PDF…');
     const pdf = await readPdf(file);
     if ('text' in pdf) return parseReceipt(pdf.text, today());
     file = pdf.image;
+    fromPdf = true;
   }
   onStatus('Preparando el lector…');
-  const { createWorker } = await import('tesseract.js');
+  const { createWorker, PSM } = await import('tesseract.js');
   const base = new URL(import.meta.env.BASE_URL + 'ocr/', location.href).href;
-  let pass = 'Leyendo el ticket';
+  let pass: string = PASSES[0].label;
   const worker = await createWorker('spa', 1, {
     workerPath: base + 'worker.min.js',
     corePath: base,
@@ -43,8 +55,10 @@ export async function readReceipt(file: File | Blob, onStatus: Status): Promise<
     }
     const readings: ReceiptGuess[] = [];
     const box = paperBox(bitmap);
-    for (const mode of ['grey', 'blackWhite'] as const) {
-      if (mode === 'blackWhite') pass = 'Repasando el ticket';
+    for (const { mode, ticket, label } of PASSES) {
+      if (fromPdf && mode === 'blackWhite') continue;
+      pass = label;
+      await worker.setParameters({ tessedit_pageseg_mode: ticket ? PSM.SINGLE_BLOCK : PSM.AUTO });
       const { data } = await worker.recognize(prepare(bitmap, box, mode));
       const guess = parseReceipt(data.text, today());
       readings.push(guess);
@@ -118,9 +132,17 @@ function paperBox(bitmap: ImageBitmap): Box {
   return share > 0.85 || share < 0.03 ? whole : box;
 }
 
-/** El ticket recortado, en escala de grises con más contraste y a buen tamaño (lo pequeño se amplía). */
+/** Tope de puntos de la imagen que se lee (los iPhone no dejan pintar mucho más grande). */
+const MAX_PIXELS = 12_000_000;
+
+/**
+ * El ticket recortado, en escala de grises con más contraste y a buen tamaño (lo pequeño se amplía).
+ * Un ticket muy largo y estrecho no se encoge por lo largo: se deja con letras de buen tamaño a lo ancho.
+ */
 function prepare(bitmap: ImageBitmap, box: Box, mode: 'grey' | 'blackWhite'): HTMLCanvasElement {
-  const scale = Math.min(2, 3000 / Math.max(box.w, box.h));
+  let scale = Math.min(2, 3000 / Math.max(box.w, box.h));
+  if (box.h > box.w * 3) scale = Math.min(2, Math.max(scale, 1600 / box.w));
+  scale = Math.min(scale, Math.sqrt(MAX_PIXELS / (box.w * box.h)));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(box.w * scale);
   canvas.height = Math.round(box.h * scale);

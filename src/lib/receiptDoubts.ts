@@ -48,6 +48,7 @@ export function receiptDoubts(g: ReceiptGuess, todayIso: string): ReceiptDoubts 
     // Si la suma cuadra con el total, los precios están bien: solo se miran los nombres.
     if (!g.linesMatchTotal && g.amountCents != null && l.cents > g.amountCents) lines.set(i, 'Cuesta más que el total: precio mal leído');
     else if (!g.linesMatchTotal && priced.length >= 3 && g.amountCents != null && l.cents > g.amountCents * 0.5) lines.set(i, 'Precio muy alto para un solo producto');
+    else if (l.priceMismatch) lines.set(i, 'La cantidad y el precio por unidad no cuadran con el importe');
     else if (l.quantity > 24) lines.set(i, `¿${l.quantity} unidades? Cantidad rara`);
     else if (letters < 3) lines.set(i, 'Nombre muy corto: puede estar mal leído');
     else if (letters / compact < 0.55) lines.set(i, 'Nombre con símbolos raros: revísalo');
