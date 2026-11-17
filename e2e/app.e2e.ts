@@ -124,6 +124,25 @@ test('Ajustes: historial de cambios, recuperar un borrado y copias', async ({ pa
   expect((await download).suggestedFilename()).toMatch(/^copia-comun-\d{4}-\d{2}-\d{2}\.json$/);
 });
 
+test('copias: si llevan días sin hacerse, se avisa en Inicio y en Ajustes', async ({ page }) => {
+  const tables = sampleData();
+  const old = new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString();
+  tables.backups = [{ id: 1, household_id: tables.backups[0].household_id, user_id: null, taken_at: old, data: {} }];
+  await openApp(page, { tables });
+  await expect(page.getByText(/La última copia de seguridad es de hace 4 días/)).toBeVisible();
+  await page.getByRole('button', { name: 'Ver', exact: true }).click();
+  await page.getByRole('button', { name: /Tus datos/ }).click();
+  const backups = page.getByRole('region', { name: 'Copias de seguridad' });
+  await expect(backups.getByText(/hace 4 días/)).toBeVisible();
+});
+
+test('copias: con la de esta noche no hay aviso', async ({ page }) => {
+  await openApp(page);
+  await expect(tabs(page).getByRole('button', { name: 'Inicio', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Gasto del mes')).toBeVisible();
+  await expect(page.getByText(/La última copia de seguridad/)).toHaveCount(0);
+});
+
 test('saldar: anotar lo que os habéis pasado deja el saldo en paz', async ({ page }) => {
   const fake = await openApp(page);
   await tabs(page).getByRole('button', { name: 'Gastos', exact: true }).click();

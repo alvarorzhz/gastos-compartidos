@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { backupHealth, latest, staleText } from '../lib/backupHealth';
 import { downloadFile } from '../lib/csv';
+import { reportError } from '../lib/errorLog';
 import type { AppError } from '../lib/errorLog';
 import { describeChange, groupByDay, type ExpenseChange } from '../lib/history';
 import { nameOf } from '../lib/people';
@@ -102,12 +104,15 @@ export function Backups() {
       .select('id, household_id, user_id, taken_at')
       .order('taken_at', { ascending: false })
       .then(({ data, error }) => {
+        if (error) reportError(error, 'ver copias');
         if (alive) setBackups(error ? null : (data as Backup[]));
       });
     return () => {
       alive = false;
     };
   }, []);
+
+  const health = backups ? backupHealth(latest(backups.map((b) => b.taken_at))) : null;
 
   async function download(b: Backup) {
     setBusy(b.id);
@@ -124,6 +129,7 @@ export function Backups() {
       <h2 id="set-backups">Copias de seguridad</h2>
       {backups === null && <Notice icon="clock">Se activarán en cuanto se actualice el servidor.</Notice>}
       {backups && backups.length === 0 && <Notice icon="clock">La primera copia se hará esta noche.</Notice>}
+      {health?.stale && <Notice kind="warn">{staleText(health)}</Notice>}
       {backups && backups.length > 0 && (
         <ul className="list with-icons">
           {backups.map((b) => (

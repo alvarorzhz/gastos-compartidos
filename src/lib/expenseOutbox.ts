@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { reportError } from './errorLog';
 import { supabase } from './supabase';
 import type { Expense } from './types';
 
@@ -36,18 +37,17 @@ function write(next: Queued[]) {
   try {
     if (next.length) localStorage.setItem(KEY, JSON.stringify(next));
     else localStorage.removeItem(KEY);
-  } catch {
-    // Sin almacenamiento: el gasto sigue en pantalla mientras la app esté abierta.
+  } catch (err) {
+    // Sin almacenamiento: el gasto sigue en pantalla mientras la app esté abierta, pero se
+    // perdería al cerrarla. Se apunta para saberlo.
+    if (next.length) reportError(err, 'guardar gasto sin conexión');
   }
   listeners.forEach((l) => l());
 }
 
-/** ¿El error es por falta de conexión (y no porque algo no sea válido)? */
-export function isOfflineError(err: unknown): boolean {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
-  const message = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : '';
-  return /failed to fetch|networkerror|load failed|network request failed|fetch failed/i.test(message);
-}
+import { isOfflineError } from './offline';
+
+export { isOfflineError };
 
 export function queueExpense(userId: string, row: Expense) {
   write([...queue.filter((q) => q.row.id !== row.id), { userId, row }]);

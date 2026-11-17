@@ -12,6 +12,7 @@ import { budgetStreak } from '../lib/couple';
 import { goalProgress } from '../lib/savings';
 import { monthForecast, type Forecast } from '../lib/forecast';
 import type { Expense, SavingsGoal } from '../lib/types';
+import { staleText, useBackupHealth } from '../lib/backupHealth';
 import { Avatar, CategoryIcon, CountUp, celebrate, EmptyState, MonthNav, Notice, personTone, Ring, SectionHeader, type ViewProps, useMonth } from './common';
 import { ExpenseForm } from './lazy';
 import Challenges from './Challenges';
@@ -51,6 +52,7 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
   const alerts = isCurrent ? budgetAlerts(month, data.categories, data.expenses, data.budgets) : [];
   const recent = monthExpenses.slice(0, 2);
   const streak = budgetStreak(today(), data.categories, data.expenses, data.budgets);
+  const backups = useBackupHealth();
 
   // Widgets pequeños de dos en dos; si quedan impares, el último ocupa toda la fila.
   const small: { key: string; node: ReactNode }[] = [];
@@ -78,6 +80,9 @@ export default function HomeView(props: ViewProps & { onAdd: () => void; quiet?:
 
           <div className="home-feed">
             {isCurrent && <GoodMonth month={addMonths(month, -1)} streak={streak} quiet={quiet} />}
+            {backups?.stale && (
+              <Notice kind="warn" action={<button className="sm tinted" onClick={go('ajustes')}>Ver</button>}>{staleText(backups)}</Notice>
+            )}
             {alerts.map((a) => (
               <Notice key={a.category.id} kind={a.spentCents > a.budgetCents ? 'over' : 'warn'}>{alertText(a)}</Notice>
             ))}

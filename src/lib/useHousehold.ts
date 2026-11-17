@@ -18,16 +18,16 @@ export interface HouseholdData {
   /** Solo los movimientos personales de quien usa la app. */
   personal: PersonalEntry[];
   personalRecurring: PersonalRecurring[];
-  /** Límites del presupuesto personal (vacío hasta ejecutar la migración 0011). */
+  /** Límites del presupuesto personal. */
   personalBudgets: PersonalBudget[];
   goals: SavingsGoal[];
   contributions: SavingsContribution[];
   events: TripEvent[];
-  /** Reacciones a los gastos (vacío hasta ejecutar la migración 0013). */
+  /** Reacciones a los gastos. */
   reactions: ExpenseReaction[];
-  /** Retos de pareja (vacío hasta ejecutar la migración 0016). */
+  /** Retos de pareja. */
   challenges: Challenge[];
-  /** Deseos y caprichos con sus votos (vacíos hasta ejecutar la migración 0018). */
+  /** Deseos y caprichos con sus votos. */
   wishes: Wish[];
   wishVotes: WishVote[];
 }
@@ -48,7 +48,7 @@ const PAGE = 1000;
  * Lee todas las filas de una consulta, de 1000 en 1000, para que no se pierdan las más
  * antiguas cuando haya muchas. La consulta debe tener un orden estable.
  */
-async function fetchAll<T>(
+export async function fetchAll<T>(
   query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
 ): Promise<{ data: T[]; error: unknown }> {
   const all: T[] = [];
@@ -66,7 +66,7 @@ async function fetchAll<T>(
  */
 const SNAPSHOT_KEY = 'gastos.copiaDatos';
 
-function saveSnapshot(userId: string, data: HouseholdData) {
+export function saveSnapshot(userId: string, data: HouseholdData) {
   try {
     localStorage.setItem(SNAPSHOT_KEY, JSON.stringify({ userId, data }));
   } catch {
@@ -74,7 +74,7 @@ function saveSnapshot(userId: string, data: HouseholdData) {
   }
 }
 
-function readSnapshot(userId: string): HouseholdData | null {
+export function readSnapshot(userId: string): HouseholdData | null {
   try {
     const saved = JSON.parse(localStorage.getItem(SNAPSHOT_KEY) ?? 'null') as { userId: string; data: HouseholdData } | null;
     if (saved?.userId !== userId || !saved.data?.household) return null;
@@ -93,7 +93,7 @@ export function forgetSnapshot() {
   }
 }
 
-async function load(userId: string): Promise<LoadState> {
+export async function loadHousehold(userId: string): Promise<LoadState> {
   // Sin conexión no se espera a los reintentos: se enseña enseguida la copia del móvil.
   if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Failed to fetch');
   // Primero sube lo que se apuntó sin conexión, y avisa a la pareja.
@@ -135,7 +135,9 @@ async function load(userId: string): Promise<LoadState> {
     supabase.from('wishes').select('*').eq('household_id', h).order('created_at').limit(500),
     supabase.from('wish_votes').select('*').eq('household_id', h).limit(1000),
   ]);
-  for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions]) {
+  // Todas las migraciones (hasta la 0018) ya están en el servidor: si una tabla falla, es un
+  // fallo de verdad y no se enseña vacía (se quedan los datos de antes y se avisa).
+  for (const r of [household, members, invitation, categories, expenses, settlements, budgets, recurring, personal, personalRecurring, goals, contributions, events, personalBudgets, reactions, challenges, wishes, wishVotes]) {
     if (r.error) throw r.error;
   }
   return {
@@ -153,17 +155,12 @@ async function load(userId: string): Promise<LoadState> {
       personalRecurring: personalRecurring.data ?? [],
       goals: goals.data ?? [],
       contributions: contributions.data ?? [],
-      // Si aún no se ha ejecutado la migración de viajes, la app sigue funcionando sin ellos.
-      events: events.error ? [] : events.data ?? [],
-      // Igual con el presupuesto personal: sin la migración 0011 no hay límites.
-      personalBudgets: personalBudgets.error ? [] : personalBudgets.data ?? [],
-      // Y con las reacciones: sin la migración 0013 los gastos salen sin ellas.
-      reactions: reactions.error ? [] : reactions.data,
-      // Y con los retos: sin la migración 0016 no hay retos.
-      challenges: challenges.error ? [] : challenges.data ?? [],
-      // Y con los deseos: sin la migración 0018 la lista sale vacía.
-      wishes: wishes.error ? [] : wishes.data ?? [],
-      wishVotes: wishVotes.error ? [] : wishVotes.data ?? [],
+      events: events.data ?? [],
+      personalBudgets: personalBudgets.data ?? [],
+      reactions: reactions.data ?? [],
+      challenges: challenges.data ?? [],
+      wishes: wishes.data ?? [],
+      wishVotes: wishVotes.data ?? [],
     },
   };
 }
@@ -174,7 +171,7 @@ export function useHousehold(userId: string) {
 
   const reload = useCallback(async () => {
     try {
-      const next = await load(userId);
+      const next = await loadHousehold(userId);
       if (next.status === 'ready') saveSnapshot(userId, next.data);
       setState(next);
     } catch (err) {

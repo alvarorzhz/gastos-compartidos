@@ -18,6 +18,16 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.28.1',
+    date: '2026-11-17',
+    changes: [
+      { kind: 'mejora', text: 'Si las copias de seguridad de cada noche llevan dos días sin hacerse, la app lo avisa en Inicio y en Ajustes → Copias de seguridad, para que no pase desapercibido.' },
+      { kind: 'mejora', text: 'Si falla el lector de tickets, activar los avisos, la dirección de Apple Pay o guardar un gasto sin conexión, queda apuntado en Ajustes → Errores de la app en vez de perderse.' },
+      { kind: 'correccion', text: 'Si una parte de los datos (deseos, retos, viajes, reacciones o el presupuesto personal) no se podía cargar, salía vacía como si no hubiera nada. Ahora se quedan los datos de antes y se avisa de que no se ha podido actualizar.' },
+      { kind: 'mejora', text: 'Por dentro: más pruebas automáticas en la carga de vuestros datos, la copia en el móvil y el Excel de exportar.' },
+    ],
+  },
+  {
     version: '3.28.0',
     date: '2026-11-16',
     changes: [
