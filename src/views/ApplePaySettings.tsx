@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toIsoDate, today } from '../lib/dates';
+import { reportError } from '../lib/errorLog';
 import { myPayKey, paymentUrl } from '../lib/payments';
 import { confirmAction, Notice, Spinner, toast } from './common';
 import { Icon } from './icons';
@@ -16,7 +17,13 @@ export default function ApplePaySettings() {
 
   useEffect(() => {
     let alive = true;
-    myPayKey().then((k) => alive && setKey(k), () => alive && setKey(null));
+    myPayKey().then(
+      (k) => alive && setKey(k),
+      (err) => {
+        reportError(err, 'dirección de Apple Pay');
+        if (alive) setKey(null);
+      },
+    );
     return () => {
       alive = false;
     };
@@ -46,7 +53,8 @@ export default function ApplePaySettings() {
       setKey(await myPayKey(true));
       setOpen(true);
       toast('Dirección nueva creada. Cópiala en el atajo.');
-    } catch {
+    } catch (err) {
+      reportError(err, 'cambiar dirección de Apple Pay');
       toast('No se ha podido cambiar. Revisa la conexión.', 'error');
     }
     setBusy(false);

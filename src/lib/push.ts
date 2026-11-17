@@ -1,3 +1,4 @@
+import { reportError } from './errorLog';
 import { supabase } from './supabase';
 
 /*
@@ -80,7 +81,8 @@ export async function enablePush(prefs: PushPrefs): Promise<string | null> {
     }
     sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
     return await savePrefs(sub, prefs);
-  } catch {
+  } catch (err) {
+    reportError(err, 'activar avisos');
     return 'No se han podido activar los avisos en este móvil.';
   }
 }

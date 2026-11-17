@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { reportError } from '../lib/errorLog';
 import { readReceipt } from '../lib/ocr';
 import type { ReceiptGuess } from '../lib/receipt';
 import { Spinner } from './common';
@@ -28,7 +29,8 @@ export default function ScanReceipt({ onResult, label = 'Escanear ticket', prima
       } else {
         onResult(guess);
       }
-    } catch {
+    } catch (err) {
+      reportError(err, 'leer ticket');
       setError('No se ha podido leer el ticket. Revisa la conexión la primera vez (descarga el lector) o escríbelo a mano.');
     } finally {
       setStatus(null);

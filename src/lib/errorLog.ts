@@ -1,5 +1,5 @@
 import { APP_VERSION } from '../changelog';
-import { isOfflineError } from './expenseOutbox';
+import { isOfflineError } from './offline';
 import { supabase } from './supabase';
 
 /*
@@ -90,7 +90,7 @@ export function reportError(err: unknown, place?: string) {
     detail,
     place: where || null,
     app_version: cut(APP_VERSION, 20),
-    device: typeof navigator !== 'undefined' ? cut(navigator.userAgent, 300) : null,
+    device: typeof navigator !== 'undefined' && navigator.userAgent ? cut(navigator.userAgent, 300) : null,
   });
   void flush();
 }
