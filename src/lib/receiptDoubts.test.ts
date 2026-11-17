@@ -69,4 +69,10 @@ describe('receiptDoubts', () => {
     const d = receiptDoubts(guess({ amountCents: 1000, lines: [{ name: 'TELE', cents: 900, quantity: 1 }, { name: 'PILAS', cents: 50, quantity: 1 }, { name: 'CABLE', cents: 50, quantity: 1 }] }), '2026-11-02');
     expect(d.lines.size).toBe(0);
   });
+
+  it('marca la línea si cantidad × precio no da su importe', () => {
+    const d = receiptDoubts(guess({ lines: [{ name: 'YOGUR NATURAL', cents: 600, quantity: 3, priceMismatch: true }, { name: 'PAN BARRA', cents: 400, quantity: 1 }] }), '2026-11-02');
+    expect([...d.lines.keys()]).toEqual([0]);
+    expect(d.lines.get(0)).toContain('no cuadran');
+  });
 });

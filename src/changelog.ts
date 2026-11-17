@@ -18,6 +18,18 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.28.0',
+    date: '2026-11-16',
+    changes: [
+      { kind: 'nuevo', text: 'El lector de tickets entiende los tickets de Dia que da su app: reconoce la tienda, saca cada producto con su cantidad y resta los descuentos.' },
+      { kind: 'mejora', text: 'Lee mejor los precios difíciles: recupera la coma que se pierde («414€» → 4,14 €) comprobando cantidad × precio, corrige letras confundidas con números («1,2O» → 1,20) y confirma el total con el desglose del IVA.' },
+      { kind: 'mejora', text: 'Si un ticket no cuadra, lo repasa diciéndole al lector que es un ticket, y los tickets largos en PDF se leen a más tamaño.' },
+      { kind: 'mejora', text: 'Si la cantidad y el precio por unidad no dan el importe de un producto, esa línea sale en amarillo para que la mires.' },
+      { kind: 'correccion', text: 'Mercadona: un «RECAMBIO» ya no se confunde con el cambio del efectivo, y los productos que empiezan por un número («40 B.MINI PAPELERA») ya no llevan la cantidad pegada.' },
+      { kind: 'correccion', text: 'Un ticket que dice «electrónica» ya no se toma por uno de E.Leclerc.' },
+    ],
+  },
+  {
     version: '3.27.1',
     date: '2026-11-16',
     changes: [
