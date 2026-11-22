@@ -528,3 +528,51 @@ test('nuevo gasto: lo dudoso del ticket sale en amarillo hasta tocarlo', async (
   await expect(totalDoubt).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test('editar a la vez: si la pareja cambia el gasto, se avisa y se elige', async ({ page }) => {
+  const fake = await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Gastos', exact: true }).click();
+  await page.getByText('Mercadona').click();
+  await expect(page.getByRole('heading', { name: 'Editar gasto' })).toBeVisible();
+
+  // Mientras tanto, Bea lo cambia desde su móvil.
+  const row = fake.tables.expenses.find((e) => e.id === 'e-1')!;
+  const before = { ...row };
+  Object.assign(row, { amount_cents: 6000, updated_at: new Date(Date.now() + 1000).toISOString() });
+  fake.tables.expense_changes.unshift({ id: 3, household_id: before.household_id, expense_id: 'e-1', action: 'update', changed_by: BEA,
+    changed_at: new Date().toISOString(), old_row: before, new_row: { ...row } });
+
+  await page.getByLabel('Importe').fill('55');
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog.getByRole('heading', { name: 'Bea ha cambiado este gasto' })).toBeVisible();
+  await expect(dialog.getByText(/Importe: 54,20\s€ → 60,00\s€/)).toBeVisible();
+  expect(row.amount_cents).toBe(6000); // no se ha pisado
+  await dialog.getByRole('button', { name: 'Ver lo suyo' }).click();
+  await expect(page.getByLabel('Importe')).toHaveValue('60,00');
+
+  // Ahora sí se guarda: ya parte de lo de Bea.
+  await page.getByLabel('Importe').fill('61');
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(page.getByText('Gasto actualizado')).toBeVisible();
+  expect(row.amount_cents).toBe(6100);
+});
+
+test('editar a la vez: si la pareja lo borra, se puede volver a apuntar', async ({ page }) => {
+  const fake = await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Gastos', exact: true }).click();
+  await page.getByText('Mercadona').click();
+  await expect(page.getByRole('heading', { name: 'Editar gasto' })).toBeVisible();
+
+  fake.tables.expenses = fake.tables.expenses.filter((e) => e.id !== 'e-1');
+  fake.tables.expense_changes.unshift({ id: 3, household_id: 'x', expense_id: 'e-1', action: 'delete', changed_by: BEA,
+    changed_at: new Date().toISOString(), old_row: null, new_row: null });
+
+  await page.getByLabel(/Concepto/).fill('Mercadona grande');
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog.getByRole('heading', { name: 'Bea ha borrado este gasto' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Volver a apuntarlo' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST expenses')?.body).toMatchObject({ id: 'e-1', note: 'Mercadona grande', amount_cents: 5420 });
+  await expect(page.getByText('Gasto actualizado')).toBeVisible();
+});

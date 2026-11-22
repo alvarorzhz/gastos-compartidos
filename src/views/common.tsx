@@ -443,6 +443,8 @@ interface DialogRequest {
   title: string;
   message?: ReactNode;
   confirmLabel: string;
+  /** Texto del botón de no hacerlo (por defecto «Cancelar»). */
+  cancelLabel?: string;
   danger?: boolean;
   /** Texto que hay que escribir para confirmar (p. ej. BORRAR). */
   typeToConfirm?: string;
@@ -540,7 +542,7 @@ export function DialogHost() {
           </div>
         )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" onClick={() => close(null)} autoFocus={!r.input && !r.typeToConfirm}>Cancelar</button>
+          <button type="button" className="secondary" onClick={() => close(null)} autoFocus={!r.input && !r.typeToConfirm}>{r.cancelLabel ?? 'Cancelar'}</button>
           <button type="submit" className={r.danger ? 'danger-solid' : 'primary'} disabled={!canConfirm}>{r.confirmLabel}</button>
         </div>
       </form>

@@ -40,6 +40,11 @@ export function describeChange(change: ExpenseChange, members: Member[], categor
   };
 }
 
+/** Qué cambió entre dos versiones de un gasto, en líneas cortas ("Importe: 12,00 € → 15,00 €"). */
+export function expenseDiff(before: Partial<Expense>, after: Partial<Expense>, members: Member[], categories: Category[], me: string): string[] {
+  return diffLines(before, after, members, (id) => categories.find((c) => c.id === id)?.name ?? 'Sin categoría', me);
+}
+
 function diffLines(
   before: Partial<Expense>,
   after: Partial<Expense>,
