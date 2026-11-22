@@ -18,6 +18,14 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.29.0',
+    date: '2026-11-22',
+    changes: [
+      { kind: 'mejora', text: 'Si los dos editáis el mismo gasto a la vez, ya no se pisa sin avisar: al guardar, la app os enseña qué cambió la otra persona y elegís si guardar lo vuestro encima o quedaros con lo suyo.' },
+      { kind: 'mejora', text: 'Si lo cambian o lo borran mientras lo tienes abierto, sale un aviso en el propio gasto. Y si lo borraron, puedes volver a apuntarlo con tus cambios.' },
+    ],
+  },
+  {
     version: '3.28.1',
     date: '2026-11-17',
     changes: [

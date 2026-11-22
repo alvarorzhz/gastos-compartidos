@@ -24,6 +24,9 @@ import { TicketItems } from './shopping/TicketItems';
 import { doubtCount, receiptDoubts, type ReceiptDoubts } from '../lib/receiptDoubts';
 import { suggestForNote } from '../lib/suggest';
 import type { PaymentPrefill } from '../lib/payments';
+import { conflictTitle, editState } from '../lib/editConflict';
+import { expenseDiff } from '../lib/history';
+import { reportError } from '../lib/errorLog';
 
 interface Props extends ViewProps {
   /** Gasto a editar; null = nuevo. */
@@ -56,6 +59,11 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const [oldSplit] = useState(split);
   // Solo los gastos nuevos y los fijos tienen frecuencia; '' = no se repite.
   const [frequency, setFrequency] = useState<Frequency | ''>(template?.frequency ?? (startAsFixed ? 'monthly' : ''));
+  // El gasto tal como estaba al abrirlo: si al guardar ya no está igual, alguien lo ha cambiado entretanto.
+  const [base, setBase] = useState(expense);
+  const [changedBy, setChangedBy] = useState<string | null | undefined>(undefined);
+  const live = base && !isQueued(base.id) ? data.expenses.find((e) => e.id === base.id) : undefined;
+  const liveState = base && !isQueued(base.id) ? editState(base, live) : 'same';
   const partner = partnerOf(data.members, me);
   const myName = data.members.find((m) => m.user_id === me)?.display_name ?? 'Tú';
   const [busy, setBusy] = useState(false);
@@ -181,6 +189,30 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   const payers = data.members.map((m) => m.user_id);
   if (!payers.includes(paidBy)) payers.push(paidBy); // gasto de una cuenta borrada
 
+  useEffect(() => {
+    if (!base || liveState === 'same') return;
+    let gone = false;
+    void lastChanger(base.id).then((who) => {
+      if (!gone) setChangedBy(who);
+    });
+    return () => {
+      gone = true;
+    };
+  }, [base, liveState, live?.updated_at]);
+
+  /** Pone en el formulario lo que hay guardado ahora (lo que cambió la otra persona). */
+  function loadTheirs(fresh: Expense) {
+    setBase(fresh);
+    setAmount(centsToInput(fresh.amount_cents));
+    setDate(fresh.spent_on);
+    setCategoryId(fresh.category_id);
+    setPaidBy(fresh.paid_by);
+    setNote(fresh.note ?? '');
+    setSplit(splitFromExpense(fresh, me));
+    setEventId(fresh.event_id ?? '');
+    setError(null);
+  }
+
   async function save(e: FormEvent) {
     e.preventDefault();
     const cents = parseEuros(amount);
@@ -235,10 +267,27 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
       return onClose();
     }
 
-    if (expense) {
-      const { error } = await supabase.from('expenses').update({ ...fields, ...eventFields, spent_on: date }).eq('id', expense.id);
-      setBusy(false);
-      if (error) return setError(errorMessage(error));
+    if (expense && base) {
+      const changes = { ...fields, ...eventFields, spent_on: date };
+      // Solo se guarda si sigue como estaba al abrirlo; si no, se pregunta qué hacer.
+      const { data: saved, error } = await supabase.from('expenses').update(changes).eq('id', base.id).eq('updated_at', base.updated_at).select('id');
+      if (error) {
+        setBusy(false);
+        return setError(errorMessage(error));
+      }
+      if (!saved || saved.length === 0) {
+        let r: Awaited<ReturnType<typeof resolveConflict>> = 'error';
+        try {
+          r = await resolveConflict(changes, base);
+        } catch (err) {
+          reportError(err);
+          setError('No se ha podido guardar. Inténtalo otra vez.');
+        } finally {
+          setBusy(false);
+        }
+        if (r === 'closed') return onClose();
+        if (r !== 'saved') return;
+      } else setBusy(false);
       await reload();
       toast('Gasto actualizado');
       return onClose();
@@ -265,6 +314,81 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     await reload();
     toast(ticketSaved ? `Gasto guardado y ${ticketSaved} ${ticketSaved === 1 ? 'producto' : 'productos'} con su precio en la compra` : 'Gasto guardado');
     onClose();
+  }
+
+  /**
+   * Al guardar, el gasto ya no estaba como al abrirlo: se enseña qué cambió y se elige.
+   * 'saved' = se guardó lo tuyo · 'theirs' = se queda lo suyo en el formulario ·
+   * 'closed' = se deja borrado · 'error' = no se pudo (el error ya sale en el formulario).
+   */
+  async function resolveConflict(changes: Partial<Expense>, known: Expense, tries = 0): Promise<'saved' | 'theirs' | 'closed' | 'error'> {
+    // Si mientras se decide vuelve a cambiar, se pregunta otra vez (con un tope por si acaso).
+    const retry = (seen: Expense) => {
+      if (tries < 3) return resolveConflict(changes, seen, tries + 1);
+      setError('El gasto está cambiando todo el rato. Ciérralo y vuelve a abrirlo.');
+      return Promise.resolve('error' as const);
+    };
+    const fail = (err: { message: string }) => {
+      setError(errorMessage(err));
+      return 'error' as const;
+    };
+    const [{ data: rows, error }, who] = await Promise.all([
+      supabase.from('expenses').select('*').eq('id', known.id),
+      lastChanger(known.id),
+    ]);
+    if (error) return fail(error);
+    const fresh = (rows as Expense[] | null)?.[0];
+    const state = editState(known, fresh);
+    if (state === 'same' && fresh) {
+      // No debería pasar: no se guardó nada pero sigue igual. Se apunta y se reintenta.
+      reportError(new Error('Guardar gasto: el cambio no se aplicó y el gasto sigue igual'));
+      const { data: saved, error: again } = await supabase.from('expenses').update(changes).eq('id', fresh.id).eq('updated_at', fresh.updated_at).select('id');
+      if (again) return fail(again);
+      return saved && saved.length > 0 ? 'saved' : retry(fresh);
+    }
+    const title = conflictTitle(state === 'same' ? 'changed' : state, who, data.members, me);
+    if (!fresh) {
+      const again = await confirmAction({
+        title,
+        message: 'Lo han borrado mientras lo editabas. ¿Lo vuelves a apuntar con tus cambios?',
+        confirmLabel: 'Volver a apuntarlo',
+        cancelLabel: 'Dejarlo borrado',
+      });
+      if (!again) {
+        await reload();
+        toast('Gasto borrado, como lo dejaron');
+        return 'closed';
+      }
+      const { error: insertError } = await supabase.from('expenses').insert({
+        ...changes, id: known.id, household_id: known.household_id, created_by: me,
+        recurring_id: known.recurring_id, created_at: known.created_at,
+      });
+      // Ya lo había recuperado la otra persona: se vuelve a mirar cómo está.
+      if (insertError?.code === '23505') return retry({ ...known, updated_at: '' });
+      if (insertError) return fail(insertError);
+      return 'saved';
+    }
+    const diff = expenseDiff(known, fresh, data.members, data.categories, me);
+    const mine = await confirmAction({
+      title,
+      message: (
+        <>
+          <p>Mientras lo editabas{diff.length ? ', cambió esto:' : '.'}</p>
+          {diff.length > 0 && <ul>{diff.map((d) => <li key={d}>{d}</li>)}</ul>}
+          <p>¿Guardas lo tuyo encima o te quedas con lo suyo?</p>
+        </>
+      ),
+      confirmLabel: 'Guardar lo mío',
+      cancelLabel: 'Ver lo suyo',
+    });
+    if (!mine) {
+      loadTheirs(fresh);
+      toast('Te enseño lo que hay guardado ahora. Cambia lo que quieras y guarda.', 'info', { ms: 4000 });
+      return 'theirs';
+    }
+    const { data: saved, error: saveError } = await supabase.from('expenses').update(changes).eq('id', fresh.id).eq('updated_at', fresh.updated_at).select('id');
+    if (saveError) return fail(saveError);
+    return saved && saved.length > 0 ? 'saved' : retry(fresh);
   }
 
   /** Guarda en la compra los productos del ticket marcados. Devuelve cuántos (0 si no hay o falla). */
@@ -360,6 +484,17 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     >
       <form id={formId} onSubmit={save} className="stack" noValidate>
         {expense && <ReactionPicker data={data} me={me} reload={reload} expense={expense} />}
+        {liveState === 'changed' && live && (
+          <Notice
+            kind="warn"
+            action={<button type="button" className="secondary" onClick={() => loadTheirs(live)}>Ver lo suyo</button>}
+          >
+            {conflictTitle('changed', changedBy, data.members, me)} ahora mismo. Si guardas, te preguntaré si lo tuyo va encima.
+          </Notice>
+        )}
+        {liveState === 'deleted' && (
+          <Notice kind="warn">{conflictTitle('deleted', changedBy, data.members, me)} ahora mismo. Si guardas, te preguntaré si lo vuelves a apuntar.</Notice>
+        )}
         {expense?.recurring_id && (
           <Notice icon="repeat">Lo apuntó un gasto fijo. Los cambios aquí solo afectan a este gasto.</Notice>
         )}
@@ -615,4 +750,17 @@ function customShare(split: SplitState, amountCents: number): string {
   if (split.mode === 'percent') return `${formatPercent(Number(split.myShare.replace(',', '.')))} %`;
   const mine = parseEuros(split.myShare, { allowZero: true });
   return mine != null && mine <= amountCents ? formatEuros(mine) : `${split.myShare} €`;
+}
+
+/** Quién hizo el último cambio de un gasto (historial de la 0014): id, null si fue la app, undefined si no se sabe. */
+async function lastChanger(expenseId: string): Promise<string | null | undefined> {
+  const { data, error } = await supabase
+    .from('expense_changes')
+    .select('changed_by')
+    .eq('expense_id', expenseId)
+    .order('changed_at', { ascending: false })
+    .limit(1);
+  if (error) return undefined;
+  const row = (data as { changed_by: string | null }[] | null)?.[0];
+  return row ? row.changed_by : undefined;
 }
