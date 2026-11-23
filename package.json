@@ -1,7 +1,7 @@
 {
   "name": "gastos-compartidos",
   "private": true,
-  "version": "3.29.0",
+  "version": "3.30.0",
   "type": "module",
   "scripts": {
     "predev": "node scripts/copy-ocr.mjs",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
+    "leaflet": "^1.9.4",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.5.438",
     "react": "^19.3.1",
@@ -26,6 +27,7 @@
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
     "@tesseract.js-data/spa": "^1.0.0",
+    "@types/leaflet": "^1.9.20",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",

@@ -27,6 +27,8 @@ import type { PaymentPrefill } from '../lib/payments';
 import { conflictTitle, editState } from '../lib/editConflict';
 import { expenseDiff } from '../lib/history';
 import { reportError } from '../lib/errorLog';
+import { currentSpot, within } from '../lib/geo';
+import type { Spot } from '../lib/places';
 
 interface Props extends ViewProps {
   /** Gasto a editar; null = nuevo. */
@@ -62,6 +64,11 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
   // El gasto tal como estaba al abrirlo: si al guardar ya no está igual, alguien lo ha cambiado entretanto.
   const [base, setBase] = useState(expense);
   const [changedBy, setChangedBy] = useState<string | null | undefined>(undefined);
+  // Dónde estáis, para el mapa: solo en gastos nuevos apuntados en el momento (no fijos ni Apple Pay).
+  const spotRef = useRef<Promise<Spot | null> | null>(null);
+  useEffect(() => {
+    if (!expense && !template && !prefill && !startAsFixed) spotRef.current = currentSpot();
+  }, [expense, template, prefill, startAsFixed]);
   const live = base && !isQueued(base.id) ? data.expenses.find((e) => e.id === base.id) : undefined;
   const liveState = base && !isQueued(base.id) ? editState(base, live) : 'same';
   const partner = partnerOf(data.members, me);
@@ -294,12 +301,14 @@ export default function ExpenseForm({ data, me, reload, expense, template, start
     }
 
     // Gasto nuevo: lleva su id desde el móvil para poder guardarlo sin conexión y subirlo luego sin duplicarlo.
+    const spot = spotRef.current ? await within(spotRef.current, 1500) : null;
+    const spotFields = spot ? { lat: spot.lat, lng: spot.lng } : {};
     const now = new Date().toISOString();
     const row: Expense = {
-      ...fields, ...eventFields, id: crypto.randomUUID(), spent_on: date, household_id: data.household.id,
+      ...fields, ...eventFields, ...spotFields, id: crypto.randomUUID(), spent_on: date, household_id: data.household.id,
       created_by: me, recurring_id: null, created_at: now, updated_at: now,
     };
-    const { error } = await supabase.from('expenses').insert({ ...fields, ...eventFields, id: row.id, spent_on: date, household_id: data.household.id, created_by: me });
+    const { error } = await supabase.from('expenses').insert({ ...fields, ...eventFields, ...spotFields, id: row.id, spent_on: date, household_id: data.household.id, created_by: me });
     setBusy(false);
     if (error && isOfflineError(error)) {
       queueExpense(me, row);
