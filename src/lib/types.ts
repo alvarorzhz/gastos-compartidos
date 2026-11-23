@@ -64,6 +64,9 @@ export interface Expense {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Dónde estabais al apuntarlo (0019), redondeado a unos 10 m. Sin la migración no llega. */
+  lat?: number | null;
+  lng?: number | null;
 }
 
 /** Viaje o evento: agrupa gastos comunes para ver su total aparte. */

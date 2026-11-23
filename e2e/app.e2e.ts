@@ -576,3 +576,39 @@ test('editar a la vez: si la pareja lo borra, se puede volver a apuntar', async 
   await expect.poll(() => fake.writes.find((w) => w.what === 'POST expenses')?.body).toMatchObject({ id: 'e-1', note: 'Mercadona grande', amount_cents: 5420 });
   await expect(page.getByText('Gasto actualizado')).toBeVisible();
 });
+
+test('Gastos → Mapa: los sitios donde más gastáis', async ({ page }) => {
+  const errors = watchErrors(page);
+  await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Gastos', exact: true }).click();
+  await page.locator('label', { hasText: /^Mapa$/ }).click();
+  await expect(page).toHaveURL(/#mapa/);
+  await expect(page.getByRole('region', { name: 'Mapa de vuestros gastos' })).toBeVisible();
+  await expect(page.locator('.leaflet-interactive')).toHaveCount(2);
+  const places = page.getByRole('list', { name: 'Sitios donde más gastáis' });
+  await expect(places.getByRole('listitem')).toHaveCount(2);
+  await expect(places.getByRole('listitem').first()).toContainText('Mercadona');
+  await page.locator('label', { hasText: /^Todo$/ }).click();
+  await expect(places.getByRole('listitem')).toHaveCount(2);
+  expect(errors).toEqual([]);
+});
+
+test('nuevo gasto: guarda dónde estabais si el móvil da permiso', async ({ page, context }) => {
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 40.416775, longitude: -3.70379 });
+  const fake = await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Añadir gasto' }).click();
+  await page.getByLabel('Importe').fill('3,20');
+  await page.getByLabel(/Concepto/).fill('Café');
+  await page.getByRole('button', { name: 'Guardar gasto' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST expenses')?.body).toMatchObject({ note: 'Café', lat: 40.4168, lng: -3.7038 });
+});
+
+test('nuevo gasto: sin permiso de ubicación se guarda igual, sin sitio', async ({ page }) => {
+  const fake = await openApp(page);
+  await tabs(page).getByRole('button', { name: 'Añadir gasto' }).click();
+  await page.getByLabel('Importe').fill('3,20');
+  await page.getByRole('button', { name: 'Guardar gasto' }).click();
+  await expect.poll(() => fake.writes.find((w) => w.what === 'POST expenses')?.body).toBeTruthy();
+  expect(fake.writes.find((w) => w.what === 'POST expenses')?.body).not.toHaveProperty('lat');
+});

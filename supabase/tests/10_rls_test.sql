@@ -67,6 +67,12 @@ select pg_temp.expect_error($$ update expenses set owed_cents = 999999 $$);
 update expenses set owed_cents = 1234;
 select pg_temp.check((select owed_cents from expenses) = 1234, 'reparto personalizado guardado');
 update expenses set owed_cents = null;
+-- Sitio del gasto (0019): los dos a la vez y dentro del mundo.
+update expenses set lat = 40.4168, lng = -3.7038;
+select pg_temp.check((select lat from expenses) = 40.4168, 'sitio del gasto guardado');
+select pg_temp.expect_error($$ update expenses set lat = 95, lng = 0 $$);
+select pg_temp.expect_error($$ update expenses set lat = 40, lng = null $$);
+update expenses set lat = null, lng = null;
 
 -- B lo corrige.
 select pg_temp.login('00000000-0000-0000-0000-00000000000b', 'b@example.com');
@@ -433,7 +439,7 @@ select pg_temp.check((select count(*) from backups where household_id = :'rhid' 
   and taken_at < now() - interval '14 days') between 5 and 6, 'los lunes viejos se quedan');
 select pg_temp.check((select min(taken_at) from backups where household_id = :'rhid') > now() - interval '57 days', 'lo de hace más de 8 semanas se borra');
 select pg_temp.check((select data ? 'challenges' and data ? 'expense_changes' and data ? 'wishes' and data ? 'wish_votes' from backups where household_id = :'rhid' order by taken_at desc limit 1), 'la copia lleva retos, historial y deseos');
-select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 18, 'migraciones registradas');
+select pg_temp.check((select count(*) from supabase_migrations.schema_migrations) = 19, 'migraciones registradas');
 set role authenticated;
 select pg_temp.login('00000000-0000-0000-0000-00000000000a', 'a@example.com');
 

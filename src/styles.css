@@ -397,6 +397,7 @@ select {
   text-align: center;
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
+.segmented-track:has(> label:nth-child(4)) label { padding: 0 2px; font-size: var(--fs-xs); }
 .segmented label > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .segmented label.selected { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
 .segmented label:has(input:focus-visible) { box-shadow: var(--focus); }
@@ -2049,3 +2050,19 @@ input.doubtful-input { border-color: var(--warning-fill) !important; box-shadow:
 .ticket-item.doubtful { flex-wrap: wrap; background: var(--warning-soft); margin: 2px calc(-1 * var(--s2)); padding: var(--s1) var(--s2); border-radius: 10px; border-bottom-color: transparent; }
 .ticket-item-doubt { flex-basis: 100%; display: flex; gap: 4px; align-items: center; padding-left: 30px; font-size: var(--fs-xs); color: var(--warning); font-weight: 600; }
 .finish-price-row.doubtful { background: var(--warning-soft); border-radius: 10px; padding-left: var(--s2); padding-right: var(--s2); }
+
+/* Gastos → Mapa */
+.spend-map { height: 340px; padding: 0; overflow: hidden; z-index: 0; }
+.spend-map .leaflet-control-attribution { font-size: 10px; background: rgb(255 255 255 / 0.75); }
+.map-places { padding: 0; list-style: none; }
+.map-place {
+  display: flex; align-items: center; gap: var(--s3); width: 100%; padding: var(--s3) var(--s4);
+  background: none; border: 0; color: inherit; text-align: left; font: inherit; min-height: 44px; cursor: pointer;
+}
+.map-rank {
+  display: inline-grid; place-items: center; width: 26px; height: 26px; flex: none; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: var(--fs-xs);
+}
+@media (prefers-color-scheme: dark) {
+  .spend-map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9); }
+}

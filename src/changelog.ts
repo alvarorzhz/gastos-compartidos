@@ -18,6 +18,15 @@ export const APP_VERSION = __APP_VERSION__;
 
 export const CHANGELOG: Release[] = [
   {
+    version: '3.30.0',
+    date: '2026-11-23',
+    changes: [
+      { kind: 'nuevo', text: 'Mapa de vuestros gastos, en Gastos → Mapa: cada gasto es un círculo (más grande cuanto más dinero, del color de quien pagó) y debajo salen vuestros sitios ordenados por lo que os dejáis en cada uno. Se puede ver un mes o todo.' },
+      { kind: 'nuevo', text: 'Al apuntar un gasto nuevo se guarda dónde estabais, si el móvil da permiso (lo pregunta la primera vez). Se guarda aproximado, a unos 10 metros. Los fijos y los de Apple Pay no llevan sitio.' },
+      { kind: 'mejora', text: 'Las pestañas de Gastos caben enteras aunque ahora sean cuatro.' },
+    ],
+  },
+  {
     version: '3.29.0',
     date: '2026-11-22',
     changes: [

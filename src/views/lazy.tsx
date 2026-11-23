@@ -14,9 +14,10 @@ export const LazyPersonal = lazyView(() => import('./PersonalView'));
 export const LazySettings = lazyView(() => import('./SettingsView'));
 export const LazyCalendar = lazyView(() => import('./CalendarView'));
 export const LazyWishes = lazyView(() => import('./WishesView'));
+export const LazyMap = lazyView(() => import('./MapView'));
 export const LazyExpenseForm = lazyView(() => import('./ExpenseForm'));
 
-const ALL = [LazyExpenseForm, LazyExpenses, LazyBalance, LazyShopping, LazyBudget, LazyCharts, LazyPersonal, LazySettings, LazyCalendar, LazyWishes];
+const ALL = [LazyExpenseForm, LazyExpenses, LazyBalance, LazyShopping, LazyBudget, LazyCharts, LazyPersonal, LazySettings, LazyCalendar, LazyWishes, LazyMap];
 
 /** Con buena cobertura, baja todas las secciones nada más abrir la app. */
 export function preloadSections() {

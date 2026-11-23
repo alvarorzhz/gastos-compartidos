@@ -38,8 +38,8 @@ export function sampleData(): Tables {
     invitations: [],
     categories: [cat('c-super', 'Supermercado'), cat('c-casa', 'Casa'), cat('c-ocio', 'Ocio')],
     expenses: [
-      expense('e-1', 5420, 'Mercadona', 'c-super', ANA, 0),
-      expense('e-2', 3000, 'Cine', 'c-ocio', BEA, -1),
+      { ...expense('e-1', 5420, 'Mercadona', 'c-super', ANA, 0), lat: 40.4168, lng: -3.7038 },
+      { ...expense('e-2', 3000, 'Cine', 'c-ocio', BEA, -1), lat: 40.4203, lng: -3.7058 },
     ],
     settlements: [],
     budgets: [],
@@ -85,6 +85,9 @@ function fakeJwt(sub: string): string {
   const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url');
   return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub, role: 'authenticated', exp: 4102444800, email: 'ana@example.com' })}.firma`;
 }
+
+/** Un trozo de mapa de 1×1 píxel en blanco. */
+const TILE = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=', 'base64');
 
 const user = { id: ANA, aud: 'authenticated', role: 'authenticated', email: 'ana@example.com', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' };
 
@@ -183,6 +186,8 @@ export async function openApp(page: Page, { loggedIn = true, tables = sampleData
     if (path.startsWith('/functions/v1/')) return route.fulfill({ json: {} });
     return route.fulfill({ status: 404, body: '' });
   });
+  // Mapa: los trozos del mapa salen en blanco, sin salir a internet.
+  await page.route('https://tile.openstreetmap.org/**', (route) => route.fulfill({ contentType: 'image/png', body: TILE }));
   // Tiempo real: se acepta la conexión y no se manda nada.
   await page.routeWebSocket(/example\.supabase\.co/, () => {});
   await page.goto('/');
